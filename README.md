@@ -35,12 +35,17 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 每個登入工作階段只會有一份執行中。
 
+## 語言
+
+介面會依 Windows 的**顯示語言**自動選擇繁體中文或英文。任何中文顯示語言都會得到繁體中文（沒有另外提供簡體）。安裝程式精靈本身仍是英文 —— Inno Setup 官方發行版沒有附中文語言檔。
+
 ## 程式規則
 
 托盤右鍵 → **Application rules...** 可以把指定的程式綁定到固定的鍵盤配置，例如 `wt.exe` 綁美式鍵盤、`word.exe` 綁微軟注音。切到該程式時會自動切換配置。
 
-- 程式以**執行檔名稱**辨識（`notepad.exe`），不是完整路徑 —— 路徑會因為搬移或更新而失效
-- **Use last app** 會填入你切過來之前那個程式的檔名，不必自己查
+- **瀏覽** 開檔案總管選執行檔，規則就是那個**完整路徑**，所以兩個同名的執行檔可以分別設定
+- 也可以只填**檔名**（`notepad.exe`），那條規則就不管程式裝在哪都套用。查規則時先比對完整路徑，找不到才比對檔名
+- **用剛才的程式** 會填入你開這個視窗之前那個程式的路徑，不必自己找
 - 規則存在 `HKCU\Software\ImeModePersistence\Rules`
 
 規則綁定的是**語言**（注音 / 美式 / 日文…）。同一個語言裝了多個輸入法時（例如注音與倉頡都是 zh-TW），會用第一個已安裝的，無法細分到特定輸入法。
@@ -62,7 +67,7 @@ cmake --build build --config Release
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.1 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.4.2 installer\ImeModePersistence.iss
 ```
 
 圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7：`./tools/make_icon.sh`
@@ -123,12 +128,17 @@ It lives in the notification area:
 
 One instance runs per logon session.
 
+## Language
+
+The interface follows Windows' **display language**, choosing Traditional Chinese or English. Any Chinese display language gets Traditional Chinese; a separate Simplified translation is not provided. The installer wizard itself is still English — Inno Setup's official distribution ships no Chinese language file.
+
 ## Application rules
 
 Right-click the tray icon → **Application rules...** binds an application to a fixed keyboard layout: `wt.exe` to a US keyboard, `word.exe` to Microsoft Bopomofo. Switching to that application switches the layout.
 
-- Applications are identified by **executable file name** (`notepad.exe`), not full path — a path breaks when the application moves or updates
-- **Use last app** fills in the application you were in before opening the dialog, so you do not have to go looking for the name
+- **Browse** picks an executable through Explorer and the rule is that **full path**, so two executables sharing a file name can be configured separately
+- A bare **file name** (`notepad.exe`) also works and matches wherever the application is installed. Lookup tries the full path first and falls back to the file name
+- **Use last app** fills in the application you were in before opening the dialog, so you do not have to go looking for it
 - Rules live in `HKCU\Software\ImeModePersistence\Rules`
 
 A rule binds a **language** (Bopomofo / US / Japanese...). Where one language has several IMEs installed — Bopomofo and Cangjie are both zh-TW — the first installed one is used; a specific IME cannot be singled out.
@@ -150,7 +160,7 @@ The installer needs both architectures built, then [Inno Setup](https://jrsoftwa
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.1 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.4.2 installer\ImeModePersistence.iss
 ```
 
 Regenerating the icon needs [ImageMagick](https://imagemagick.org) 7: `./tools/make_icon.sh`

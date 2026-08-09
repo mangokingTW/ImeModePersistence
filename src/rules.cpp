@@ -8,18 +8,28 @@ constexpr wchar_t kRulesKey[] = L"Software\\ImeModePersistence\\Rules";
 std::wstring lower(std::wstring text) {
     if (!text.empty()) {
         // CharLowerBuffW rather than towlower per character: it follows the
-        // user's locale, which matters for non-ASCII executable names.
+        // user's locale, which matters for non-ASCII paths.
         CharLowerBuffW(text.data(), static_cast<DWORD>(text.size()));
     }
     return text;
 }
 
-std::wstring file_name(const std::wstring& path) {
-    const size_t slash = path.find_last_of(L"\\/");
-    return slash == std::wstring::npos ? path : path.substr(slash + 1);
+LANGID read(const std::wstring& key) {
+    DWORD value = 0;
+    DWORD bytes = sizeof(value);
+    if (RegGetValueW(HKEY_CURRENT_USER, kRulesKey, key.c_str(),
+                     RRF_RT_REG_DWORD, nullptr, &value, &bytes) != ERROR_SUCCESS) {
+        return 0;
+    }
+    return (value != 0 && value <= 0xFFFF) ? static_cast<LANGID>(value) : 0;
 }
 
 } // namespace
+
+std::wstring file_name_of(const std::wstring& path) {
+    const size_t slash = path.find_last_of(L"\\/");
+    return slash == std::wstring::npos ? path : path.substr(slash + 1);
+}
 
 std::vector<Rule> load() {
     std::vector<Rule> result;
@@ -30,7 +40,9 @@ std::vector<Rule> load() {
     }
 
     for (DWORD index = 0;; ++index) {
-        wchar_t name[MAX_PATH]{};
+        // Registry value names allow far more than MAX_PATH, and a rule keyed by
+        // a long path has to survive being listed.
+        wchar_t name[1024]{};
         DWORD nameChars = ARRAYSIZE(name);
         DWORD type = 0;
         DWORD value = 0;
@@ -90,18 +102,21 @@ bool clear(const std::wstring& executable) {
     return status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND;
 }
 
-LANGID lookup(const std::wstring& executable) {
-    if (executable.empty()) {
+LANGID lookup(const std::wstring& path) {
+    if (path.empty()) {
         return 0;
     }
 
-    DWORD value = 0;
-    DWORD bytes = sizeof(value);
-    if (RegGetValueW(HKEY_CURRENT_USER, kRulesKey, lower(executable).c_str(),
-                     RRF_RT_REG_DWORD, nullptr, &value, &bytes) != ERROR_SUCCESS) {
-        return 0;
+    const std::wstring key = lower(path);
+
+    // Path first: it is the more specific of the two, so a rule naming one
+    // particular copy of an application wins over a rule for the file name.
+    if (const LANGID byPath = read(key); byPath != 0) {
+        return byPath;
     }
-    return (value != 0 && value <= 0xFFFF) ? static_cast<LANGID>(value) : 0;
+
+    const std::wstring name = file_name_of(key);
+    return name == key ? 0 : read(name);
 }
 
 std::wstring executable_of(HWND hwnd) {
@@ -117,7 +132,7 @@ std::wstring executable_of(HWND hwnd) {
         return {};
     }
 
-    wchar_t path[MAX_PATH]{};
+    wchar_t path[1024]{};
     DWORD chars = ARRAYSIZE(path);
     const BOOL ok = QueryFullProcessImageNameW(process, 0, path, &chars);
     CloseHandle(process);
@@ -125,7 +140,7 @@ std::wstring executable_of(HWND hwnd) {
     if (!ok) {
         return {};
     }
-    return lower(file_name(std::wstring(path, chars)));
+    return lower(std::wstring(path, chars));
 }
 
 } // namespace rules
