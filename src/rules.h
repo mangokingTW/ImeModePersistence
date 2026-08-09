@@ -7,14 +7,15 @@
 
 // Per-application layout bindings, kept in HKCU next to the autostart entry.
 //
-// Applications are identified by executable file name rather than full path or
-// window class: a path breaks when the user moves or updates the application,
-// and a window class is neither stable nor discoverable by the person writing
-// the rule.
+// A rule is keyed by either the executable's full path or its bare file name,
+// and which one it is can be read off the key itself: a key containing a path
+// separator is a path rule. Lookup prefers the path, so two applications that
+// happen to share a file name can be told apart, while a bare name still matches
+// wherever the application is installed.
 namespace rules {
 
 struct Rule {
-    std::wstring executable;   // lower-cased file name, e.g. L"notepad.exe"
+    std::wstring executable;   // lower-cased full path, or bare file name
     LANGID language{};
 };
 
@@ -23,12 +24,15 @@ std::vector<Rule> load();
 bool set(const std::wstring& executable, LANGID language);
 bool clear(const std::wstring& executable);
 
-// Zero when the executable has no rule.
-LANGID lookup(const std::wstring& executable);
+// Zero when neither the path nor its file name has a rule.
+LANGID lookup(const std::wstring& path);
 
-// Lower-cased file name of the process owning hwnd, empty when it cannot be
+// Lower-cased full path of the process owning hwnd, empty when it cannot be
 // read. Reading another process's image name needs no elevation, but a window
 // owned by a protected process still yields nothing.
 std::wstring executable_of(HWND hwnd);
+
+// Trailing component of a path, or the input unchanged when it has none.
+std::wstring file_name_of(const std::wstring& path);
 
 } // namespace rules

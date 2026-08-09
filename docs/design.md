@@ -71,11 +71,15 @@ Binding a layout is a different operation from setting a conversion mode. The mo
 
 **Rules store a LANGID, not an HKL.** The high word of an `HKL` is a runtime device handle that differs between logon sessions, so a persisted `HKL` would be meaningless on the next boot. The low word is the language identifier and is stable, so rules store that and resolve it against `GetKeyboardLayoutList` at the moment of use. The cost is that a rule binds a *language*: where one language has several IMEs installed, the first installed one wins and a specific IME cannot be singled out. Doing better needs `ITfInputProcessorProfileMgr::ActivateProfile` with a profile GUID.
 
-**Applications are identified by executable file name**, not full path or window class. A path breaks when the application is moved or updated, and a window class is neither stable nor discoverable by the person writing the rule. `QueryFullProcessImageNameW` with `PROCESS_QUERY_LIMITED_INFORMATION` reads the name — the limited right is deliberate, being the only one granted across integrity levels.
+**A rule is keyed by full path or by bare file name**, and which one it is can be read off the key itself: a key containing a path separator is a path rule. Lookup tries the path first, so one particular copy of an application can be singled out — two Electron apps both called `app.exe`, say — while a bare name still matches wherever the application is installed. Nothing extra is stored to distinguish the two forms.
+
+A window class was rejected as the key: neither stable nor discoverable by whoever writes the rule. `QueryFullProcessImageNameW` with `PROCESS_QUERY_LIMITED_INFORMATION` reads the name — the limited right is deliberate, being the only one granted across integrity levels.
 
 **The layout is enforced before the mode.** Writing the mode first would write it to the layout that is on its way out.
 
 **`WM_INPUTLANGCHANGEREQUEST` is posted, not sent**, so the switch lands on the target's message loop later and there is no meaningful return value. The existing retry-and-verify loop covers it: each attempt re-reads the layout, and after four attempts the utility stops trying. A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
+
+The rules dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, and this dialog's owner is the hidden tool window, so without it the dialog has no taskbar button and vanishes behind whatever the user clicks next. It also tracks its own handle: the dialog is modal only to that hidden owner, which leaves the tray menu live and able to ask for a second copy, so a repeat request raises the existing window rather than nesting another modal loop.
 
 The rules dialog receives the last foreground application from the caller instead of asking the system. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
 
@@ -104,6 +108,16 @@ The source artwork carries three elements inside a double border, which turns to
 `-type TrueColorAlpha` is forced when assembling: left alone, ImageMagick reduces the two-colour small sizes to a 4-bit palette, and palette ICO entries carry a 1-bit mask instead of an alpha channel, which turns the antialiased badge corners into jagged steps.
 
 Background removal floods inward from a corner rather than matching a colour, because the glyphs are white and the canvas was near-white; matching on colour would punch holes in the artwork.
+
+## Language
+
+User-visible text lives in `src/strings.cpp` as one struct per language, chosen once from `GetUserDefaultUILanguage`. The UI language rather than the locale: someone running English Windows in a Taiwanese locale is reading English menus everywhere else.
+
+A struct with designated initialisers, not an enum indexing parallel arrays — adding a string then forces every language to supply it at the same place instead of silently shifting every index after it.
+
+The dialog template keeps English text and is relabelled at `WM_INITDIALOG`, so there is one layout to maintain rather than one per language. Control widths are sized for the English strings, which are the longer of the two. The static labels share `IDC_STATIC`, so they are addressed by position in the child order.
+
+Any Chinese display language selects Traditional; no Simplified translation is provided. The installer wizard stays English because Inno Setup's official distribution ships no Chinese `.isl`, and fetching an unofficial translation at build time would put a third-party download in the release path.
 
 ## Security boundaries
 

@@ -12,24 +12,35 @@
 // tools/make_icon.sh.
 IDI_APPICON ICON "@CMAKE_CURRENT_SOURCE_DIR@/assets/ImeModePersistence.ico"
 
-IDD_RULES DIALOGEX 0, 0, 320, 208
-STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "ImeModePersistence - application rules"
+// Every string here is replaced at runtime from src/strings.cpp, so the text in
+// this template only matters if that ever fails. Widths are sized for the
+// English strings, which are the longer of the two.
+IDD_RULES DIALOGEX 0, 0, 440, 216
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU |
+      WS_MINIMIZEBOX
+// WS_EX_APPWINDOW because the taskbar omits owned windows, and this dialog's
+// owner is a hidden tool window -- without it the dialog has no taskbar button
+// and disappears behind whatever the user clicks next.
+EXSTYLE WS_EX_APPWINDOW
 FONT 9, "Segoe UI", 400, 0, 0x1
+CAPTION "ImeModePersistence - application rules"
 BEGIN
-    LTEXT           "Applications bound to a keyboard layout:", IDC_STATIC, 8, 8, 200, 8
-    LISTBOX         IDC_RULE_LIST, 8, 20, 304, 104,
-                    LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Executable:", IDC_STATIC, 8, 134, 40, 8
-    EDITTEXT        IDC_EXECUTABLE, 50, 132, 88, 12, ES_AUTOHSCROLL
-    LTEXT           "Layout:", IDC_STATIC, 146, 134, 28, 8
-    COMBOBOX        IDC_LAYOUT, 176, 132, 136, 100,
+    LTEXT           "Applications bound to a keyboard layout:", IDC_STATIC, 8, 8, 300, 8
+    // Horizontal scrolling because a full path routinely outruns any width that
+    // fits on screen; the extent is set from the widest row at runtime.
+    LISTBOX         IDC_RULE_LIST, 8, 20, 424, 104,
+                    LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP
+    LTEXT           "Executable:", IDC_STATIC, 8, 134, 44, 8
+    EDITTEXT        IDC_EXECUTABLE, 54, 132, 232, 12, ES_AUTOHSCROLL
+    LTEXT           "Layout:", IDC_STATIC, 292, 134, 28, 8
+    COMBOBOX        IDC_LAYOUT, 322, 132, 110, 100,
                     CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON      "Use &last app", IDC_USE_LAST, 8, 150, 60, 14
-    PUSHBUTTON      "&Add / update", IDC_ADD, 72, 150, 60, 14
-    PUSHBUTTON      "&Remove selected", IDC_REMOVE, 136, 150, 70, 14
-    LTEXT           "", IDC_HINT, 8, 172, 304, 16
-    DEFPUSHBUTTON   "Close", IDOK, 256, 188, 56, 14
+    PUSHBUTTON      "&Browse...", IDC_BROWSE, 8, 150, 56, 14
+    PUSHBUTTON      "Use &last app", IDC_USE_LAST, 68, 150, 66, 14
+    PUSHBUTTON      "&Add / update", IDC_ADD, 138, 150, 66, 14
+    PUSHBUTTON      "&Remove selected", IDC_REMOVE, 208, 150, 82, 14
+    LTEXT           "", IDC_HINT, 8, 172, 424, 24
+    DEFPUSHBUTTON   "Close", IDOK, 376, 196, 56, 14
 END
 
 VS_VERSION_INFO VERSIONINFO
