@@ -13,6 +13,8 @@ add_executable(ImeModePersistence WIN32
     src/ime_interop.h
     src/autostart.cpp
     src/autostart.h
+    src/resource.h
+    src/resources.rc
 )
 
 target_compile_definitions(ImeModePersistence PRIVATE

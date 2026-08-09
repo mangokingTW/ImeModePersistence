@@ -44,6 +44,7 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 LicenseFile=..\LICENSE
+SetupIconFile=..\assets\ImeModePersistence.ico
 
 ; 32-bit build on 32-bit Windows, 64-bit build everywhere else.
 ArchitecturesInstallIn64BitMode=x64compatible

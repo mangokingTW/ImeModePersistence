@@ -6,6 +6,7 @@
 
 #include "autostart.h"
 #include "ime_state.h"
+#include "resource.h"
 
 namespace {
 
@@ -56,6 +57,7 @@ struct AppState {
     int restoreAttempt{};
     ULONGLONG suppressPromotionUntil{};
 
+    HICON trayIcon{};
     NOTIFYICONDATAW tray{};
 };
 
@@ -65,6 +67,18 @@ void show_error(const wchar_t* text) {
     MessageBoxW(g_app.hwnd, text, L"ImeModePersistence", MB_ICONERROR | MB_OK);
 }
 
+// LoadImageW picks the image of the requested size out of the .ico rather than
+// scaling one, which is what keeps the notification area crisp at any DPI.
+HICON load_app_icon(HINSTANCE instance, int cx, int cy) {
+    HICON icon = static_cast<HICON>(LoadImageW(
+        instance, MAKEINTRESOURCEW(IDI_APPICON), IMAGE_ICON, cx, cy, LR_DEFAULTCOLOR));
+
+    // Falls back to the generic application icon. That one is shared and must
+    // never be destroyed, which is why nothing here calls DestroyIcon: the
+    // process only ever loads these once and exits.
+    return icon ? icon : LoadIconW(nullptr, IDI_APPLICATION);
+}
+
 void set_tray_icon(bool add) {
     if (add) {
         g_app.tray.cbSize = sizeof(g_app.tray);
@@ -72,7 +86,7 @@ void set_tray_icon(bool add) {
         g_app.tray.uID = 1;
         g_app.tray.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         g_app.tray.uCallbackMessage = WMAPP_TRAY;
-        g_app.tray.hIcon = LoadIconW(nullptr, IDI_APPLICATION);
+        g_app.tray.hIcon = g_app.trayIcon;
         StringCchCopyW(g_app.tray.szTip, ARRAYSIZE(g_app.tray.szTip), L"IME Mode Persistence");
         Shell_NotifyIconW(NIM_ADD, &g_app.tray);
     } else {
@@ -338,10 +352,14 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     wc.lpfnWndProc = wnd_proc;
     wc.hInstance = instance;
     wc.lpszClassName = kClassName;
+    wc.hIcon = load_app_icon(instance, GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON));
 
     if (!RegisterClassW(&wc)) {
         return 1;
     }
+
+    g_app.trayIcon = load_app_icon(
+        instance, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON));
 
     g_app.hwnd = CreateWindowExW(
         0, kClassName, L"ImeModePersistence", 0,

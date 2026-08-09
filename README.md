@@ -120,6 +120,16 @@ The installer needs both architectures present, then [Inno Setup](https://jrsoft
 iscc /DAppVersion=1.0.0 installer\ImeModePersistence.iss
 ```
 
+## Icon
+
+`assets/app_icon.png` is the source artwork; `assets/ImeModePersistence.ico` is what the build embeds. Regenerate with [ImageMagick](https://imagemagick.org) 7:
+
+```bash
+./tools/make_icon.sh
+```
+
+The artwork's three elements inside a double border stop being readable below about 32 px, so the `.ico` carries a purpose-drawn **中** badge at 16, 20 and 24 px &mdash; the sizes the notification area actually uses &mdash; and the full artwork from 32 px up. Windows selects per slot. The small images are placed on integer coordinates so nothing is antialiased and they stay crisp.
+
 ## Releasing
 
 Push a tag and the `Release` workflow builds both architectures, compiles the installer, and publishes a GitHub release with the installer, both portable archives, and `SHA256SUMS.txt`:

@@ -1,0 +1,6 @@
+#include "resource.h"
+
+// Path is relative to this .rc file. The .ico carries purpose-drawn 16/20/24 px
+// images alongside the full artwork, so Windows picks a legible one for the
+// notification area; see tools/make_icon.sh.
+IDI_APPICON ICON "../assets/ImeModePersistence.ico"
