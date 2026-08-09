@@ -35,11 +35,23 @@ UINT delay_for(int attempt, Trigger trigger) {
     return table[index];
 }
 
-UINT cooldown_ms() {
+UINT cooldown_ms(int consecutiveLosses) {
     // Long enough that a target which insists is left in peace, short enough that
     // the binding resumes on its own once whatever was fighting stops. A focus
     // change clears it outright, so switching away and back is the way out.
-    return 3000;
+    constexpr UINT kBaseMs = 3000;
+
+    // The cap keeps the retry on a human timescale: half a minute is long enough
+    // to end the log churn, short enough that a game whose fight stops (a
+    // loading screen ends, an overlay closes) is rebound without the user doing
+    // anything.
+    constexpr UINT kCapMs = 30000;
+
+    UINT value = kBaseMs;
+    for (int loss = 1; loss < consecutiveLosses && value < kCapMs; ++loss) {
+        value *= 2;
+    }
+    return value < kCapMs ? value : kCapMs;
 }
 
 } // namespace schedule
