@@ -2,25 +2,39 @@
 
 #include <windows.h>
 
-// Runs the utility at logon through the per-user Run key.
+// Starting the utility at logon, by whichever of two mechanisms fits the
+// privileges it currently has.
 //
 // Why not a Windows service: a service runs in session 0 with no interactive
 // desktop, so GetForegroundWindow never sees the user's windows and
 // WM_IME_CONTROL never reaches their threads. This utility has to live in the
 // interactive session.
 //
-// This is the unelevated route, and the Run key can only ever start an unelevated
-// copy. Elevated autostart is a scheduled task registered by the installer: a task
-// with highest privileges is the only way to start elevated at logon without a UAC
-// prompt every time, and creating one needs administrator rights that the utility
-// itself does not ask for.
+// The Run key can only ever start an *unelevated* copy, so an elevated utility
+// needs a scheduled task with highest privileges instead -- also the only way to
+// start elevated without a UAC prompt at every logon. Creating one needs
+// administrator rights, which an elevated copy already has; an unelevated one
+// falls back to the Run key.
 namespace autostart {
 
-// True when the Run key entry exists *and* points at this executable. A stale
-// entry left behind by moving the .exe therefore reads as disabled, and enabling
-// again rewrites it to the current path.
-bool is_enabled();
+enum class Kind {
+    None,
+    Registry,       // HKCU Run entry, starts unelevated
+    ScheduledTask,  // at logon with highest privileges
+};
 
+// What is configured right now, regardless of which mechanism this process would
+// choose. A Run entry counts only when it points at *this* executable, so one left
+// behind by moving the .exe reads as absent.
+Kind current();
+
+inline bool is_enabled() {
+    return current() != Kind::None;
+}
+
+// Enabling picks the mechanism that matches the current privileges. Disabling
+// removes both, so a leftover from the other mechanism cannot keep starting the
+// utility after the user turned it off.
 bool set_enabled(bool enable);
 
 // Whether this process is running elevated. Everything about what the utility can

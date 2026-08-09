@@ -610,6 +610,18 @@ void restart_elevated() {
     g_app.singleInstance = CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
 }
 
+// Which mechanism is configured, not merely whether one is: an elevated copy and an
+// unelevated one need different ones, so "on" alone would not say whether autostart
+// will actually reproduce the current privileges.
+const wchar_t* autostart_label() {
+    const text::Strings& t = text::s();
+    switch (autostart::current()) {
+    case autostart::Kind::ScheduledTask: return t.autostartTask;
+    case autostart::Kind::Registry: return t.autostartRegistry;
+    default: return t.autostartOff;
+    }
+}
+
 void show_status() {
     // Every line comes from the snapshot. Reading the live foreground here would
     // describe the shell, because opening this box is what put it in front.
@@ -637,7 +649,8 @@ void show_status() {
         g_app.snapshotLayout == 0 ? t.unknownApplication
                                   : layout::describe(g_app.snapshotLayout).c_str(),
         attempt,
-        autostart::elevated() ? t.elevatedYes : t.elevatedNo);
+        autostart::elevated() ? t.elevatedYes : t.elevatedNo,
+        autostart_label());
     show_message(t.statusTitle, body, false);
 }
 

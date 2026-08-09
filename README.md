@@ -4,86 +4,71 @@
 
 **繁體中文** · [English](#english)
 
-Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的**輸入模式**（中文／英數），並可把指定程式**固定在某個輸入語言**（中文／英文／日文…）—— 連讀不到執行檔的程式也能綁定，例如有反作弊的全螢幕遊戲。
+Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的**輸入模式**（中文／英數），並可把指定程式**綁定到固定的輸入語言** —— 連讀不到執行檔的程式也行，例如有防作弊的全螢幕遊戲。
+
+操作教學在 **[Wiki](https://github.com/mangokingTW/ImeModePersistence/wiki)**，設計取捨與被否決的做法在 **[docs/design.md](docs/design.md)**。
 
 ## 這是什麼
 
-在 A 視窗用中文輸入 → 切到 B 視窗，中文模式被還原。你在 B 按 Shift 改成英數 → 切到 C 視窗，還原的是英數。全域的目標模式跟著你最近一次的手動切換走。
+在 A 視窗用中文輸入 → 切到 B 視窗，中文模式被還原。你在 B 按 Shift 改成英數 → 切到 C 視窗，還原的是英數。全域目標跟著你最近一次的手動切換走，可以在托盤選單關閉。
 
-已在實機上與**微軟注音**確認可用。這不是「強制中文」的工具 —— 但可以把個別程式綁定到固定的輸入語言。
+已在實機上與**微軟注音**確認可用。
 
 ## 安裝
 
-到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載其中一個：
+到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載：
 
 | 檔案 | 說明 |
 |---|---|
-| **`...-setup.exe`** | 需要管理員權限。裝在 Program Files，可讓程式以管理員身分執行 —— **有防作弊的遊戲需要這個版本** |
-| **`...-setup-user.exe`** | 不需要管理員權限。裝在使用者目錄，無法控制提權的程式 |
-| **`...-x64.zip`** / **`-x86.zip`** | 免安裝，解壓即用 |
+| `...-setup.exe` | 需要管理員權限，裝在 Program Files。**有防作弊的遊戲需要這個版本** |
+| `...-setup-user.exe` | 不需要管理員權限，裝在使用者目錄。無法控制提權的程式 |
+| `...-x64.zip` / `-x86.zip` | 免安裝，解壓即用 |
 
-需要管理員權限的版本有兩個獨立的勾選項：
+> **防毒軟體可能刪除安裝檔。** 未簽章的安裝檔常被啟發式誤判 —— 遇到時改用免安裝的 zip，功能完全相同。
 
-- **以管理員身分執行** —— 預設勾選。Windows 不讓權限較低的程式讀取權限較高的程式的視窗，而有防作弊的遊戲都是提權執行，不勾就完全看不到它們。勾選後**每一次啟動**都是管理員身分，不只自動啟動那一次。
-- **開機時自動啟動** —— 勾了「以管理員身分執行」時建立**登入時以最高權限執行**的排程工作（那一次不彈 UAC）；沒勾則寫一般權限的登錄項目，因為登錄項目無法啟動提權的程式。
+安裝時只有一個勾選項「開機時自動啟動」。管理員版建立**登入時以最高權限執行**的排程工作（不彈 UAC），免管理員版寫登錄項目 —— 登錄項目無法啟動提權的程式。手動啟動要提權時用托盤的**以管理員身分重新啟動**。
 
-免管理員版本只有「開機時自動啟動」一項，寫一般權限的登錄項目。任何版本都可以用托盤選單的**以管理員身分重新啟動**臨時提權。要確認目前是哪一種：把滑鼠停在托盤圖示上，未提權時最後一行會寫「一般權限 － 看不到提權的程式」。
-
-兩者都**未經簽章**，首次執行會有 SmartScreen 警告，選「更多資訊 → 仍要執行」，或先用 `SHA256SUMS.txt` 核對。
-
-- **更新** — 執行新版安裝檔即可，會就地升級。執行中的程式會自動關閉並重啟；提權的安裝檔才有能力關閉提權的常駐程式，所以不需手動處理。
-- **卸除** — 設定 → 應用程式，或開始功能表的 Uninstall 捷徑。安裝目錄、登錄項目與排程工作都會清掉。
+**更新**：執行新版安裝檔，會就地升級並自動關閉重啟執行中的副本。**卸除**：設定 → 應用程式。安裝目錄、登錄項目與排程工作都會清掉。
 
 ## 使用
 
-常駐在通知區域，右鍵選單四項：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**結束**。把滑鼠停在圖示上會顯示綁定與目前的輸入語言；左鍵雙擊顯示完整狀態。每個登入工作階段只會有一份執行中。
+常駐在通知區域。右鍵選單：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**以管理員身分重新啟動**（未提權時才出現）、**結束**。
 
-#### 關閉全域延續
+**把滑鼠停在圖示上**會顯示當前程式、綁定語言、實際語言與上次切換結果 —— 停留不會改變前景視窗，點下去會。左鍵雙擊顯示完整狀態。每個登入工作階段只有一份執行中。
 
-**跨程式維持輸入模式**預設開啟，就是這個工具原本的行為。關掉之後只有下面的程式綁定會作用 —— 適合只想要「某些程式固定用某個語言」而不要全域跟隨的人。設定記在 `HKCU\Software\ImeModePersistence`。
+### 程式綁定輸入語言
 
-## 程式綁定輸入語言
+把程式綁定到一個輸入語言，例如終端機綁英文、Word 綁中文。
 
-把程式綁定到一個輸入語言，例如終端機綁英文、Word 綁中文。綁定後切到該程式就會自動切換。
+- **瀏覽** 選執行檔 → 規則是那個**完整路徑**，同名的兩個執行檔可以分開設定
+- 只填**檔名**（`notepad.exe`）→ 不管裝在哪都套用
+- **用視窗類別** 填 `class:類別名` → 有防作弊的遊戲讀不到路徑（連管理員也讀不到），視窗類別是唯一不碰該程式就能識別它的方式
+- **用剛才的程式** 自動填入你開這個視窗之前用的程式
 
-- **瀏覽** 選執行檔，規則就是那個**完整路徑**，所以兩個同名的執行檔可以分開設定
-- 也可以只填**檔名**（`notepad.exe`），這樣不管程式裝在哪都套用。查詢時先比對完整路徑，找不到才比對檔名
-- **用剛才的程式** 會填入你開這個視窗之前那個程式，不必自己找
-- **用視窗類別** 填入 `class:視窗類別名`（Win32 視窗類別，不是程式名或標題）—— 有反作弊的遊戲讀不到執行檔路徑，連管理員也讀不到，視窗類別是唯一不需要碰該程式就能識別它的方式。不必自己查：這個按鈕會用你開視窗之前那個程式的類別填入，托盤提示在讀不到路徑時也會直接顯示 `class:實際類別`
+比對順序：完整路徑 → 檔名 → 視窗類別。綁定的是**語言**，同一語言裝多個輸入法（注音與倉頡都是 zh-TW）時用第一個已安裝的。
 
-比對順序由精確到寬鬆：完整路徑 → 檔名 → 視窗類別。
-
-**已確認可用於有反作弊的全螢幕遊戲。** 例如 Helldivers 2 的視窗類別是 `stingray_window`（Autodesk Stingray 引擎），用 `class:stingray_window` 綁定即可生效 —— 它的執行檔路徑讀不到，但視窗類別讀得到。
-
-綁定的是**語言**（中文／英文／日文…）。同一語言裝了多個輸入法（注音與倉頡都是 zh-TW）時，會用第一個已安裝的。
+**已確認可用於有防作弊的全螢幕遊戲** —— Helldivers 2 用 `class:stingray_window` 即可，詳見 [Wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2)。
 
 ## 限制
 
-- 寫入都是 best-effort 並會讀回驗證。IME 仍在啟動中時可能丟棄變更，重試四次（約 930 ms）後就接受目標視窗的狀態
-- UIPI 會阻止修改**更高完整性等級**程式的輸入法狀態，例如以管理員身分開啟的終端機
-- 介面依 Windows 顯示語言自動選繁體中文或英文；沒有簡體版本，安裝程式精靈仍是英文
-- 深色模式只作用於**標題列**，控制項仍是淺色
-- 提權執行是預設，因為讀取提權程式的視窗需要同等權限。代價是托盤的「開機時自動啟動（一般權限）」對提權的副本沒有意義 —— 提權的自動啟動由安裝檔建立的排程工作負責
-- 不會為了切換輸入語言而注入或附加到其他程式。有反作弊的遊戲用視窗類別綁定即可，切換走 TSF 的工作階段層級 API，完全不接觸該程式；若仍無法生效，本工具會安靜放棄而不是加大力道
+- 寫入是 best-effort 並讀回驗證。IME 仍在啟動中時可能丟棄變更，重試四次後就接受目標視窗的狀態
+- 讀取或修改**提權程式**的視窗需要同等權限，所以控制有防作弊的遊戲必須提權執行
+- 介面依 Windows 顯示語言選繁體中文或英文；沒有簡體版本，安裝程式仍是英文
+- 深色模式只作用於標題列
+- 不會注入或附加到其他程式。切換走 TSF 的公開 API，由作業系統執行；若無法生效就安靜放棄
 
 ## 開發
 
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
-```
-
-安裝檔需要兩種架構都建好，再用 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3+：
-
-```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.4 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.8.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.8.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
-圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7：`./tools/make_icon.sh`
+安裝檔需要 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3+，圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7（`./tools/make_icon.sh`）。
 
-`CMakeLists.txt` 的 `project(... VERSION ...)` 是版本的唯一來源，會寫進 `VERSIONINFO`。**每個 PR 都必須 bump**，CI 會擋。發佈時推一個與它相符的 `vMAJOR.MINOR.PATCH` tag，workflow 會建置雙架構、產生安裝檔並發佈；版本不符會被拒絕。
-
-設計取捨與被否決的做法記在 **[docs/design.md](docs/design.md)**。
+`CMakeLists.txt` 的 `project(... VERSION ...)` 是版本的唯一來源，會寫進 `VERSIONINFO`。**每個 PR 都必須 bump**，CI 會擋。發佈時推一個與它相符的 `vMAJOR.MINOR.PATCH` tag。
 
 ## 授權
 
@@ -91,103 +76,81 @@ iscc /DAppVersion=0.4.4 installer\ImeModePersistence.iss
 
 ## Roadmap
 
-- [x] TSF 感知的轉換模式配接（走 IMM32/TSF 互通層）
+- [x] TSF 感知的轉換模式配接、還原後重試與驗證、區分使用者操作與系統事件
 - [x] 微軟注音實機驗證
-- [x] 還原後重試與驗證
-- [x] 區分使用者操作與系統事件
-- [x] 開機自動啟動
-- [x] Windows CI、安裝檔與發佈流程
-- [x] 設定介面
-- [x] 程式綁定輸入語言
+- [x] 開機自動啟動、設定介面、Windows CI、安裝檔與發佈流程
+- [x] 程式綁定輸入語言，含視窗類別綁定
 - [ ] 同語言多輸入法的細分（注音 vs 倉頡）
-- [x] 視窗類別綁定（供讀不到執行檔的程式使用）
 
 ---
 
 # English
 
-Windows utility for controlling how input methods behave across programs: it carries the **input mode you last chose** (native or alphanumeric) to the next window, and can pin a program to a fixed **input language** (Chinese, English, Japanese...) — including programs whose executable cannot be read, such as anti-cheat protected fullscreen games.
+Windows utility that controls how input methods behave across programs: it carries the **input mode you last chose** (native or alphanumeric) to the next window, and can **bind a program to a fixed input language** — including programs whose executable cannot be read, such as anti-cheat protected fullscreen games.
+
+Step-by-step guides are in the **[wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Home-English)**; design trade-offs and rejected approaches in **[docs/design.md](docs/design.md)**.
 
 ## What it does
 
-Type Chinese in window A → switch to B, Chinese is restored. Press Shift in B to go alphanumeric → switch to C, alphanumeric is restored. The global desired mode follows your most recent deliberate change.
+Type Chinese in window A → switch to B, Chinese is restored. Press Shift in B to go alphanumeric → switch to C, alphanumeric is restored. The global target follows your most recent deliberate change, and can be turned off from the tray menu.
 
-Confirmed working with **Microsoft Bopomofo** on real hardware. This is not a "force Chinese" tool — but individual applications can be bound to an input language.
+Confirmed working with **Microsoft Bopomofo** on real hardware.
 
 ## Install
 
-From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases), take **`...-setup.exe`** or **`...-x64.zip`** / **`-x86.zip`** (unzip and run).
-
-Two installers, plus a portable archive:
+From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 
 | File | What it is |
 |---|---|
-| **`...-setup.exe`** | Needs administrator rights. Installs to Program Files and can run the utility elevated — **required for anti-cheat protected games** |
-| **`...-setup-user.exe`** | No administrator rights needed. Installs into your user directory; cannot control elevated programs |
-| **`...-x64.zip`** / **`-x86.zip`** | Portable; unzip and run |
+| `...-setup.exe` | Needs administrator rights, installs to Program Files. **Required for anti-cheat protected games** |
+| `...-setup-user.exe` | No administrator rights, installs into your user directory. Cannot control elevated programs |
+| `...-x64.zip` / `-x86.zip` | Portable; unzip and run |
 
-The administrator installer offers two independent choices:
+> **Antivirus may delete the installer.** Unsigned installers are frequently caught by heuristics — use the portable archive, which is functionally identical.
 
-- **Run as administrator** — ticked by default. Windows does not let a lower-privileged program read a higher-privileged one's windows, and anti-cheat protected games are elevated, so without this they cannot be seen at all. With it, **every** launch is elevated, not only the automatic one.
-- **Start automatically at logon** — with elevation, a scheduled task running at logon with highest privileges (no UAC prompt for that start); without it, a normal-privilege registry entry, since a registry entry cannot launch an elevated program.
+Setup has one option, *Start automatically at logon*. The administrator installer registers a scheduled task running at logon with highest privileges (no UAC prompt); the user installer writes a registry entry, since a registry entry cannot start an elevated program. To elevate a manual launch, use **Restart as administrator** in the tray menu.
 
-The user installer has only the autostart option, writing a normal-privilege registry entry. Either way, **Restart as administrator** in the tray menu elevates on demand. To tell which you have, hover the tray icon: when unelevated the last line reads *Normal privileges - elevated programs are invisible*.
-
-Both are **unsigned**, so SmartScreen warns on first run — choose *More info → Run anyway*, or verify against `SHA256SUMS.txt`.
-
-- **Updating** — run the newer installer; it upgrades in place. A running copy is closed and restarted for you.
-- **Uninstalling** — Settings → Apps, or the Start menu shortcut. The install directory, registry entries and the scheduled task all go.
+**Updating**: run the newer installer; it upgrades in place, closing and restarting a running copy. **Uninstalling**: Settings → Apps. The install directory, registry entries and scheduled task all go.
 
 ## Using it
 
-It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start with Windows (normal privileges)**, **Restart as administrator** (shown only when not elevated), **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
+It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start automatically at logon**, **App language bindings...**, **Restart as administrator** (shown only when not elevated) and **Exit**.
 
-#### Turning off global persistence
+**Hover** the icon to see the current program, its bound language, the language actually in use, and whether the last switch worked — hovering does not change the foreground window, clicking does. Double-click for full status. One instance runs per logon session.
 
-**Keep mode across windows** is on by default and is what the utility is for. Turning it off leaves only the bindings below active — for someone who wants specific applications pinned to a language without the global carry-over. Stored in `HKCU\Software\ImeModePersistence`.
+### App language bindings
 
-## App language bindings
+Bind a program to an input language — a terminal to English, Word to Chinese.
 
-Bind an application to an input language — a terminal to English, Word to Chinese. Activating a bound application switches to its language.
+- **Browse** for an executable → the rule is that **full path**, so two executables sharing a name can be configured separately
+- A bare **file name** (`notepad.exe`) → applies wherever the program is installed
+- **Use window class** → `class:<name>`, the only way to identify an anti-cheat protected game, whose path cannot be read even by an administrator
+- **Use last app** → fills in the program you were in before opening the dialog
 
-- **Browse** picks an executable and the rule is that **full path**, so two executables sharing a name can be configured separately
-- A bare **file name** (`notepad.exe`) also works and applies wherever the application is installed. Lookup tries the path first, then the name
-- **Use last app** fills in the application you were in before opening the dialog
-- **Use window class** fills in `class:<name>` (the Win32 window class, not the program or title) — anti-cheat protected games refuse to have their executable path read, even by an administrator, and a window class is the only way to identify one without touching the process. You do not have to look it up: the button fills it from the application you were in, and the tooltip shows `class:<name>` whenever the path cannot be read
+Lookup order: full path, file name, window class. A binding pins a **language**; where one language has several IMEs installed (Bopomofo and Cangjie are both zh-TW) the first is used.
 
-Lookup goes from most specific to least: full path, then file name, then window class.
-
-**Confirmed working for anti-cheat protected fullscreen games.** Helldivers 2's window class is `stingray_window` (the Autodesk Stingray engine), so `class:stingray_window` binds it — its executable path cannot be read, but its window class can.
-
-What gets bound is a **language** (Chinese / English / Japanese...). Where one language has several IMEs installed — Bopomofo and Cangjie are both zh-TW — the first is used.
+**Confirmed working for anti-cheat protected fullscreen games** — Helldivers 2 needs `class:stingray_window`; see the [wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2-English).
 
 ## Limitations
 
-- Writes are best-effort and verified by reading back. An IME still activating can discard one; after four attempts (~930 ms) the utility accepts whatever the target settled on
-- UIPI prevents changing the IME state of a **higher integrity level** process, such as an elevated terminal
-- The interface follows Windows' display language, choosing Traditional Chinese or English. No Simplified translation; the installer wizard is still English
-- Dark mode applies to the **title bar** only; controls stay light
-- Running elevated is the default, because reading an elevated program's windows requires equal privileges. The cost is that the tray's **Start with Windows (normal privileges)** is meaningless for an elevated copy — elevated autostart is the scheduled task registered by setup
-- Nothing is injected into or attached to another process to switch its language. An anti-cheat protected game is bound by window class and switched through TSF's session-level API, which touches nothing belonging to it; where that still fails the utility gives up quietly rather than trying harder
+- Writes are best-effort and verified by reading back. An IME still activating can discard one; after four attempts the utility accepts whatever the target settled on
+- Reading or changing the windows of an **elevated** program requires equal privileges, so controlling an anti-cheat protected game means running elevated
+- The interface follows Windows' display language, Traditional Chinese or English. No Simplified translation; the installer is English only
+- Dark mode applies to the title bar only
+- Nothing is injected into or attached to another process. Switching goes through TSF's public API and is carried out by the OS; where that fails the utility gives up quietly
 
 ## Development
 
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
-```
-
-The installer needs both architectures built, then [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer:
-
-```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.4 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.8.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.8.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
-Regenerating the icon needs [ImageMagick](https://imagemagick.org) 7: `./tools/make_icon.sh`
+The installers need [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer; regenerating the icon needs [ImageMagick](https://imagemagick.org) 7 (`./tools/make_icon.sh`).
 
-`project(... VERSION ...)` in `CMakeLists.txt` is the single source of truth and is stamped into `VERSIONINFO`. **Every PR must bump it** — CI fails one that does not. To release, push a `vMAJOR.MINOR.PATCH` tag matching it; the workflow builds both architectures, compiles the installer and publishes. A tag that disagrees is refused.
-
-Design trade-offs and rejected approaches are in **[docs/design.md](docs/design.md)**.
+`project(... VERSION ...)` in `CMakeLists.txt` is the single source of truth and is stamped into `VERSIONINFO`. **Every PR must bump it** — CI fails one that does not. To release, push a `vMAJOR.MINOR.PATCH` tag matching it.
 
 ## License
 
