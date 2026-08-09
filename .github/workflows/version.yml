@@ -9,7 +9,7 @@ jobs:
     name: version bump
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # The base commit has to be reachable to compare versions against it.
           fetch-depth: 0
