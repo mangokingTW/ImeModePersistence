@@ -36,3 +36,32 @@ jobs:
           name: ImeModePersistence-${{ matrix.name }}
           path: build/Release/ImeModePersistence.exe
           if-no-files-found: error
+
+  # Compiling the Inno Setup script on every change is the only way to catch a
+  # broken installer before a release tag depends on it.
+  installer:
+    runs-on: windows-latest
+    name: installer
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build both architectures
+        run: |
+          cmake -S . -B build-x64 -A x64
+          cmake --build build-x64 --config Release
+          cmake -S . -B build-x86 -A Win32
+          cmake --build build-x86 --config Release
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ImeModePersistence-setup
+          path: dist/*.exe
+          if-no-files-found: error
