@@ -2,6 +2,7 @@
 // CMakeLists.txt, so every translation unit sees the same configuration.
 #include <windows.h>
 #include <commctrl.h>
+#include <dwmapi.h>
 #include <shellapi.h>
 #include <strsafe.h>
 
@@ -146,6 +147,46 @@ bool own_window(HWND hwnd) {
     return pid == GetCurrentProcessId();
 }
 
+// Windows 11's own UI takes the foreground for windows the user is not working
+// in: a cloaked window is composed but not shown, which is the state SearchHost
+// and the Start menu sit in after being dismissed. Treating one as a context
+// switch re-keys the observer, resets the dwell timer, and interrupts a restore
+// in progress -- so these are skipped outright rather than merely ignored by the
+// diagnostics.
+bool ghost_window(HWND hwnd) {
+    if (!IsWindowVisible(hwnd)) {
+        return true;
+    }
+
+    DWORD cloaked = 0;
+    if (SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked)))) {
+        return cloaked != 0;
+    }
+    return false;
+}
+
+// Shell surfaces that are genuinely visible while focused but are never what the
+// user means by "the application I was in". A name list because they are separate
+// processes with nothing structural in common -- SearchHost is not part of
+// explorer, which is why excluding the shell alone was not enough.
+bool shell_ui(const std::wstring& executable) {
+    static constexpr const wchar_t* kHosts[] = {
+        L"searchhost.exe",
+        L"startmenuexperiencehost.exe",
+        L"shellexperiencehost.exe",
+        L"textinputhost.exe",
+        L"lockapp.exe",
+    };
+
+    const std::wstring name = rules::file_name_of(executable);
+    for (const wchar_t* host : kHosts) {
+        if (CompareStringOrdinal(name.c_str(), -1, host, -1, TRUE) == CSTR_EQUAL) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // The taskbar and the desktop are the same process, and clicking either is
 // exactly what happens on the way to the tray icon. Compared by process id
 // rather than by executable name so a renamed or replaced shell still counts.
@@ -190,7 +231,8 @@ void set_tray_icon(bool add) {
 }
 
 void record_snapshot(HWND hwnd) {
-    if (!hwnd || own_window(hwnd) || shell_window(hwnd)) {
+    if (!hwnd || own_window(hwnd) || shell_window(hwnd) ||
+        shell_ui(g_app.observedExecutable)) {
         return;
     }
 
@@ -289,7 +331,7 @@ void accept_restored_state(HWND hwnd, const ime::State& state) {
 // Records that the input context changed, without ever inferring a new desired
 // mode from the window being switched to.
 void note_context_switch(HWND hwnd) {
-    if (!hwnd || own_window(hwnd)) {
+    if (!hwnd || own_window(hwnd) || ghost_window(hwnd)) {
         return;
     }
 
@@ -418,9 +460,9 @@ void restore_tick() {
 
 void observe_tick() {
     const HWND hwnd = GetForegroundWindow();
-    if (!hwnd || own_window(hwnd)) {
-        // Leaves the last real application's context in place, so opening the
-        // rules dialog does not look like a context switch.
+    if (!hwnd || own_window(hwnd) || ghost_window(hwnd)) {
+        // Leaves the last real application's context in place, so neither our own
+        // dialogs nor a dismissed Start menu looks like a context switch.
         return;
     }
 
