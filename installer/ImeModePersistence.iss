@@ -144,12 +144,17 @@ Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags
 Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""{#AppName}"" /SC ONLOGON /RL HIGHEST /IT /RU ""{code:CurrentUser}"" /TR ""\""{app}\{#AppExeName}\"""""; Flags: runhidden; Tasks: logon; Check: Elevated; StatusMsg: "{cm:TaskCreating}"
 #endif
 
+; shellexec, not the default CreateProcess. An elevated install sets the RUNASADMIN
+; compatibility layer on this executable, and CreateProcess refuses to start such a
+; program at all -- it fails with 740, ERROR_ELEVATION_REQUIRED, because elevation
+; is the shell's job. ShellExecute honours the layer.
+;
 ; It was running when Setup started, so put it back without asking.
-Filename: "{app}\{#AppExeName}"; Flags: nowait; Check: WasRunning
+Filename: "{app}\{#AppExeName}"; Flags: nowait shellexec; Check: WasRunning
 
 ; Nothing was running, so offer the usual launch checkbox instead.
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
-    Flags: nowait postinstall skipifsilent; Check: not WasRunning
+    Flags: nowait postinstall skipifsilent shellexec; Check: not WasRunning
 
 [UninstallRun]
 ; Removed whether or not this install created it, so a task left behind by an
