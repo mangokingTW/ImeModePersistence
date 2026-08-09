@@ -17,7 +17,8 @@ struct Strings {
     const wchar_t* menuExit;
 
     const wchar_t* statusTitle;
-    const wchar_t* statusFormat;      // desired, foreground, reachable, app, layout
+    const wchar_t* statusFormat;      // desired, foreground, reachable, app,
+                                      // bound language, current language, switch attempt
     const wchar_t* modeNative;
     const wchar_t* modeAlphanumeric;
     const wchar_t* modeUnknown;
@@ -25,6 +26,9 @@ struct Strings {
     const wchar_t* no;
     const wchar_t* unknownApplication;
     const wchar_t* noRule;
+    const wchar_t* switchOk;
+    const wchar_t* switchFailed;
+    const wchar_t* switchNotAttempted;
 
     const wchar_t* errorTitle;
     const wchar_t* errorAutostart;

@@ -37,9 +37,21 @@ std::wstring describe(LANGID language);
 // Layout active on the thread that owns hwnd.
 HKL current(HWND hwnd);
 
-// Asks the owning thread to switch. Posted rather than sent: the switch happens
-// on that thread's message loop, so there is no meaningful return value and the
-// caller has to read the layout back to know whether it took.
-bool request(HWND hwnd, HKL hkl);
+// No single mechanism works everywhere. WM_INPUTLANGCHANGEREQUEST only takes
+// effect if the receiving window lets it reach DefWindowProc, and plenty of
+// applications -- anything Chromium-based, most UWP and WinUI -- do not. So the
+// caller works through these in order and verifies after each.
+enum class Method {
+    FocusWindow,    // post to the focus window of the owning thread
+    ThreadWindows,  // post to every top-level window of that thread
+    AttachInput,    // join its input queue and activate the layout directly
+};
+
+const wchar_t* method_name(Method method);
+
+// Asks the owning thread to switch. Every method is best-effort with no useful
+// return value of its own, so the caller has to read the layout back to learn
+// whether it took.
+bool request(HWND hwnd, HKL hkl, Method method);
 
 } // namespace layout

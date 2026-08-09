@@ -85,15 +85,93 @@ HKL current(HWND hwnd) {
     return thread ? GetKeyboardLayout(thread) : nullptr;
 }
 
-bool request(HWND hwnd, HKL hkl) {
+namespace {
+
+// wParam is deliberately 0. INPUTLANGCHANGE_SYSCHARSET, which this used to pass,
+// asks the window to switch only if the new layout matches the system character
+// set -- a condition that has nothing to do with an explicit request and that
+// some windows honour by refusing.
+bool post_request(HWND window, HKL hkl) {
+    return window && PostMessageW(window, WM_INPUTLANGCHANGEREQUEST, 0,
+                                  reinterpret_cast<LPARAM>(hkl)) != FALSE;
+}
+
+struct Broadcast {
+    HKL hkl;
+    bool posted;
+};
+
+BOOL CALLBACK post_to_window(HWND window, LPARAM parameter) {
+    Broadcast* state = reinterpret_cast<Broadcast*>(parameter);
+    if (post_request(window, state->hkl)) {
+        state->posted = true;
+    }
+    return TRUE;
+}
+
+// The window holding keyboard focus, which is what actually owns the input
+// language. The top-level window often forwards nothing.
+HWND focus_window(DWORD thread) {
+    GUITHREADINFO info{};
+    info.cbSize = sizeof(info);
+    if (!GetGUIThreadInfo(thread, &info)) {
+        return nullptr;
+    }
+    return info.hwndFocus;
+}
+
+} // namespace
+
+const wchar_t* method_name(Method method) {
+    switch (method) {
+    case Method::FocusWindow: return L"focus window";
+    case Method::ThreadWindows: return L"thread windows";
+    case Method::AttachInput: return L"attached input";
+    }
+    return L"unknown";
+}
+
+bool request(HWND hwnd, HKL hkl, Method method) {
     if (!hwnd || !hkl || !IsWindow(hwnd)) {
         return false;
     }
-    return PostMessageW(
-               hwnd,
-               WM_INPUTLANGCHANGEREQUEST,
-               INPUTLANGCHANGE_SYSCHARSET,
-               reinterpret_cast<LPARAM>(hkl)) != FALSE;
+
+    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
+    if (!thread) {
+        return false;
+    }
+
+    switch (method) {
+    case Method::FocusWindow: {
+        HWND focus = focus_window(thread);
+        return post_request(focus ? focus : hwnd, hkl);
+    }
+
+    case Method::ThreadWindows: {
+        // Some applications keep a separate message-handling window that honours
+        // the request even when the visible one ignores it.
+        Broadcast state{hkl, false};
+        EnumThreadWindows(thread, post_to_window, reinterpret_cast<LPARAM>(&state));
+        return state.posted;
+    }
+
+    case Method::AttachInput: {
+        // Attaching shares the target's input queue, and with it the active
+        // keyboard layout, so activating here can move the layout there. Last
+        // resort: it briefly couples our message queue to another process, so a
+        // hung target would stall us until the detach.
+        const DWORD self = GetCurrentThreadId();
+        if (thread == self || !AttachThreadInput(self, thread, TRUE)) {
+            return false;
+        }
+
+        const HKL previous = ActivateKeyboardLayout(hkl, 0);
+        AttachThreadInput(self, thread, FALSE);
+        return previous != nullptr;
+    }
+    }
+
+    return false;
 }
 
 } // namespace layout

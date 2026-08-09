@@ -74,6 +74,14 @@ struct AppState {
     std::wstring lastApplication;
     LANGID ruleLanguage{};
 
+    // Which switching mechanism was last tried and whether the layout ended up
+    // where the rule wanted it. Surfaced in the status box: no single mechanism
+    // works for every application, so knowing which one took effect is the only
+    // way to tell an ignored request apart from a rule that never matched.
+    layout::Method layoutMethod{layout::Method::FocusWindow};
+    bool layoutRequested{false};
+    bool layoutSatisfied{false};
+
     HICON trayIcon{};
     NOTIFYICONDATAW tray{};
 };
@@ -200,6 +208,11 @@ void note_context_switch(HWND hwnd) {
 
     g_app.observedExecutable = rules::executable_of(hwnd);
     g_app.ruleLanguage = rules::lookup(g_app.observedExecutable);
+
+    // Reset per-application, so the status box describes the application in
+    // front rather than whatever was tried last.
+    g_app.layoutRequested = false;
+    g_app.layoutSatisfied = false;
     if (!g_app.observedExecutable.empty()) {
         g_app.lastApplication = g_app.observedExecutable;
     }
@@ -251,11 +264,30 @@ void restore_tick() {
             // The rule names a layout that is no longer installed. Nothing to
             // enforce, and retrying cannot help.
             g_app.ruleLanguage = 0;
-        } else if (layout::current(hwnd) != required) {
-            layout::request(hwnd, required);
-            // WM_INPUTLANGCHANGEREQUEST is posted, so the switch lands on the
-            // target's message loop later. Come back and check rather than
-            // assuming it worked.
+        } else if (layout::current(hwnd) == required) {
+            g_app.layoutSatisfied = true;
+        } else {
+            // Each attempt escalates, because no one mechanism reaches every
+            // application. The last is repeated rather than adding a fourth,
+            // since a target that ignored all three will keep ignoring them.
+            static constexpr layout::Method kMethods[] = {
+                layout::Method::FocusWindow,
+                layout::Method::ThreadWindows,
+                layout::Method::AttachInput,
+                layout::Method::AttachInput,
+            };
+            const int attempt = g_app.restoreAttempt > 0 ? g_app.restoreAttempt - 1 : 0;
+            const size_t index = static_cast<size_t>(attempt) < ARRAYSIZE(kMethods)
+                                     ? static_cast<size_t>(attempt)
+                                     : ARRAYSIZE(kMethods) - 1;
+
+            g_app.layoutMethod = kMethods[index];
+            g_app.layoutRequested = true;
+            g_app.layoutSatisfied = false;
+            layout::request(hwnd, required, g_app.layoutMethod);
+
+            // Every mechanism is asynchronous or unverifiable, so come back and
+            // read the layout rather than assuming anything.
             schedule_restore_attempt(hwnd);
             return;
         }
@@ -367,6 +399,17 @@ void show_status() {
 
     const text::Strings& t = text::s();
 
+    wchar_t attempt[256]{};
+    if (!g_app.layoutRequested) {
+        StringCchCopyW(attempt, ARRAYSIZE(attempt), t.switchNotAttempted);
+    } else {
+        StringCchPrintfW(attempt, ARRAYSIZE(attempt),
+                         g_app.layoutSatisfied ? t.switchOk : t.switchFailed,
+                         layout::method_name(g_app.layoutMethod));
+    }
+
+    const HKL currentLayout = layout::current(foreground);
+
     wchar_t body[1280]{};
     StringCchPrintfW(
         body,
@@ -377,7 +420,10 @@ void show_status() {
         state.valid ? t.yes : t.no,
         g_app.observedExecutable.empty() ? t.unknownApplication
                                          : g_app.observedExecutable.c_str(),
-        g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str());
+        g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str(),
+        currentLayout ? layout::describe(layout::language_of(currentLayout)).c_str()
+                      : t.unknownApplication,
+        attempt);
     show_message(t.statusTitle, body, false);
 }
 
