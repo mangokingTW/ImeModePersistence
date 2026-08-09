@@ -104,6 +104,8 @@ Three mechanisms are now tried in escalating order, one per retry attempt, each 
 
    **Confirmed to reach a raw-input fullscreen game protected by anti-cheat** (Helldivers 2, window class `stingray_window`). This was the central unknown: the documentation says session rather than thread scope, and whether that crossed into such a process could only be settled by trying it. It does.
 
+**A protected target skips the window-message mechanisms entirely.** If the executable could not be read, the process refused to be opened — anti-cheat, in practice. Posting `WM_INPUTLANGCHANGEREQUEST` into such a process is contact it never has to tolerate, and it would repeat on every switch into that application, while the framework route reaches it without touching it at all. The escalation is skipped and TSF is used from the first attempt.
+
 Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is reported in two places.
 
 **The tray tooltip is the primary one, because hovering does not change the foreground window.** The status box originally read the live foreground and so reported `explorer.exe` every single time it was opened: clicking the tray icon is what hands the foreground to the shell, so the act of asking destroyed the answer. It now reports a snapshot of the last application that was neither this process nor the shell — identified by comparing process ids against `GetShellWindow`, not by matching an executable name. Without those, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.

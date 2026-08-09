@@ -452,7 +452,14 @@ void restore_tick() {
                                      ? static_cast<size_t>(attempt)
                                      : ARRAYSIZE(kMethods) - 1;
 
-            g_app.layoutMethod = kMethods[index];
+            // A target whose executable could not be read is a protected process,
+            // which in practice means anti-cheat. Posting window messages into one
+            // is contact it never has to tolerate, and it would repeat on every
+            // switch into that application -- while the framework route reaches it
+            // without touching it at all. So go straight there.
+            const bool protectedTarget = g_app.observedExecutable.empty();
+            g_app.layoutMethod =
+                protectedTarget ? layout::Method::TsfSession : kMethods[index];
             g_app.layoutRequested = true;
             g_app.layoutSatisfied = false;
             layout::request(hwnd, required, g_app.layoutMethod);

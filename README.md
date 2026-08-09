@@ -4,7 +4,7 @@
 
 **繁體中文** · [English](#english)
 
-Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式**。
+Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的**輸入模式**（中文／英數），並可把指定程式**固定在某個輸入語言**（中文／英文／日文…）—— 連讀不到執行檔的程式也能綁定，例如有反作弊的全螢幕遊戲。
 
 ## 這是什麼
 
@@ -97,7 +97,7 @@ iscc /DAppVersion=0.4.4 installer\ImeModePersistence.iss
 
 # English
 
-Windows utility that keeps the **last input mode you chose** when you switch windows.
+Windows utility for controlling how input methods behave across programs: it carries the **input mode you last chose** (native or alphanumeric) to the next window, and can pin a program to a fixed **input language** (Chinese, English, Japanese...) — including programs whose executable cannot be read, such as anti-cheat protected fullscreen games.
 
 ## What it does
 
