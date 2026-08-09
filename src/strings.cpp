@@ -12,6 +12,7 @@ const Strings kEnglish{
     .menuAutostart = L"Start automatically at logon",
     .menuElevate = L"Restart as administrator",
     .menuRules = L"App language bindings...",
+    .menuLog = L"Open diagnostic log",
     .menuExit = L"Exit",
 
     .statusTitle = L"IME Mode Persistence",
@@ -89,6 +90,7 @@ const Strings kTraditionalChinese{
     .menuAutostart = L"開機時自動啟動",
     .menuElevate = L"以管理員身分重新啟動",
     .menuRules = L"程式綁定輸入語言...",
+    .menuLog = L"開啟診斷記錄",
     .menuExit = L"結束",
 
     .statusTitle = L"輸入法模式延續",

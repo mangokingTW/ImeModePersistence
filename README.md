@@ -14,6 +14,16 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 已在實機上與**微軟注音**確認可用。
 
+## 為什麼會需要它
+
+Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗時，中／英轉換模式會回到該輸入法的預設值 —— 對中文鍵盤來說就是**中文**。所以你剛按 Shift 切成英數，換個視窗又打出中文。
+
+「設定 → 時間與語言 → 輸入 → 進階鍵盤設定」裡的**「允許我為每個應用程式視窗使用不同的輸入法」解決不了這件事**。那個設定管的是「哪一個輸入法在作用」，不管「該輸入法處於中文還是英數」—— 關掉它之後，切換視窗照樣切回中文。
+
+**沒有任何 Windows 設定能處理轉換模式** —— 這是這個工具的**第一個**目的：讓你選的中／英模式跟著你走。
+
+**第二個**目的是把特定程式固定在某個輸入語言，包含連設定都碰不到的那類：**使用 raw input 的全螢幕遊戲**直接讀取鍵盤裝置，完全不參與輸入法的狀態管理，只能從外部處理。[Helldivers 2](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2) 就是這種。
+
 ## 安裝
 
 到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載：
@@ -35,6 +45,8 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 常駐在通知區域。右鍵選單：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**以管理員身分重新啟動**（未提權時才出現）、**結束**。
 
 **把滑鼠停在圖示上**會顯示當前程式、綁定語言、實際語言與上次切換結果 —— 停留不會改變前景視窗，點下去會。左鍵雙擊顯示完整狀態。每個登入工作階段只有一份執行中。
+
+切換沒有如預期作用時，右鍵選單的**開啟診斷記錄**會叫出 `%LocalAppData%\ImeModePersistence\log.txt`，裡面記錄每次上下文切換、規則比對結果、以及切換用了哪個機制與是否成功。回報問題時附上它。
 
 ### 程式綁定輸入語言
 
@@ -62,8 +74,8 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.8.0 installer\ImeModePersistence.iss
-iscc /DAppVersion=0.8.0 /DUserInstall installer\ImeModePersistence.iss
+iscc /DAppVersion=0.9.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.9.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
 安裝檔需要 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3+，圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7（`./tools/make_icon.sh`）。
@@ -96,6 +108,16 @@ Type Chinese in window A → switch to B, Chinese is restored. Press Shift in B 
 
 Confirmed working with **Microsoft Bopomofo** on real hardware.
 
+## Why you would want it
+
+Windows keeps IME state **per thread**. Move to another window and the conversion mode reverts to the IME's default — for a Chinese keyboard, that means **Chinese**. So you press Shift for alphanumeric, switch window, and you are typing Chinese again.
+
+**Settings → Time & language → Typing → Advanced keyboard settings → _Let me use a different input method for each app window_ does not fix this.** That setting governs *which* input method is active, not whether that method is in native or alphanumeric mode — turn it off and switching windows still reverts to Chinese.
+
+**No Windows setting covers the conversion mode.** That is this utility's **first** purpose: carrying the native/alphanumeric mode you chose to the next window.
+
+Its **second** purpose is pinning a specific program to an input language, including the kind no setting can reach: a **fullscreen game reading raw input** takes the keyboard directly and does not participate in IME state management at all, so it can only be handled from outside. [Helldivers 2](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2-English) is one.
+
 ## Install
 
 From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
@@ -117,6 +139,8 @@ Setup has one option, *Start automatically at logon*. The administrator installe
 It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start automatically at logon**, **App language bindings...**, **Restart as administrator** (shown only when not elevated) and **Exit**.
 
 **Hover** the icon to see the current program, its bound language, the language actually in use, and whether the last switch worked — hovering does not change the foreground window, clicking does. Double-click for full status. One instance runs per logon session.
+
+When a switch does not do what you expect, **Open diagnostic log** in the tray menu opens `%LocalAppData%\ImeModePersistence\log.txt`, which records every context switch, whether a rule matched, and which mechanism was used with its outcome. Attach it when reporting a problem.
 
 ### App language bindings
 
@@ -144,8 +168,8 @@ Lookup order: full path, file name, window class. A binding pins a **language**;
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.8.0 installer\ImeModePersistence.iss
-iscc /DAppVersion=0.8.0 /DUserInstall installer\ImeModePersistence.iss
+iscc /DAppVersion=0.9.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.9.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
 The installers need [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer; regenerating the icon needs [ImageMagick](https://imagemagick.org) 7 (`./tools/make_icon.sh`).

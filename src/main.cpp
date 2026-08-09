@@ -10,6 +10,7 @@
 
 #include "autostart.h"
 #include "config_dialog.h"
+#include "diagnostic.h"
 #include "ime_state.h"
 #include "layout.h"
 #include "resource.h"
@@ -29,6 +30,7 @@ constexpr UINT ID_TRAY_AUTOSTART = 1002;
 constexpr UINT ID_TRAY_RULES = 1003;
 constexpr UINT ID_TRAY_PERSIST = 1004;
 constexpr UINT ID_TRAY_ELEVATE = 1005;
+constexpr UINT ID_TRAY_LOG = 1006;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Session-local: one instance per interactive logon session is what we want, and
@@ -339,6 +341,8 @@ void schedule_restore_attempt(HWND hwnd) {
     if (g_app.restoreAttempt >= kMaxRestoreAttempts) {
         // Out of attempts. Adopt whatever the target settled on so the next
         // observation does not read the difference as a user decision.
+        diag::write(L"gave up after %d attempts; adopting the target's own state",
+                    kMaxRestoreAttempts);
         g_app.observedMode = ime::query_state(hwnd).mode;
         cancel_restore();
         return;
@@ -389,6 +393,13 @@ void note_context_switch(HWND hwnd) {
     const ime::State state = ime::query_state(hwnd);
     g_app.observedMode = state.mode;
 
+    diag::write(L"context: %s | rule %s | mode %s | ime %s",
+                window_identity(hwnd, g_app.observedExecutable).c_str(),
+                g_app.ruleLanguage == 0 ? L"none"
+                                        : layout::describe(g_app.ruleLanguage).c_str(),
+                ime::mode_name(state.mode),
+                state.valid ? L"readable" : L"unreadable");
+
     if (g_app.ruleLanguage != 0) {
         // A rule needs enforcing even when there is no mode to restore yet.
         g_app.restoreAttempt = 0;
@@ -438,8 +449,14 @@ void restore_tick() {
         if (!required) {
             // The rule names a layout that is no longer installed. Nothing to
             // enforce, and retrying cannot help.
+            diag::write(L"layout: rule names language 0x%04X, which is not installed",
+                        g_app.ruleLanguage);
             g_app.ruleLanguage = 0;
         } else if (layout::current(hwnd) == required) {
+            if (g_app.layoutRequested && !g_app.layoutSatisfied) {
+                diag::write(L"layout: satisfied via %s",
+                            layout::method_name(g_app.layoutMethod));
+            }
             g_app.layoutSatisfied = true;
         } else {
             // Each attempt escalates, because no one mechanism reaches every
@@ -466,6 +483,12 @@ void restore_tick() {
                 protectedTarget ? layout::Method::TsfSession : kMethods[index];
             g_app.layoutRequested = true;
             g_app.layoutSatisfied = false;
+            diag::write(L"layout: want %s, have %s, attempt %d via %s%s",
+                        layout::describe(g_app.ruleLanguage).c_str(),
+                        layout::describe(layout::language_of(layout::current(hwnd))).c_str(),
+                        attempt + 1,
+                        layout::method_name(g_app.layoutMethod),
+                        protectedTarget ? L" (protected target)" : L"");
             layout::request(hwnd, required, g_app.layoutMethod);
 
             // Every mechanism is asynchronous or unverifiable, so come back and
@@ -497,6 +520,9 @@ void restore_tick() {
     // Verify instead of trusting the write: an IME that is still activating can
     // overwrite our change with the state Windows had saved for this thread.
     const ime::State after = ime::query_state(hwnd);
+    diag::write(L"mode: wanted %s, was %s, now %s",
+                ime::mode_name(desired), ime::mode_name(before.mode),
+                ime::mode_name(after.mode));
     if (after.valid && after.mode == desired) {
         accept_restored_state(hwnd, after);
         return;
@@ -686,6 +712,11 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     // item invites the question of how to enable it.
                     AppendMenuW(menu, MF_STRING, ID_TRAY_ELEVATE, text::s().menuElevate);
                 }
+                if (!diag::path().empty()) {
+                    // Only when there is a file to open, so the menu never offers
+                    // something that does nothing.
+                    AppendMenuW(menu, MF_STRING, ID_TRAY_LOG, text::s().menuLog);
+                }
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, text::s().menuExit);
                 POINT pt{};
@@ -703,6 +734,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
         if (LOWORD(wParam) == ID_TRAY_AUTOSTART) {
+            diag::write(L"user: autostart -> %s", autostart::is_enabled() ? L"off" : L"on");
             if (!autostart::set_enabled(!autostart::is_enabled())) {
                 show_error(text::s().errorAutostart);
             }
@@ -711,6 +743,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         if (LOWORD(wParam) == ID_TRAY_PERSIST) {
             g_app.persistMode = !g_app.persistMode;
             settings::set_persist_mode(g_app.persistMode);
+            diag::write(L"user: persist mode -> %s", g_app.persistMode ? L"on" : L"off");
 
             // Forget the target either way: leaving a stale one would show a
             // desired mode that is not being applied, and re-enabling should pick
@@ -719,7 +752,15 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             cancel_restore();
             return 0;
         }
+        if (LOWORD(wParam) == ID_TRAY_LOG) {
+            const std::wstring file = diag::path();
+            if (!file.empty()) {
+                ShellExecuteW(nullptr, L"open", file.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+            }
+            return 0;
+        }
         if (LOWORD(wParam) == ID_TRAY_ELEVATE) {
+            diag::write(L"user: restarting elevated");
             restart_elevated();
             return 0;
         }
@@ -764,7 +805,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // A failure is not fatal: the other switching mechanisms still work.
     g_app.persistMode = settings::persist_mode();
 
-    tsf::initialise();
+    diag::initialise();
+    diag::write(L"---- started, version %hs, %s, autostart %s, persist mode %s",
+                APP_VERSION_STRING,
+                autostart::elevated() ? L"elevated" : L"not elevated",
+                autostart_label(),
+                g_app.persistMode ? L"on" : L"off");
+
+    if (!tsf::initialise()) {
+        // Not fatal, but it removes the one mechanism that reaches a protected
+        // process, so it is worth knowing when a binding mysteriously stops.
+        diag::write(L"TSF initialisation failed; the session-level switch is unavailable");
+    }
 
     INITCOMMONCONTROLSEX controls{};
     controls.dwSize = sizeof(controls);
@@ -832,6 +884,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         DispatchMessageW(&msg);
     }
 
+    diag::write(L"---- exiting");
+    diag::shutdown();
     tsf::shutdown();
     return static_cast<int>(msg.wParam);
 }

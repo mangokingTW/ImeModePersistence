@@ -19,6 +19,7 @@ struct Strings {
     const wchar_t* menuAutostart;
     const wchar_t* menuElevate;
     const wchar_t* menuRules;
+    const wchar_t* menuLog;
     const wchar_t* menuExit;
 
     const wchar_t* statusTitle;

@@ -201,6 +201,16 @@ The dialog template keeps English text and is relabelled at `WM_INITDIALOG`, so 
 
 Any Chinese display language selects Traditional; no Simplified translation is provided. The installer wizard stays English because Inno Setup's official distribution ships no Chinese `.isl`, and fetching an unofficial translation at build time would put a third-party download in the release path.
 
+## Diagnostic log
+
+`%LocalAppData%\ImeModePersistence\log.txt`, opened from the tray menu.
+
+Everything this utility does happens to *other* processes and leaves nothing behind: when a language switch has no effect there is no error to read. Every diagnosis during development went through asking the user to hover the tray icon and describe what they saw, which cost several release cycles — the log exists so a file can be attached instead.
+
+**Only state changes and actions are recorded.** The observer runs twenty times a second; logging that would bury the few lines that matter. What is logged: startup configuration, each context switch with the identity that could be established and whether a rule matched, each layout attempt with its mechanism and outcome, each mode restore, giving up, and user actions from the tray.
+
+`LocalAppData` rather than the install directory, because Program Files is not writable by an unelevated copy, and `LocalAppData` resolves to the same user whether elevated or not — so both write to one file. Opened with `FILE_SHARE_READ` so it can be read in Notepad while the utility runs, with a UTF-8 BOM so Notepad does not have to guess the encoding of a non-ASCII path or window class. Flushed every line, since a log that loses its tail is worthless for diagnosing a hang, and the volume is low enough for that to cost nothing. One rotation at 1 MB.
+
 ## Security boundaries
 
 - No global `WH_CALLWNDPROC` DLL injection.
