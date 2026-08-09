@@ -36,6 +36,8 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 比對順序由精確到寬鬆：完整路徑 → 檔名 → 視窗類別。
 
+**已確認可用於有反作弊的全螢幕遊戲。** 例如 Helldivers 2 的視窗類別是 `stingray_window`（Autodesk Stingray 引擎），用 `class:stingray_window` 綁定即可生效 —— 它的執行檔路徑讀不到，但視窗類別讀得到。
+
 綁定的是**語言**（中文／英文／日文…）。同一語言裝了多個輸入法（注音與倉頡都是 zh-TW）時，會用第一個已安裝的。
 
 ## 限制
@@ -45,7 +47,7 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 - 介面依 Windows 顯示語言自動選繁體中文或英文；沒有簡體版本，安裝程式精靈仍是英文
 - 深色模式只作用於**標題列**，控制項仍是淺色
 - **不要以管理員身分執行。** 提權不會讓受保護的 process 變得可讀，卻會讓每次登入都要過 UAC、`HKCU\Run` 開機啟動失效，而且非提權的安裝檔無法自動關閉提權的程式（UIPI 擋住 `WM_CLOSE`），安裝時會要求你手動關閉
-- 不會為了切換輸入語言而注入或附加到其他程式。有反作弊的遊戲請用視窗類別綁定；若連 TSF 都無法生效，本工具會安靜放棄而不是加大力道
+- 不會為了切換輸入語言而注入或附加到其他程式。有反作弊的遊戲用視窗類別綁定即可，切換走 TSF 的工作階段層級 API，完全不接觸該程式；若仍無法生效，本工具會安靜放棄而不是加大力道
 
 ## 開發
 
@@ -119,6 +121,8 @@ Bind an application to an input language — a terminal to English, Word to Chin
 
 Lookup goes from most specific to least: full path, then file name, then window class.
 
+**Confirmed working for anti-cheat protected fullscreen games.** Helldivers 2's window class is `stingray_window` (the Autodesk Stingray engine), so `class:stingray_window` binds it — its executable path cannot be read, but its window class can.
+
 What gets bound is a **language** (Chinese / English / Japanese...). Where one language has several IMEs installed — Bopomofo and Cangjie are both zh-TW — the first is used.
 
 ## Limitations
@@ -128,7 +132,7 @@ What gets bound is a **language** (Chinese / English / Japanese...). Where one l
 - The interface follows Windows' display language, choosing Traditional Chinese or English. No Simplified translation; the installer wizard is still English
 - Dark mode applies to the **title bar** only; controls stay light
 - **Do not run it as administrator.** Elevation does not make a protected process readable, and it costs a UAC prompt at every logon, `HKCU\Run` autostart no longer working, and an installer that cannot close the running copy for you — UIPI blocks `WM_CLOSE` from the unelevated installer, so setup asks you to close it by hand
-- Nothing is injected into or attached to another process to switch its language. For an anti-cheat protected game, bind by window class; if even TSF cannot reach it the utility gives up quietly rather than trying harder
+- Nothing is injected into or attached to another process to switch its language. An anti-cheat protected game is bound by window class and switched through TSF's session-level API, which touches nothing belonging to it; where that still fails the utility gives up quietly rather than trying harder
 
 ## Development
 
