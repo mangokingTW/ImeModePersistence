@@ -45,19 +45,37 @@ jobs:
 
       - name: Build x64
         run: |
-          cmake -S . -B build-x64 -A x64 -DAPP_VERSION=$env:VERSION -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          cmake -S . -B build-x64 -A x64 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
           cmake --build build-x64 --config Release
 
       - name: Build x86
         run: |
-          cmake -S . -B build-x86 -A Win32 -DAPP_VERSION=$env:VERSION -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          cmake -S . -B build-x86 -A Win32 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
           cmake --build build-x86 --config Release
+
+      - name: Check the stamped version
+        shell: pwsh
+        run: |
+          # Reads the version back out of what was actually built. A release that
+          # ships a binary reporting the wrong version is worse than a failed one,
+          # and only an end-to-end check catches the ways the number can go astray
+          # between the tag and the resource.
+          foreach ($arch in 'x64', 'x86') {
+            $exe = "build-$arch/Release/ImeModePersistence.exe"
+            $reported = (Get-Item $exe).VersionInfo.FileVersion
+            Write-Output "$arch reports $reported"
+            if ($reported -ne "$env:VERSION.0") {
+              throw "$arch reports '$reported', expected '$env:VERSION.0'"
+            }
+          }
 
       - name: Build installer
         shell: pwsh
         run: |
           choco install innosetup --no-progress -y
-          iscc /DAppVersion=$env:VERSION installer\ImeModePersistence.iss
+          # Quoted for the same reason the cmake arguments are: PowerShell leaves
+          # $env: unexpanded inside a bareword that starts with a single dash.
+          iscc "/DAppVersion=$env:VERSION" installer\ImeModePersistence.iss
 
       - name: Package portable archives
         shell: pwsh
