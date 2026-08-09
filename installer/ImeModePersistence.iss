@@ -83,9 +83,14 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
     Flags: nowait postinstall skipifsilent
 
 [Code]
-{ Inno Setup has no maintenance mode: re-running Setup normally just reinstalls
-  over the existing copy, with no way to remove. Most people expect an installer
-  they run twice to offer removal, so offer it explicitly.
+{ Inno Setup has no maintenance mode: re-running Setup reinstalls over the
+  existing copy with no way to remove, and no acknowledgement of whether the
+  copy on disk is older, the same, or newer. What Setup should do differs in all
+  three cases, so it reads the installed version and decides:
+
+    installed is older  upgrade in place, no questions asked
+    same version        offer repair or removal
+    installed is newer  warn before downgrading
 
   This key must stay in step with AppId above; Inno forms it by appending _is1. }
 const
@@ -93,42 +98,92 @@ const
     'Software\Microsoft\Windows\CurrentVersion\Uninstall\' +
     '{609AC807-6D9F-4D06-8F8D-AC65E29869D5}_is1';
 
-function ExistingUninstaller(var Command: String): Boolean;
+function InstalledCopy(var Command, Version: String): Boolean;
 begin
   Result := RegQueryStringValue(HKCU, UninstallRegKey, 'UninstallString', Command)
             and (Command <> '');
+  if Result and not RegQueryStringValue(HKCU, UninstallRegKey, 'DisplayVersion', Version) then
+    Version := '';
+end;
+
+function RemoveInstalledCopy(const Command: String): Boolean;
+var
+  ResultCode: Integer;
+begin
+  { Already confirmed by the caller, so do not make the uninstaller ask again. }
+  Result := Exec(RemoveQuotes(Command), '/SILENT /NORESTART', '',
+                 SW_SHOW, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+
+  if Result then
+    SuppressibleMsgBox('{#AppName} has been removed.', mbInformation, MB_OK, IDOK)
+  else
+    SuppressibleMsgBox('Could not remove {#AppName}. Remove it from ' +
+                       'Settings > Apps > Installed apps instead.',
+                       mbError, MB_OK, IDOK);
+end;
+
+{ Negative when the installed copy is older than this installer, positive when it
+  is newer, zero when they match. An unparseable version also compares as zero,
+  so a corrupted registry value lands on the prompt rather than silently
+  upgrading or downgrading. }
+function CompareInstalled(const Installed: String): Integer;
+var
+  Old, Current: Int64;
+begin
+  Result := 0;
+  if StrToVersion(Installed, Old) and StrToVersion('{#AppVersion}', Current) then
+    Result := ComparePackedVersion(Old, Current);
 end;
 
 function InitializeSetup(): Boolean;
 var
-  Command: String;
-  ResultCode: Integer;
+  Command, Installed: String;
+  Comparison: Integer;
 begin
   Result := True;
 
-  if not ExistingUninstaller(Command) then
+  if not InstalledCopy(Command, Installed) then
     exit;
 
+  Comparison := CompareInstalled(Installed);
+
+  { Running a newer installer *is* the update, so don't put a dialog in the way
+    of it. Inno replaces the files under the same AppId and refreshes the
+    uninstall entry's version, and UsePreviousTasks keeps the autostart choice. }
+  if Comparison < 0 then
+    exit;
+
+  if Comparison > 0 then
+  begin
+    case SuppressibleMsgBox(
+           '{#AppName} ' + Installed + ' is installed, which is newer than this ' +
+           'installer ({#AppVersion}).' + #13#10#13#10 +
+           'Yes' + #9 + '- remove the installed version' + #13#10 +
+           'No' + #9 + '- downgrade to {#AppVersion}',
+           mbConfirmation, MB_YESNOCANCEL, IDCANCEL) of
+      IDYES:
+        begin
+          RemoveInstalledCopy(Command);
+          Result := False;
+        end;
+      IDCANCEL:
+        Result := False;
+    end;
+    exit;
+  end;
+
+  { Same version, so there is nothing to update and the useful choices are
+    repairing the existing copy or removing it. }
   case SuppressibleMsgBox(
-         '{#AppName} is already installed.' + #13#10#13#10 +
-         'Yes' + #9 + '- remove it now' + #13#10 +
+         '{#AppName} {#AppVersion} is already installed and up to date.' + #13#10#13#10 +
+         'Yes' + #9 + '- remove it' + #13#10 +
          'No' + #9 + '- reinstall over the existing copy',
          mbConfirmation, MB_YESNOCANCEL, IDNO) of
     IDYES:
       begin
-        { Already confirmed once above, so do not make the uninstaller ask again. }
-        if Exec(RemoveQuotes(Command), '/SILENT /NORESTART', '',
-                SW_SHOW, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
-          SuppressibleMsgBox('{#AppName} has been removed.', mbInformation, MB_OK, IDOK)
-        else
-          SuppressibleMsgBox('Could not remove {#AppName}. Remove it from ' +
-                             'Settings > Apps > Installed apps instead.',
-                             mbError, MB_OK, IDOK);
-
-        { The user asked to remove, not to install. }
+        RemoveInstalledCopy(Command);
         Result := False;
       end;
-
     IDCANCEL:
       Result := False;
   end;
