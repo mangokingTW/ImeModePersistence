@@ -9,8 +9,6 @@ add_executable(ImeModePersistence WIN32
     src/main.cpp
     src/ime_state.cpp
     src/ime_state.h
-    src/resource.h
-    src/app.rc
 )
 
 target_compile_definitions(ImeModePersistence PRIVATE
@@ -24,7 +22,6 @@ target_compile_definitions(ImeModePersistence PRIVATE
 target_link_libraries(ImeModePersistence PRIVATE
     user32
     imm32
-    advapi32
 )
 
 if(MSVC)
