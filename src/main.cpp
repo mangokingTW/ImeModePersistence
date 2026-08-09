@@ -443,9 +443,16 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     g_app.trayIcon = load_app_icon(
         instance, GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON));
 
+    // A hidden top-level window rather than an HWND_MESSAGE one. Message-only
+    // windows are children of HWND_MESSAGE, so they are invisible to
+    // FindWindow and never receive WM_CLOSE or WM_QUERYENDSESSION. The installer
+    // needs to ask this process to exit before it can replace a running
+    // executable, and being unreachable is what forced the user to close it by
+    // hand. WS_EX_TOOLWINDOW plus never calling ShowWindow keeps it out of the
+    // taskbar and Alt-Tab, so it stays just as invisible as before.
     g_app.hwnd = CreateWindowExW(
-        0, kClassName, L"ImeModePersistence", 0,
-        0, 0, 0, 0, HWND_MESSAGE, nullptr, instance, nullptr);
+        WS_EX_TOOLWINDOW, kClassName, L"ImeModePersistence", WS_POPUP,
+        0, 0, 0, 0, nullptr, nullptr, instance, nullptr);
     if (!g_app.hwnd) {
         return 1;
     }

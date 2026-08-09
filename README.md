@@ -23,7 +23,7 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 兩者都**未經簽章**，首次執行會有 SmartScreen 警告，選「更多資訊 > 仍要執行」，或先用 `SHA256SUMS.txt` 核對。
 
-**更新**：直接執行新版安裝檔，它會就地升級，保留安裝位置與開機啟動設定。
+**更新**：直接執行新版安裝檔，它會就地升級，保留安裝位置與開機啟動設定。執行中的程式會被自動關閉並在安裝後自動重啟，不需要你手動處理。
 **卸除**：設定 > 應用程式，或開始功能表的 Uninstall 捷徑，或重跑同版本安裝檔。安裝目錄與開機啟動的登錄值都會清掉。
 
 ## 使用
@@ -62,7 +62,7 @@ cmake --build build --config Release
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.4.1 installer\ImeModePersistence.iss
 ```
 
 圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7：`./tools/make_icon.sh`
@@ -111,7 +111,7 @@ From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 
 Both are **unsigned**, so SmartScreen warns on first run — choose *More info > Run anyway*, or verify against `SHA256SUMS.txt` first.
 
-**Updating**: run the newer installer. It upgrades in place, keeping the install directory and the autostart choice.
+**Updating**: run the newer installer. It upgrades in place, keeping the install directory and the autostart choice. A running copy is closed and restarted for you — Windows cannot replace a running executable, so stopping it is unavoidable, but doing it by hand is not.
 **Uninstalling**: Settings > Apps, the Start menu shortcut, or re-running the same version's installer. The install directory and the autostart registry value both go.
 
 ## Using it
@@ -150,7 +150,7 @@ The installer needs both architectures built, then [Inno Setup](https://jrsoftwa
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.4.1 installer\ImeModePersistence.iss
 ```
 
 Regenerating the icon needs [ImageMagick](https://imagemagick.org) 7: `./tools/make_icon.sh`
