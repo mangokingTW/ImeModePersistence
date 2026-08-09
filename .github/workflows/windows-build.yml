@@ -98,8 +98,15 @@ jobs:
           choco install innosetup --no-progress -y
           # Both variants: one source, compiled twice. A syntax error inside a
           # /DUserInstall branch is invisible unless that branch is compiled.
+          #
+          # Each call is checked individually. PowerShell steps only propagate
+          # the LAST command's exit code, so a failure in the first compile was
+          # masked by the second succeeding -- which is how a broken admin
+          # installer passed CI and v0.9.4 released without one.
           iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+          if ($LASTEXITCODE -ne 0) { throw "admin installer failed to compile" }
           iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
+          if ($LASTEXITCODE -ne 0) { throw "user installer failed to compile" }
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
