@@ -36,6 +36,11 @@ VersionInfoVersion={#AppVersion}
 ; register the scheduled task that starts it elevated at logon -- and, usefully,
 ; only an elevated Setup can close an elevated copy when updating.
 PrivilegesRequired=admin
+; ...but the user decides. The dialog offers "for all users" (elevates, and can
+; register the elevated logon task) or "for me only" (no elevation at all), and
+; {autopf} follows the choice. Forcing admin would lock out anyone who only cares
+; about ordinary applications and does not want elevation anywhere.
+PrivilegesRequiredOverridesAllowed=dialog
 DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
@@ -60,19 +65,13 @@ SetupIconFile=..\assets\ImeModePersistence.ico
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Tasks]
-; A scheduled task is the only way to start elevated at logon without a UAC
-; prompt every time, so it is the default. The registry entry cannot start an
-; elevated program at all, which is why it is offered as the alternative rather
-; than the main route.
-Name: "logontask"; Description: "{cm:TaskLogonElevated}"; \
-    GroupDescription: "{cm:TaskGroup}"
-Name: "logonreg"; Description: "{cm:TaskLogonPlain}"; \
-    GroupDescription: "{cm:TaskGroup}"; Flags: unchecked
+; One choice, not two: whether autostart is elevated follows the install mode the
+; user already picked, so offering both mechanisms would ask the same question
+; twice and allow the contradictory answer of both at once.
+Name: "logon"; Description: "{cm:TaskLogon}"
 
 [CustomMessages]
-TaskGroup=Start automatically:
-TaskLogonElevated=At logon, as administrator (recommended)
-TaskLogonPlain=At logon, with normal privileges (cannot control elevated programs)
+TaskLogon=Start automatically at logon
 TaskCreating=Registering the logon task...
 
 [Files]
@@ -92,7 +91,7 @@ Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 ; whether autostart is on.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"""; \
-    Tasks: logonreg; Flags: uninsdeletevalue
+    Tasks: logon; Check: not IsAdminInstallMode; Flags: uninsdeletevalue
 
 ; Always clean up on uninstall, including an entry the user enabled from the tray
 ; menu rather than through this installer. ValueType none plus dontcreatekey
@@ -102,10 +101,12 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     Flags: dontcreatekey uninsdeletevalue
 
 [Run]
-; /RL HIGHEST is what makes it elevated, /IT keeps it interactive so the tray icon
-; appears, and /RU ties it to the installing user rather than every account.
+; Only in an elevated install: the Run key cannot start an elevated program at all,
+; and a task with highest privileges is the only way to do it without a UAC prompt
+; every logon. /IT keeps it interactive so the tray icon appears, and /RU ties it to
+; the installing user rather than every account.
 ; Quoted twice: schtasks parses /TR as a command line of its own.
-Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""{#AppName}"" /SC ONLOGON /RL HIGHEST /IT /RU ""{code:CurrentUser}"" /TR ""\""{app}\{#AppExeName}\"""""; Flags: runhidden; Tasks: logontask; StatusMsg: "{cm:TaskCreating}"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""{#AppName}"" /SC ONLOGON /RL HIGHEST /IT /RU ""{code:CurrentUser}"" /TR ""\""{app}\{#AppExeName}\"""""; Flags: runhidden; Tasks: logon; Check: IsAdminInstallMode; StatusMsg: "{cm:TaskCreating}"
 
 ; It was running when Setup started, so put it back without asking.
 Filename: "{app}\{#AppExeName}"; Flags: nowait; Check: WasRunning

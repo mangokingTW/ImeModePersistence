@@ -15,6 +15,7 @@ struct Strings {
 
     const wchar_t* menuPersist;
     const wchar_t* menuAutostart;
+    const wchar_t* menuElevate;
     const wchar_t* menuRules;
     const wchar_t* menuExit;
 

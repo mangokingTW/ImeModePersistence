@@ -9,6 +9,7 @@ const Strings kEnglish{
 
     .menuPersist = L"Keep mode across windows",
     .menuAutostart = L"Start with Windows (normal privileges)",
+    .menuElevate = L"Restart as administrator",
     .menuRules = L"App language bindings...",
     .menuExit = L"Exit",
 
@@ -80,6 +81,7 @@ const Strings kTraditionalChinese{
 
     .menuPersist = L"跨程式維持輸入模式",
     .menuAutostart = L"開機時自動啟動（一般權限）",
+    .menuElevate = L"以管理員身分重新啟動",
     .menuRules = L"程式綁定輸入語言...",
     .menuExit = L"結束",
 

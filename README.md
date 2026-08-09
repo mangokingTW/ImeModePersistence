@@ -16,7 +16,9 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載 **`...-setup.exe`** 或 **`...-x64.zip`** / **`-x86.zip`**（解壓即用）。
 
-安裝檔需要管理員權限，並預設建立一個**登入時以最高權限執行**的排程工作。原因是 Windows 不讓權限較低的程式讀取權限較高的程式的視窗，而有反作弊的遊戲都是提權執行 —— 不提權就完全看不到它們。安裝時可改選一般權限的開機啟動。
+安裝時可以選擇**為所有使用者安裝**（提權）或**只為我安裝**（完全不提權）。建議前者：Windows 不讓權限較低的程式讀取權限較高的程式的視窗，而有反作弊的遊戲都是提權執行 —— 不提權就完全看不到它們。
+
+勾選「開機時自動啟動」後，提權安裝會建立**登入時以最高權限執行**的排程工作（不會每次彈 UAC），一般安裝則寫一般權限的登錄項目。之後想改主意，可以從托盤選單**以管理員身分重新啟動**。
 
 兩者都**未經簽章**，首次執行會有 SmartScreen 警告，選「更多資訊 → 仍要執行」，或先用 `SHA256SUMS.txt` 核對。
 
@@ -107,7 +109,9 @@ Confirmed working with **Microsoft Bopomofo** on real hardware. This is not a "f
 
 From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases), take **`...-setup.exe`** or **`...-x64.zip`** / **`-x86.zip`** (unzip and run).
 
-Setup requires administrator rights and by default registers a scheduled task that runs **at logon with highest privileges**. Windows does not let a lower-privileged program read a higher-privileged one's windows, and anti-cheat protected games are elevated — without it they cannot be seen at all. Setup offers normal-privilege autostart as the alternative.
+Setup asks whether to install **for all users** (elevated) or **for me only** (no elevation anywhere). The first is recommended: Windows does not let a lower-privileged program read a higher-privileged one's windows, and anti-cheat protected games are elevated — without it they cannot be seen at all.
+
+With autostart ticked, an elevated install registers a scheduled task running **at logon with highest privileges** (no UAC prompt each time); an unelevated install writes a normal-privilege registry entry instead. To change your mind later, use **Restart as administrator** in the tray menu.
 
 Both are **unsigned**, so SmartScreen warns on first run — choose *More info → Run anyway*, or verify against `SHA256SUMS.txt`.
 
@@ -116,7 +120,7 @@ Both are **unsigned**, so SmartScreen warns on first run — choose *More info �
 
 ## Using it
 
-It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start with Windows (normal privileges)**, **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
+It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start with Windows (normal privileges)**, **Restart as administrator** (shown only when not elevated), **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
 
 #### Turning off global persistence
 

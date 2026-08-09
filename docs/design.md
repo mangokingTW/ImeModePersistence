@@ -132,7 +132,11 @@ A single-instance mutex is required once autostart is on, because two copies ove
 
 Setup needs the same rights to register the logon task, and gets one thing for free: only an elevated Setup can close an elevated copy of the utility, so updating no longer asks the user to close it by hand.
 
-Elevated autostart is a scheduled task with highest privileges, because the Run key cannot start an elevated program at all and a task is the only way to do it without a UAC prompt at every logon. The Run key remains as the unelevated alternative, offered unchecked.
+`PrivilegesRequiredOverridesAllowed=dialog` leaves the decision with the user: install for all users and elevate, or for this user only and not elevate anywhere. Forcing admin would lock out someone who only cares about ordinary applications, and `{autopf}` follows whichever they pick.
+
+Autostart is therefore a single checkbox whose mechanism follows the install mode — a scheduled task with highest privileges when elevated, a Run entry when not. Offering both mechanisms would ask the same question twice and permit the contradictory answer of both at once. The Run key cannot start an elevated program at all, and a task is the only way to do it without a UAC prompt at every logon.
+
+Elevation cannot be added to a running process, so the tray offers **Restart as administrator**, which hands over to a fresh elevated copy. The single-instance mutex is released before the handover, since the new copy checks it while starting and would otherwise exit immediately; if the UAC prompt is declined the mutex is taken back rather than leaving the instance unguarded. The item is hidden when already elevated instead of greyed, because a disabled item invites the question of how to enable it.
 
 Inno Setup has no maintenance mode, so `InitializeSetup` reads `DisplayVersion` from the uninstall key and branches: an older installed copy is upgraded in place with no prompt, the same version offers repair or removal, and a newer one warns before downgrading. An unparseable version compares as equal, so a corrupted registry value lands on the prompt rather than silently upgrading or downgrading.
 

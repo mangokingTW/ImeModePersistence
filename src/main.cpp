@@ -28,6 +28,7 @@ constexpr UINT ID_TRAY_EXIT = 1001;
 constexpr UINT ID_TRAY_AUTOSTART = 1002;
 constexpr UINT ID_TRAY_RULES = 1003;
 constexpr UINT ID_TRAY_PERSIST = 1004;
+constexpr UINT ID_TRAY_ELEVATE = 1005;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Session-local: one instance per interactive logon session is what we want, and
@@ -104,6 +105,7 @@ struct AppState {
     // Recomposing the tooltip is only worth doing when something in it changed.
     std::wstring tooltip;
 
+    HANDLE singleInstance{};
     HICON trayIcon{};
     NOTIFYICONDATAW tray{};
 };
@@ -565,6 +567,38 @@ void CALLBACK win_event_proc(
     note_context_switch(hwnd);
 }
 
+// Elevation cannot be added to a running process, so this hands over to a fresh
+// one. Offered because the choice made at install time should not be permanent:
+// someone who installed unelevated still needs a way to reach an elevated game.
+void restart_elevated() {
+    wchar_t path[1024]{};
+    if (GetModuleFileNameW(nullptr, path, ARRAYSIZE(path)) == 0) {
+        return;
+    }
+
+    // Released first: the new copy checks this mutex while starting and would exit
+    // immediately if this one still held it.
+    if (g_app.singleInstance) {
+        CloseHandle(g_app.singleInstance);
+        g_app.singleInstance = nullptr;
+    }
+
+    SHELLEXECUTEINFOW execute{};
+    execute.cbSize = sizeof(execute);
+    execute.lpVerb = L"runas";
+    execute.lpFile = path;
+    execute.nShow = SW_SHOWNORMAL;
+
+    if (ShellExecuteExW(&execute)) {
+        DestroyWindow(g_app.hwnd);
+        return;
+    }
+
+    // Declined at the UAC prompt, so take the mutex back and carry on unelevated
+    // rather than leaving the instance unguarded.
+    g_app.singleInstance = CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
+}
+
 void show_status() {
     // Every line comes from the snapshot. Reading the live foreground here would
     // describe the shell, because opening this box is what put it in front.
@@ -623,6 +657,11 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     ID_TRAY_PERSIST,
                     text::s().menuPersist);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
+                if (!autostart::elevated()) {
+                    // Hidden rather than greyed when already elevated: a disabled
+                    // item invites the question of how to enable it.
+                    AppendMenuW(menu, MF_STRING, ID_TRAY_ELEVATE, text::s().menuElevate);
+                }
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, text::s().menuExit);
                 POINT pt{};
@@ -654,6 +693,10 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             // up whatever the user is doing now rather than something from before.
             g_app.desiredMode = ime::Mode::Unknown;
             cancel_restore();
+            return 0;
+        }
+        if (LOWORD(wParam) == ID_TRAY_ELEVATE) {
+            restart_elevated();
             return 0;
         }
         if (LOWORD(wParam) == ID_TRAY_RULES) {
@@ -705,8 +748,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     InitCommonControlsEx(&controls);
 
     // Held for the process lifetime; the OS releases it on exit.
-    const HANDLE singleInstance = CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
-    if (!singleInstance || GetLastError() == ERROR_ALREADY_EXISTS) {
+    g_app.singleInstance = CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
+    if (!g_app.singleInstance || GetLastError() == ERROR_ALREADY_EXISTS) {
         return 0;
     }
 
