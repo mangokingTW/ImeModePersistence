@@ -1,5 +1,7 @@
 #include "autostart.h"
 
+#include <wtsapi32.h>
+
 #include <string>
 
 namespace autostart {
@@ -67,7 +69,38 @@ bool run_schtasks(std::wstring arguments, DWORD& exitCode) {
     return read;
 }
 
+// One string of session information, freed before returning.
+std::wstring session_string(WTS_INFO_CLASS what) {
+    LPWSTR buffer = nullptr;
+    DWORD bytes = 0;
+    if (!WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION,
+                                     what, &buffer, &bytes) ||
+        !buffer) {
+        return {};
+    }
+
+    std::wstring result(buffer);
+    WTSFreeMemory(buffer);
+    return result;
+}
+
+// The user of the interactive session, not of this process's token. The two
+// differ exactly when it matters: elevation approved with another account's
+// credentials leaves this process running as that account, and a logon task
+// registered under it would never fire for the user who actually logs in.
+// Elevation stays inside the session, so the session's user is always the one
+// the task is for.
 std::wstring current_user() {
+    const std::wstring user = session_string(WTSUserName);
+    if (!user.empty()) {
+        // Domain-qualified so schtasks resolves the same account on a
+        // domain-joined machine. For a local account the domain is the machine
+        // name, which schtasks accepts just as well.
+        const std::wstring domain = session_string(WTSDomainName);
+        return domain.empty() ? user : domain + L"\\" + user;
+    }
+
+    // No session information (a service-like context); the token is all there is.
     wchar_t name[256]{};
     DWORD chars = ARRAYSIZE(name);
     return GetUserNameW(name, &chars) ? std::wstring(name, chars - 1) : std::wstring{};

@@ -72,7 +72,35 @@ An earlier attempt used a `restoring` boolean guard. It could never be observed 
 
 ## Best-effort writes
 
-Every write is verified by reading the state back, because an IME that is still activating can discard it. After four attempts (~930 ms) the utility adopts whatever mode the target settled on rather than fighting it. If a context only becomes readable after the attempts run out, the observer starts a fresh round.
+Every write is verified by reading the state back, because an IME that is still activating can discard it. After four attempts the utility adopts whatever mode the target settled on rather than fighting it. If a context only becomes readable after the attempts run out, the observer starts a fresh round.
+
+## Two cadences, because the two reads cost different amounts
+
+Observation is split across two timers, and the reason is the cost of the read rather than the importance of the value.
+
+Reading the **conversion mode** means `SendMessageTimeoutW` to another process's default IME window. That happens on every observer tick, so the 50 ms interval is already twenty cross-process messages a second into whatever is in front — and what is in front may be an anti-cheat-protected game. Polling it faster multiplies exactly the traffic this design has otherwise gone out of its way not to generate.
+
+Reading the **layout** costs nothing comparable: `GetKeyboardLayout` asks the window manager about a thread and sends that thread nothing. So the layout a binding enforces is polled every **15 ms** on its own timer, by a tick that deliberately re-derives nothing — no process identity, no registry lookup, no cloaked-window vetting, all of which the foreground hook and the observer have already done for the window in question. The required `HKL` is resolved once when the rule is looked up, so the fast poll is a handle comparison.
+
+**What this buys.** Pressing Win+Space in a bound application used to survive the 50 ms observer plus a 60 ms first attempt; it now survives the 15 ms poll plus a 10 ms one. A binding therefore behaves like a lock on the keyboard layout: an unwanted switch is put back in roughly a fiftieth of a second instead of a tenth, and there is no limit on how many times, because the four-attempt budget is per round and every new drift starts a new one.
+
+**Why the first delay differs by trigger.** The 60 ms wait exists because a foreground change fires *before* the new thread's IME is usable, and an attempt that lands too early is spent for nothing. Drift inside the application already in front has nothing to wait for — that thread is running and its IME is up — so its first attempt goes out as soon as `SetTimer` can deliver one. The two schedules live in `src/schedule.cpp` and are asserted in `tests/test_schedule.cpp`, because they are numbers whose safety is a relationship rather than a value.
+
+**The cooldown is part of the faster poll, not a caveat to it.** Raising the polling rate without one would mean that an application which insists on its own layout gets a fresh round of requests every 15 ms for as long as it stays in front. So a round whose layout was still refused when the budget ran out marks the target as left alone for three seconds, logged as such. Only then: a protected target's conversion mode is typically unreadable, so its rounds routinely exhaust the budget on the *mode* with the layout satisfied on the first attempt, and punishing the poll for that would disable it in exactly the scenario it exists for. A genuine context change clears the cooldown: switching away and back is the way to make a binding try again, and it is what the wiki tells the user to do.
+
+**The observer must not answer drift itself.** The 50 ms tick re-keys its state when the foreground thread's layout changes, and an in-flight drift round *is* such a change -- treating it as a context switch killed the round mid-escalation, restarted the budget, and wiped the cooldown, which both slowed the reassert back down to the old latency and re-opened the endless-fight case the cooldown closes. So a same-thread layout change in a bound window is adopted and otherwise left to the fast poll; only a change with no rule in play re-keys the observer, because there it really is the user switching layouts by hand.
+
+**Satisfaction is judged by language, not by handle.** A rule stores a LANGID, and `find_by_language` resolves it to the first matching HKL -- but a user with two layouts of one language (QWERTY and Dvorak, two IMEs of one language) satisfies the rule with either. Comparing the full HKL made the binding revert the user's pick between same-language variants every 15 ms, enforcing a distinction no rule can express.
+
+That circuit breaker is also the answer to whether this can lock the keyboard up. It cannot fight indefinitely, and every mechanism it uses is bounded: nothing intercepts keystrokes, so quitting the utility or removing the rule restores normal behaviour immediately.
+
+**Blocking reads are re-entry points.** Reading another process's IME state blocks inside `SendMessageTimeoutW`, and out-of-context WinEvent callbacks are delivered during that wait -- so a foreground change can run `note_context_switch` *inside* `restore_tick`'s read, after which the resumed code would overwrite the newer round's state with the stale window's. Every function that blocks across a read now checks afterwards whether the world it captured still exists: a generation counter bumped by each context switch, and `pendingWindow` identity for a round's own reschedules.
+
+## Why not actually lock the layout
+
+There is no per-application input-method restriction in Windows to use. The installed layout list is per-user (`HKCU\Keyboard Layout\Preload`) and activation is per-thread; no API, policy or registry value expresses "this process may use only this layout". Enforcement by reassertion is the only thing available, which is why the latency above is the whole game.
+
+Genuinely *preventing* a switch rather than undoing it would need a low-level keyboard hook swallowing Win+Space, Ctrl+Shift and Shift. Rejected: `WH_KEYBOARD_LL` is a technique anti-cheat watches for, a global hook that eats keystrokes has the same shape as a keylogger, and its failure mode is a machine that cannot switch input methods at all until the utility is killed. Reasserting in ~25 ms gets the same result for the user without any of that.
 
 ## Turning the global behaviour off
 
@@ -131,6 +159,8 @@ Two mechanisms, because the Run key can only ever start an **unelevated** copy. 
 This section originally argued for the Run key alone, on the grounds that the utility should sit at the same integrity level as ordinary applications. That reasoning was overturned by evidence: reading the windows of an elevated process requires equal privileges, and the games this exists for are elevated.
 
 A single-instance mutex is required once autostart is on, because two copies overwrite each other's restores in a loop.
+
+The account the task is registered for is the **interactive session's user**, not the process token's. The two differ under over-the-shoulder elevation -- a standard user typing an administrator's credentials leaves the elevated copy (and elevated Setup) running as the administrator, and a task registered with `/RU` that account never fires for the user who actually logs in. The utility reads the session user from WTS; the installer reads LogonUI's record of who is signed in at the console, with `{username}` as the fallback.
 
 ## Installer
 

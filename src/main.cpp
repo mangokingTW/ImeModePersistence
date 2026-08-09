@@ -17,6 +17,7 @@
 #include "rules.h"
 #include "settings.h"
 #include "strings.h"
+#include "schedule.h"
 #include "theme.h"
 #include "tsf.h"
 
@@ -25,6 +26,7 @@ namespace {
 constexpr UINT WMAPP_TRAY = WM_APP + 1;
 constexpr UINT_PTR TIMER_RESTORE = 1;
 constexpr UINT_PTR TIMER_OBSERVE = 2;
+constexpr UINT_PTR TIMER_LAYOUT = 3;
 constexpr UINT ID_TRAY_EXIT = 1001;
 constexpr UINT ID_TRAY_AUTOSTART = 1002;
 constexpr UINT ID_TRAY_RULES = 1003;
@@ -37,12 +39,17 @@ constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 // two instances would fight over restoring each other's writes.
 constexpr wchar_t kSingleInstanceMutex[] = L"Local\\ImeModePersistence.SingleInstance";
 
+// Reading the conversion mode is a cross-process SendMessage, and this tick does
+// one every time. That cost is what sets this interval: polling the mode several
+// times faster would mean several times as many messages into whatever is in
+// front, which for an anti-cheat-protected game is traffic worth not generating.
 constexpr UINT kObserveIntervalMs = 50;
 
-// A foreground change fires before the new thread's IME is usable, so the first
-// restore attempt waits, and every attempt verifies its own result.
-constexpr UINT kRestoreDelaysMs[] = {60, 120, 250, 500};
-constexpr int kMaxRestoreAttempts = static_cast<int>(ARRAYSIZE(kRestoreDelaysMs));
+// The layout, by contrast, is a local read -- GetKeyboardLayout asks the window
+// manager about a thread and sends nothing to it. So the layout a rule binds can
+// be checked far more often than the mode, and this is what decides how long an
+// unwanted switch survives before it is put back.
+constexpr UINT kLayoutPollIntervalMs = 15;
 
 // After a successful restore the IME keeps settling for a moment. Anything
 // observed inside this window is our own change echoing back, not the user.
@@ -75,6 +82,27 @@ struct AppState {
     HWND pendingWindow{};
     int restoreAttempt{};
     ULONGLONG suppressPromotionUntil{};
+
+    // What began the current round, which decides how long its waits are.
+    schedule::Trigger trigger{schedule::Trigger::FocusChange};
+
+    // The layout the active rule wants and the window it was resolved for,
+    // both settled once when the rule is looked up. The fast poll compares
+    // against these instead of re-deriving them, which is what keeps it cheap
+    // enough to run every 15 ms.
+    HKL requiredLayout{};
+    HWND ruleWindow{};
+
+    // Set when a round gave up, so a target that refuses is left alone rather
+    // than asked again on the very next poll.
+    ULONGLONG layoutCooldownUntil{};
+
+    // Bumped by every context switch. Reading another process's IME state blocks
+    // inside SendMessageTimeoutW, and an out-of-context WinEvent callback can run
+    // note_context_switch during that wait -- so any function that blocked
+    // compares this afterwards to learn whether the world it captured still
+    // exists, instead of overwriting the newer round's state with stale data.
+    unsigned contextGeneration{};
 
     // Executable of the current foreground application, and the language its rule
     // binds it to (zero when it has no rule). Kept so the rules dialog can offer
@@ -258,15 +286,15 @@ std::wstring window_identity(HWND hwnd, const std::wstring& executable) {
     return {};
 }
 
-void record_snapshot(HWND hwnd) {
+// Takes the state rather than querying it: both callers just paid for a fresh
+// cross-process read, and this runs on the 50 ms hot path.
+void record_snapshot(HWND hwnd, const ime::State& state) {
     if (!hwnd || own_window(hwnd) || shell_window(hwnd) ||
         shell_ui(g_app.observedExecutable)) {
         return;
     }
 
     const HKL current = layout::current(hwnd);
-
-    const ime::State state = ime::query_state(hwnd);
 
     g_app.snapshotApp = window_identity(hwnd, g_app.observedExecutable);
     g_app.snapshotClass = rules::window_class_of(hwnd);
@@ -338,17 +366,41 @@ void cancel_restore() {
 }
 
 void schedule_restore_attempt(HWND hwnd) {
-    if (g_app.restoreAttempt >= kMaxRestoreAttempts) {
+    if (g_app.restoreAttempt >= schedule::max_attempts()) {
         // Out of attempts. Adopt whatever the target settled on so the next
         // observation does not read the difference as a user decision.
         diag::write(L"gave up after %d attempts; adopting the target's own state",
-                    kMaxRestoreAttempts);
-        g_app.observedMode = ime::query_state(hwnd).mode;
+                    schedule::max_attempts());
+
+        if (g_app.ruleLanguage != 0 && !g_app.layoutSatisfied) {
+            // The cooldown belongs to the faster poll rather than to this budget.
+            // Without it, an application that insists on its own layout would be
+            // sent a fresh round every 15 ms for as long as it stayed in front:
+            // the argument is already lost, and continuing it only floods a
+            // target that may well be an anti-cheat-protected game.
+            //
+            // Only when the layout itself was refused. A protected target's
+            // conversion mode is typically unreadable, so its rounds routinely
+            // exhaust the budget on the mode with the layout satisfied on the
+            // first attempt -- punishing the fast poll for that would disable it
+            // in exactly the scenario it was built for.
+            g_app.layoutCooldownUntil = GetTickCount64() + schedule::cooldown_ms();
+            diag::write(L"layout: leaving this target alone for %u ms",
+                        schedule::cooldown_ms());
+        }
+
+        const ime::Mode settled = ime::query_state(hwnd).mode;
+        if (g_app.pendingWindow != hwnd) {
+            // A context switch re-keyed everything while the read above was
+            // blocked; the state now describes the new round, not this one.
+            return;
+        }
+        g_app.observedMode = settled;
         cancel_restore();
         return;
     }
 
-    const UINT delay = kRestoreDelaysMs[g_app.restoreAttempt];
+    const UINT delay = schedule::delay_for(g_app.restoreAttempt, g_app.trigger);
     ++g_app.restoreAttempt;
     g_app.pendingWindow = hwnd;
     KillTimer(g_app.hwnd, TIMER_RESTORE);
@@ -356,7 +408,7 @@ void schedule_restore_attempt(HWND hwnd) {
 }
 
 void accept_restored_state(HWND hwnd, const ime::State& state) {
-    record_snapshot(hwnd);
+    record_snapshot(hwnd, state);
     g_app.observedThread = GetWindowThreadProcessId(hwnd, nullptr);
     g_app.observedLayout = GetKeyboardLayout(g_app.observedThread);
     g_app.observedMode = state.mode;
@@ -377,6 +429,8 @@ void note_context_switch(HWND hwnd) {
         return;
     }
 
+    const unsigned generation = ++g_app.contextGeneration;
+
     g_app.observedThread = thread;
     g_app.observedLayout = GetKeyboardLayout(thread);
     g_app.contextSince = GetTickCount64();
@@ -385,12 +439,30 @@ void note_context_switch(HWND hwnd) {
     g_app.ruleLanguage =
         rules::lookup(g_app.observedExecutable, rules::window_class_of(hwnd));
 
+    // Resolved here rather than on every attempt: this is the one place the rule
+    // itself can change, and the fast poll needs an answer it can compare against
+    // without going back to the registry or enumerating layouts.
+    g_app.requiredLayout =
+        g_app.ruleLanguage != 0 ? layout::find_by_language(g_app.ruleLanguage) : nullptr;
+    g_app.ruleWindow = g_app.requiredLayout ? hwnd : nullptr;
+
+    // A genuine context change clears a cooldown: whatever was fighting belonged
+    // to the application being left, and switching away and back is the documented
+    // way to get the binding to try again.
+    g_app.layoutCooldownUntil = 0;
+    g_app.trigger = schedule::Trigger::FocusChange;
+
     // Reset per-application, so the status box describes the application in
     // front rather than whatever was tried last.
     g_app.layoutRequested = false;
     g_app.layoutSatisfied = false;
 
     const ime::State state = ime::query_state(hwnd);
+    if (g_app.contextGeneration != generation) {
+        // The read blocked and the foreground moved on; a nested call has already
+        // recorded the newer context and scheduled its round.
+        return;
+    }
     g_app.observedMode = state.mode;
 
     // write_once: this describes a situation, and the same few applications are
@@ -448,19 +520,34 @@ void restore_tick() {
     // active, so restoring the mode before the bound layout is in place would
     // write it to the layout on its way out.
     if (g_app.ruleLanguage != 0) {
+        // Re-resolved on every attempt, not read from the cache: attempts only
+        // run while something is wrong, and this is where a rule naming a layout
+        // the user has since removed gets noticed and cleanly disabled. The cache
+        // exists for the 15 ms poll, so it is refreshed here rather than trusted.
         HKL required = layout::find_by_language(g_app.ruleLanguage);
+        g_app.requiredLayout = required;
         if (!required) {
             // The rule names a layout that is no longer installed. Nothing to
             // enforce, and retrying cannot help.
             diag::write(L"layout: rule names language 0x%04X, which is not installed",
                         g_app.ruleLanguage);
             g_app.ruleLanguage = 0;
-        } else if (layout::current(hwnd) == required) {
+            g_app.ruleWindow = nullptr;
+        } else if (layout::language_of(layout::current(hwnd)) == g_app.ruleLanguage) {
+            // Compared by language, not by HKL. The rule stores a LANGID, so any
+            // layout of that language satisfies it -- a user who switches from
+            // QWERTY to Dvorak inside a bound application has not left English,
+            // and reverting that choice would be enforcing something no rule says.
             if (g_app.layoutRequested && !g_app.layoutSatisfied) {
                 diag::write(L"layout: satisfied via %s",
                             layout::method_name(g_app.layoutMethod));
             }
             g_app.layoutSatisfied = true;
+
+            // Adopt what is actually active (not the HKL we asked for -- a
+            // same-language variant also satisfies), so the next observe_tick does
+            // not read our own success as a layout change and start over.
+            g_app.observedLayout = layout::current(hwnd);
         } else {
             // Each attempt escalates, because no one mechanism reaches every
             // application. The order itself lives in layout::method_for_attempt so
@@ -481,6 +568,12 @@ void restore_tick() {
                         layout::method_name(g_app.layoutMethod),
                         issued ? L"issued" : L"refused");
 
+            if (g_app.pendingWindow != hwnd) {
+                // The TSF path can pump messages; if a context switch re-keyed the
+                // round meanwhile, the newer round owns the timer.
+                return;
+            }
+
             // Every mechanism is asynchronous or unverifiable, so come back and
             // read the layout rather than assuming anything.
             schedule_restore_attempt(hwnd);
@@ -494,6 +587,11 @@ void restore_tick() {
     }
 
     const ime::State before = ime::query_state(hwnd);
+    if (g_app.pendingWindow != hwnd) {
+        // The cross-process read blocked long enough for a foreground change to
+        // re-key the round; scheduling from here would clobber the new one.
+        return;
+    }
     if (!before.valid) {
         // The IME/TSF context is not activated yet, or the active layout is not
         // an IME at all. Either way there is nothing to write.
@@ -510,6 +608,9 @@ void restore_tick() {
     // Verify instead of trusting the write: an IME that is still activating can
     // overwrite our change with the state Windows had saved for this thread.
     const ime::State after = ime::query_state(hwnd);
+    if (g_app.pendingWindow != hwnd) {
+        return;
+    }
     diag::write(L"mode: wanted %s, was %s, now %s",
                 ime::mode_name(desired), ime::mode_name(before.mode),
                 ime::mode_name(after.mode));
@@ -518,6 +619,60 @@ void restore_tick() {
         return;
     }
 
+    schedule_restore_attempt(hwnd);
+}
+
+// The layout half of the observation, run far more often than the rest.
+//
+// It exists because the two things being watched cost different amounts. Reading
+// the conversion mode means a cross-process SendMessage; reading the layout does
+// not. So this checks only the layout, only for the window a rule was already
+// resolved for, and deliberately re-derives nothing -- no process identity, no
+// registry lookup, no window vetting, all of which observe_tick and the foreground
+// hook have already done for this window. That is what makes 15 ms affordable.
+//
+// The effect is on how long an unwanted switch lasts: pressing Win+Space in a
+// bound application used to survive the 50 ms observer plus a 60 ms first attempt,
+// and now survives this poll plus a 10 ms one.
+void layout_tick() {
+    if (g_app.ruleLanguage == 0 || !g_app.requiredLayout || !g_app.ruleWindow) {
+        return;
+    }
+
+    // A round is already in flight. It has its own timer, its own escalation and
+    // its own budget, and starting a second would reset all three.
+    if (g_app.pendingWindow) {
+        return;
+    }
+
+    if (GetTickCount64() < g_app.layoutCooldownUntil) {
+        return;
+    }
+
+    // Only the window the rule was resolved for. Anything else is a context
+    // change, which the foreground hook and observe_tick own.
+    const HWND hwnd = GetForegroundWindow();
+    if (hwnd != g_app.ruleWindow) {
+        return;
+    }
+
+    // By language, not by HKL: the rule stores a LANGID, so a same-language
+    // variant (Dvorak against a QWERTY-resolved rule, a second IME of the same
+    // language) already satisfies it, and reverting the user's pick between them
+    // would enforce a distinction no rule can express.
+    const HKL actual = layout::current(hwnd);
+    if (layout::language_of(actual) == g_app.ruleLanguage) {
+        return;
+    }
+
+    // An event rather than a situation, so not deduplicated: how often a binding
+    // has to be reasserted is exactly what a report needs to show.
+    diag::write(L"layout: drifted to %s, reasserting %s",
+                layout::describe(layout::language_of(actual)).c_str(),
+                layout::describe(g_app.ruleLanguage).c_str());
+
+    g_app.trigger = schedule::Trigger::LayoutDrift;
+    g_app.restoreAttempt = 0;
     schedule_restore_attempt(hwnd);
 }
 
@@ -534,21 +689,55 @@ void observe_tick() {
         return;
     }
 
-    if (thread != g_app.observedThread || GetKeyboardLayout(thread) != g_app.observedLayout) {
-        // Also covers a layout switch inside the same thread, which is a system
-        // event rather than the user picking a conversion mode.
+    if (thread != g_app.observedThread) {
         note_context_switch(hwnd);
         return;
     }
 
+    const HKL layoutNow = GetKeyboardLayout(thread);
+    if (layoutNow != g_app.observedLayout) {
+        // A layout change inside the same thread. In a bound window this is
+        // drift, and drift belongs to layout_tick -- it has the 15 ms timer, the
+        // in-flight round and the cooldown. Treating it as a context switch here
+        // used to kill the round mid-escalation, restart the budget and wipe the
+        // cooldown, so the observer defeated the machinery built for exactly this
+        // case. Adopt the layout so this branch does not re-fire, and leave the
+        // response to the fast poll.
+        if (hwnd == g_app.ruleWindow && g_app.ruleLanguage != 0) {
+            g_app.observedLayout = layoutNow;
+
+            // The conversion mode lives on (thread, layout), so whatever was
+            // observed on the old layout describes nothing now.
+            g_app.observedMode = ime::Mode::Unknown;
+            g_app.contextSince = GetTickCount64();
+            return;
+        }
+
+        // Without a rule it is a system event -- the user switching layouts by
+        // hand -- and re-keying is the correct response.
+        note_context_switch(hwnd);
+        return;
+    }
+
+    const unsigned generation = g_app.contextGeneration;
     const ime::State state = ime::query_state(hwnd);
+    if (g_app.contextGeneration != generation) {
+        // The read blocked across a context switch; everything below would mix
+        // the old window's identity with the new one's state.
+        return;
+    }
+
+    // Recorded before the validity check, not after: a window bound to a non-IME
+    // layout (English -- the headline use of bindings) never has a valid IME
+    // state, and gating the snapshot on validity froze the tooltip and status box
+    // on the previous IME-capable application for exactly those windows.
+    record_snapshot(hwnd, state);
+    update_tooltip(hwnd);
+
     if (!state.valid) {
         g_app.observedMode = ime::Mode::Unknown;
         return;
     }
-
-    record_snapshot(hwnd);
-    update_tooltip(hwnd);
 
     const ULONGLONG now = GetTickCount64();
     const bool settling = now < g_app.suppressPromotionUntil ||
@@ -560,7 +749,12 @@ void observe_tick() {
         g_app.desiredMode != ime::Mode::Unknown &&
         state.mode != g_app.desiredMode) {
         // The context became readable only after the restore attempts ran out,
-        // so start a fresh round now that there is something to write to.
+        // so start a fresh round now that there is something to write to. This is
+        // a mode restore against an IME that only just became readable, so it
+        // gets the focus-change schedule: a stale LayoutDrift trigger from an
+        // earlier round would fire the first write at 10 ms into an IME still
+        // settling, spending an attempt for nothing.
+        g_app.trigger = schedule::Trigger::FocusChange;
         g_app.observedMode = state.mode;
         g_app.restoreAttempt = 0;
         schedule_restore_attempt(hwnd);
@@ -677,6 +871,8 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             restore_tick();
         } else if (wParam == TIMER_OBSERVE) {
             observe_tick();
+        } else if (wParam == TIMER_LAYOUT) {
+            layout_tick();
         }
         return 0;
 
@@ -774,6 +970,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_DESTROY:
         KillTimer(hwnd, TIMER_RESTORE);
         KillTimer(hwnd, TIMER_OBSERVE);
+        KillTimer(hwnd, TIMER_LAYOUT);
         if (g_app.foregroundHook) {
             UnhookWinEvent(g_app.foregroundHook);
             g_app.foregroundHook = nullptr;
@@ -796,11 +993,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     g_app.persistMode = settings::persist_mode();
 
     diag::initialise();
-    diag::write(L"---- started, version %hs, %s, autostart %s, persist mode %s",
+    diag::write(L"---- started, version %hs, %s, autostart %s, persist mode %s, "
+                L"layout poll %u ms",
                 APP_VERSION_STRING,
                 autostart::elevated() ? L"elevated" : L"not elevated",
                 autostart_label(),
-                g_app.persistMode ? L"on" : L"off");
+                g_app.persistMode ? L"on" : L"off",
+                kLayoutPollIntervalMs);
 
     if (!tsf::initialise()) {
         // Not fatal, but it removes the one mechanism that reaches a protected
@@ -866,6 +1065,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // Polling is intentional: it is what lets us tell a mode change made while
     // the same window stays focused apart from one caused by switching windows.
     SetTimer(g_app.hwnd, TIMER_OBSERVE, kObserveIntervalMs, nullptr);
+
+    // Separate from the observer because it is cheap enough to run far more often:
+    // it reads a layout and nothing else. See layout_tick.
+    SetTimer(g_app.hwnd, TIMER_LAYOUT, kLayoutPollIntervalMs, nullptr);
     set_tray_icon(true);
 
     MSG msg{};

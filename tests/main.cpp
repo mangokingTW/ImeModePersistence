@@ -4,6 +4,7 @@
 #include <cstring>
 
 void run_layout_tests();
+void run_schedule_tests();
 void run_rules_tests();
 void run_diagnostic_tests();
 void run_window_identity_tests();
@@ -21,6 +22,7 @@ struct Suite {
 // on its own.
 constexpr Suite kSuites[] = {
     {"layout", run_layout_tests},
+    {"schedule", run_schedule_tests},
     {"rules", run_rules_tests},
     {"diagnostic", run_diagnostic_tests},
     {"window-identity", run_window_identity_tests},
