@@ -109,6 +109,23 @@ The source artwork carries three elements inside a double border, which turns to
 
 Background removal floods inward from a corner rather than matching a colour, because the glyphs are white and the canvas was near-white; matching on colour would punch holes in the artwork.
 
+## Appearance
+
+Three things that all hang off one file. `assets/ImeModePersistence.manifest` is embedded as an `RT_MANIFEST` resource and supplies:
+
+- the **ComCtl32 version 6** dependency, without which the dialog renders with Windows 95 era controls regardless of anything done in code;
+- **Per-Monitor V2** DPI awareness, which brings automatic non-client scaling, dialog scaling and control scaling, so no `WM_DPICHANGED` handling is needed here;
+- `asInvoker`, restating in the manifest that this never elevates;
+- the Windows 10/11 `supportedOS` GUID, which stops the shell applying compatibility shims meant for older applications.
+
+The linker is told `/MANIFEST:NO`. MSVC generates a manifest by default, two would collide, and the generated one would win — silently taking visual styles and DPI awareness with it.
+
+`InitCommonControlsEx` loads the DLL and registers the classes; the manifest is what selects the version.
+
+**Dark mode is the title bar only.** `DwmSetWindowAttribute` with `DWMWA_USE_IMMERSIVE_DARK_MODE` is documented and stable — the attribute settled on 20 in Windows 10 20H1 and was 19 in builds 18985-19041, so both are tried and a failure is harmless. Making the controls dark as well needs undocumented uxtheme ordinals (`SetPreferredAppMode` and friends), a dependency that can break on any Windows update; not worth it for a dialog this size. Dark state is read from `AppsUseLightTheme` in the registry because the documented alternative is WinRT, for one DWORD. `WM_SETTINGCHANGE` with `ImmersiveColorSet` re-applies it, so a light/dark switch while the dialog is open is followed rather than stale until reopened.
+
+The status and error boxes are task dialogs rather than message boxes. Besides carrying the visual style, `TaskDialog` centres on the *screen* while `MessageBox` centres on its *owner* — and this owner is a hidden zero-sized window at the top-left corner. Both fall back to `MessageBox` if the call fails.
+
 ## Language
 
 User-visible text lives in `src/strings.cpp` as one struct per language, chosen once from `GetUserDefaultUILanguage`. The UI language rather than the locale: someone running English Windows in a Taiwanese locale is reading English menus everywhere else.
