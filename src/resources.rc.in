@@ -2,6 +2,7 @@
 // build directory. Paths are absolute because the generated file lives in the
 // build tree, while the icon and header live in the source tree.
 
+#include <windows.h>
 #include <winver.h>
 
 #include "@CMAKE_CURRENT_SOURCE_DIR@/src/resource.h"
@@ -10,6 +11,26 @@
 // so Windows picks a legible one for the notification area; see
 // tools/make_icon.sh.
 IDI_APPICON ICON "@CMAKE_CURRENT_SOURCE_DIR@/assets/ImeModePersistence.ico"
+
+IDD_RULES DIALOGEX 0, 0, 320, 208
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "ImeModePersistence - application rules"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    LTEXT           "Applications bound to a keyboard layout:", IDC_STATIC, 8, 8, 200, 8
+    LISTBOX         IDC_RULE_LIST, 8, 20, 304, 104,
+                    LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Executable:", IDC_STATIC, 8, 134, 40, 8
+    EDITTEXT        IDC_EXECUTABLE, 50, 132, 88, 12, ES_AUTOHSCROLL
+    LTEXT           "Layout:", IDC_STATIC, 146, 134, 28, 8
+    COMBOBOX        IDC_LAYOUT, 176, 132, 136, 100,
+                    CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "Use &last app", IDC_USE_LAST, 8, 150, 60, 14
+    PUSHBUTTON      "&Add / update", IDC_ADD, 72, 150, 60, 14
+    PUSHBUTTON      "&Remove selected", IDC_REMOVE, 136, 150, 70, 14
+    LTEXT           "", IDC_HINT, 8, 172, 304, 16
+    DEFPUSHBUTTON   "Close", IDOK, 256, 188, 56, 14
+END
 
 VS_VERSION_INFO VERSIONINFO
     FILEVERSION @APP_VERSION_MAJOR@,@APP_VERSION_MINOR@,@APP_VERSION_PATCH@,0

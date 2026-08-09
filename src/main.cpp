@@ -4,9 +4,14 @@
 #include <shellapi.h>
 #include <strsafe.h>
 
+#include <string>
+
 #include "autostart.h"
+#include "config_dialog.h"
 #include "ime_state.h"
+#include "layout.h"
 #include "resource.h"
+#include "rules.h"
 
 namespace {
 
@@ -15,6 +20,7 @@ constexpr UINT_PTR TIMER_RESTORE = 1;
 constexpr UINT_PTR TIMER_OBSERVE = 2;
 constexpr UINT ID_TRAY_EXIT = 1001;
 constexpr UINT ID_TRAY_AUTOSTART = 1002;
+constexpr UINT ID_TRAY_RULES = 1003;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Session-local: one instance per interactive logon session is what we want, and
@@ -57,6 +63,14 @@ struct AppState {
     int restoreAttempt{};
     ULONGLONG suppressPromotionUntil{};
 
+    // Executable of the current foreground application, and the language its rule
+    // binds it to (zero when it has no rule). Kept so the rules dialog can offer
+    // the last application the user was actually working in: once the dialog is
+    // open, the foreground window belongs to us.
+    std::wstring observedExecutable;
+    std::wstring lastApplication;
+    LANGID ruleLanguage{};
+
     HICON trayIcon{};
     NOTIFYICONDATAW tray{};
 };
@@ -65,6 +79,15 @@ AppState g_app;
 
 void show_error(const wchar_t* text) {
     MessageBoxW(g_app.hwnd, text, L"ImeModePersistence", MB_ICONERROR | MB_OK);
+}
+
+// Our own windows must never be treated as a target. Checking the message-only
+// window by handle is not enough now that the rules dialog exists: it is a
+// different window in the same process, and it takes the foreground when open.
+bool own_window(HWND hwnd) {
+    DWORD pid = 0;
+    GetWindowThreadProcessId(hwnd, &pid);
+    return pid == GetCurrentProcessId();
 }
 
 // LoadImageW picks the image of the requested size out of the .ico rather than
@@ -128,7 +151,7 @@ void accept_restored_state(HWND hwnd, const ime::State& state) {
 // Records that the input context changed, without ever inferring a new desired
 // mode from the window being switched to.
 void note_context_switch(HWND hwnd) {
-    if (!hwnd || hwnd == g_app.hwnd) {
+    if (!hwnd || own_window(hwnd)) {
         return;
     }
 
@@ -141,8 +164,21 @@ void note_context_switch(HWND hwnd) {
     g_app.observedLayout = GetKeyboardLayout(thread);
     g_app.contextSince = GetTickCount64();
 
+    g_app.observedExecutable = rules::executable_of(hwnd);
+    g_app.ruleLanguage = rules::lookup(g_app.observedExecutable);
+    if (!g_app.observedExecutable.empty()) {
+        g_app.lastApplication = g_app.observedExecutable;
+    }
+
     const ime::State state = ime::query_state(hwnd);
     g_app.observedMode = state.mode;
+
+    if (g_app.ruleLanguage != 0) {
+        // A rule needs enforcing even when there is no mode to restore yet.
+        g_app.restoreAttempt = 0;
+        schedule_restore_attempt(hwnd);
+        return;
+    }
 
     if (g_app.desiredMode == ime::Mode::Unknown) {
         // Nothing to restore yet: seed the desired mode from the first context
@@ -161,13 +197,37 @@ void restore_tick() {
 
     const HWND hwnd = g_app.pendingWindow;
     const ime::Mode desired = g_app.desiredMode;
-    if (!hwnd || !IsWindow(hwnd) || desired == ime::Mode::Unknown) {
+    if (!hwnd || !IsWindow(hwnd)) {
         cancel_restore();
         return;
     }
     if (hwnd != GetForegroundWindow()) {
         // Focus moved on while we were waiting; the switch to the new window
         // schedules its own restore.
+        cancel_restore();
+        return;
+    }
+
+    // The layout comes first: the conversion mode belongs to whichever layout is
+    // active, so restoring the mode before the bound layout is in place would
+    // write it to the layout on its way out.
+    if (g_app.ruleLanguage != 0) {
+        HKL required = layout::find_by_language(g_app.ruleLanguage);
+        if (!required) {
+            // The rule names a layout that is no longer installed. Nothing to
+            // enforce, and retrying cannot help.
+            g_app.ruleLanguage = 0;
+        } else if (layout::current(hwnd) != required) {
+            layout::request(hwnd, required);
+            // WM_INPUTLANGCHANGEREQUEST is posted, so the switch lands on the
+            // target's message loop later. Come back and check rather than
+            // assuming it worked.
+            schedule_restore_attempt(hwnd);
+            return;
+        }
+    }
+
+    if (desired == ime::Mode::Unknown) {
         cancel_restore();
         return;
     }
@@ -199,7 +259,9 @@ void restore_tick() {
 
 void observe_tick() {
     const HWND hwnd = GetForegroundWindow();
-    if (!hwnd || hwnd == g_app.hwnd) {
+    if (!hwnd || own_window(hwnd)) {
+        // Leaves the last real application's context in place, so opening the
+        // rules dialog does not look like a context switch.
         return;
     }
 
@@ -269,14 +331,21 @@ void show_status() {
     const HWND foreground = GetForegroundWindow();
     const ime::State state = ime::query_state(foreground);
 
-    wchar_t text[256]{};
+    wchar_t text[512]{};
     StringCchPrintfW(
         text,
         ARRAYSIZE(text),
-        L"Desired mode: %s\nForeground mode: %s\nIME reachable: %s",
+        L"Desired mode: %s\n"
+        L"Foreground mode: %s\n"
+        L"IME reachable: %s\n"
+        L"Application: %s\n"
+        L"Bound layout: %s",
         ime::mode_name(g_app.desiredMode),
         ime::mode_name(state.mode),
-        state.valid ? L"yes" : L"no");
+        state.valid ? L"yes" : L"no",
+        g_app.observedExecutable.empty() ? L"(unknown)" : g_app.observedExecutable.c_str(),
+        g_app.ruleLanguage == 0 ? L"(no rule)"
+                                : layout::describe(g_app.ruleLanguage).c_str());
     MessageBoxW(g_app.hwnd, text, L"IME Mode Persistence", MB_OK | MB_ICONINFORMATION);
 }
 
@@ -301,6 +370,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     MF_STRING | (autostart::is_enabled() ? MF_CHECKED : MF_UNCHECKED),
                     ID_TRAY_AUTOSTART,
                     L"Start with Windows");
+                AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, L"Application rules...");
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, L"Exit");
                 POINT pt{};
@@ -321,6 +391,18 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (!autostart::set_enabled(!autostart::is_enabled())) {
                 show_error(L"Could not update the Run registry entry.");
             }
+            return 0;
+        }
+        if (LOWORD(wParam) == ID_TRAY_RULES) {
+            config::show_rules(
+                reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd, GWLP_HINSTANCE)),
+                hwnd,
+                g_app.lastApplication);
+
+            // Rules may have changed, so re-evaluate the application that is in
+            // the foreground once the dialog closes.
+            g_app.observedThread = 0;
+            g_app.observedLayout = nullptr;
             return 0;
         }
         break;

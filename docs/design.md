@@ -65,6 +65,20 @@ An earlier attempt used a `restoring` boolean guard. It could never be observed 
 
 Every write is verified by reading the state back, because an IME that is still activating can discard it. After four attempts (~930 ms) the utility adopts whatever mode the target settled on rather than fighting it. If a context only becomes readable after the attempts run out, the observer starts a fresh round.
 
+## Per-application layout rules
+
+Binding a layout is a different operation from setting a conversion mode. The mode lives on whichever layout a thread already has active; a rule replaces the layout itself, which is how Bopomofo, a US keyboard and a Japanese IME become distinct targets rather than shades of one.
+
+**Rules store a LANGID, not an HKL.** The high word of an `HKL` is a runtime device handle that differs between logon sessions, so a persisted `HKL` would be meaningless on the next boot. The low word is the language identifier and is stable, so rules store that and resolve it against `GetKeyboardLayoutList` at the moment of use. The cost is that a rule binds a *language*: where one language has several IMEs installed, the first installed one wins and a specific IME cannot be singled out. Doing better needs `ITfInputProcessorProfileMgr::ActivateProfile` with a profile GUID.
+
+**Applications are identified by executable file name**, not full path or window class. A path breaks when the application is moved or updated, and a window class is neither stable nor discoverable by the person writing the rule. `QueryFullProcessImageNameW` with `PROCESS_QUERY_LIMITED_INFORMATION` reads the name — the limited right is deliberate, being the only one granted across integrity levels.
+
+**The layout is enforced before the mode.** Writing the mode first would write it to the layout that is on its way out.
+
+**`WM_INPUTLANGCHANGEREQUEST` is posted, not sent**, so the switch lands on the target's message loop later and there is no meaningful return value. The existing retry-and-verify loop covers it: each attempt re-reads the layout, and after four attempts the utility stops trying. A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
+
+The rules dialog receives the last foreground application from the caller instead of asking the system. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
+
 ## Autostart
 
 Not a Windows service: a service runs in session 0 with no interactive desktop, so `GetForegroundWindow` would never see the user's windows and `WM_IME_CONTROL` would never reach their threads. This has to live in the interactive session.

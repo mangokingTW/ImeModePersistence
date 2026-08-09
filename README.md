@@ -10,7 +10,7 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 在 A 視窗用中文輸入 → 切到 B 視窗，中文模式被還原。你在 B 視窗按 Shift 改成英數 → 切到 C 視窗，還原的是英數。全域的目標模式跟著你最近一次的手動切換走。
 
-這**不是**「強制中文」或「強制日文」的工具。
+預設行為**不是**「強制中文」或「強制日文」—— 全域延續才是預設。若你要某個程式永遠用固定的鍵盤配置，可以另外加規則覆寫（見下方**程式規則**）。
 
 已在實機上與**微軟注音**確認可用。
 
@@ -35,6 +35,16 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 每個登入工作階段只會有一份執行中。
 
+## 程式規則
+
+托盤右鍵 → **Application rules...** 可以把指定的程式綁定到固定的鍵盤配置，例如 `wt.exe` 綁美式鍵盤、`word.exe` 綁微軟注音。切到該程式時會自動切換配置。
+
+- 程式以**執行檔名稱**辨識（`notepad.exe`），不是完整路徑 —— 路徑會因為搬移或更新而失效
+- **Use last app** 會填入你切過來之前那個程式的檔名，不必自己查
+- 規則存在 `HKCU\Software\ImeModePersistence\Rules`
+
+規則綁定的是**語言**（注音 / 美式 / 日文…）。同一個語言裝了多個輸入法時（例如注音與倉頡都是 zh-TW），會用第一個已安裝的，無法細分到特定輸入法。
+
 ## 限制
 
 寫入都是 best-effort 並會讀回驗證；IME 仍在啟動中時可能丟棄變更，重試四次（約 930 ms）後就接受目標視窗的狀態，不再強求。
@@ -52,7 +62,7 @@ cmake --build build --config Release
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.3.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.4.0 installer\ImeModePersistence.iss
 ```
 
 圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7：`./tools/make_icon.sh`
@@ -75,8 +85,8 @@ iscc /DAppVersion=0.3.0 installer\ImeModePersistence.iss
 - [x] 區分使用者操作與系統事件
 - [x] 開機自動啟動
 - [x] Windows CI、安裝檔與發佈流程
-- [ ] 設定介面
-- [ ] 指定程式綁定鍵盤配置
+- [x] 設定介面
+- [x] 指定程式綁定鍵盤配置
 
 ---
 
@@ -88,7 +98,7 @@ Windows utility that keeps the **last input mode you chose** when you switch win
 
 Type Chinese in window A → switch to window B, Chinese is restored. Press Shift in B to go alphanumeric → switch to window C, alphanumeric is restored. The global desired mode follows your most recent deliberate change.
 
-This is intentionally **not** a "force Chinese" or "force Japanese" tool.
+By default this is **not** a "force Chinese" or "force Japanese" tool — global persistence is the default. Per-application rules can override it (see **Application rules** below).
 
 Confirmed working with **Microsoft Bopomofo** on real hardware.
 
@@ -113,6 +123,16 @@ It lives in the notification area:
 
 One instance runs per logon session.
 
+## Application rules
+
+Right-click the tray icon → **Application rules...** binds an application to a fixed keyboard layout: `wt.exe` to a US keyboard, `word.exe` to Microsoft Bopomofo. Switching to that application switches the layout.
+
+- Applications are identified by **executable file name** (`notepad.exe`), not full path — a path breaks when the application moves or updates
+- **Use last app** fills in the application you were in before opening the dialog, so you do not have to go looking for the name
+- Rules live in `HKCU\Software\ImeModePersistence\Rules`
+
+A rule binds a **language** (Bopomofo / US / Japanese...). Where one language has several IMEs installed — Bopomofo and Cangjie are both zh-TW — the first installed one is used; a specific IME cannot be singled out.
+
 ## Limitations
 
 Writes are best-effort and verified by reading the state back. An IME that is still activating can discard one; after four attempts (~930 ms) the utility accepts whatever the target settled on rather than fighting it.
@@ -130,7 +150,7 @@ The installer needs both architectures built, then [Inno Setup](https://jrsoftwa
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.3.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.4.0 installer\ImeModePersistence.iss
 ```
 
 Regenerating the icon needs [ImageMagick](https://imagemagick.org) 7: `./tools/make_icon.sh`
