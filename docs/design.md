@@ -49,6 +49,15 @@ Foreground window change
 
 `SetWinEventHook(EVENT_SYSTEM_FOREGROUND, ...)` observes focus changes without injecting a DLL into every process. A 50 ms observer separates mode changes made while the same input context stays active from changes that only appear after a focus transition.
 
+## What counts as the foreground application
+
+`GetForegroundWindow` does not answer "which application is the user working in" on Windows 11. The shell's own UI takes the foreground for windows nobody is typing into, and they are not all part of explorer — `SearchHost.exe` is a separate process under `SystemApps`, which is why excluding the shell process alone was not enough.
+
+Two filters, for two different problems:
+
+- **Cloaked or invisible foreground windows are skipped entirely.** A cloaked window is composed but not shown, which is the state SearchHost and the Start menu sit in after being dismissed. `DwmGetWindowAttribute` with `DWMWA_CLOAKED` identifies them. This is not cosmetic: treating one as a context switch re-keys the observer, resets the dwell timer and interrupts a restore already in flight, so these ghosts were actively breaking enforcement, not just the diagnostics.
+- **Visible shell surfaces are tracked but never recorded as "the last application".** SearchHost with the search box genuinely open is visible and focused, and is still not what the user means. A name list, because these processes have nothing structural in common.
+
 ## Telling the user apart from the system
 
 Conversion mode belongs to a *thread and keyboard layout*, not to a window: two windows of the same thread share one mode. State is therefore keyed on the `(thread, HKL)` pair, which also means switching to a non-IME layout such as US English reads as a system event rather than the user turning native mode off.
