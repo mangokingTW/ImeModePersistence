@@ -36,6 +36,8 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 **把滑鼠停在圖示上**會顯示當前程式、綁定語言、實際語言與上次切換結果 —— 停留不會改變前景視窗，點下去會。左鍵雙擊顯示完整狀態。每個登入工作階段只有一份執行中。
 
+切換沒有如預期作用時，右鍵選單的**開啟診斷記錄**會叫出 `%LocalAppData%\ImeModePersistence\log.txt`，裡面記錄每次上下文切換、規則比對結果、以及切換用了哪個機制與是否成功。回報問題時附上它。
+
 ### 程式綁定輸入語言
 
 把程式綁定到一個輸入語言，例如終端機綁英文、Word 綁中文。
@@ -62,8 +64,8 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.8.0 installer\ImeModePersistence.iss
-iscc /DAppVersion=0.8.0 /DUserInstall installer\ImeModePersistence.iss
+iscc /DAppVersion=0.9.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.9.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
 安裝檔需要 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3+，圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7（`./tools/make_icon.sh`）。
@@ -118,6 +120,8 @@ It lives in the notification area. Right-click for **Keep mode across windows** 
 
 **Hover** the icon to see the current program, its bound language, the language actually in use, and whether the last switch worked — hovering does not change the foreground window, clicking does. Double-click for full status. One instance runs per logon session.
 
+When a switch does not do what you expect, **Open diagnostic log** in the tray menu opens `%LocalAppData%\ImeModePersistence\log.txt`, which records every context switch, whether a rule matched, and which mechanism was used with its outcome. Attach it when reporting a problem.
+
 ### App language bindings
 
 Bind a program to an input language — a terminal to English, Word to Chinese.
@@ -144,8 +148,8 @@ Lookup order: full path, file name, window class. A binding pins a **language**;
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.8.0 installer\ImeModePersistence.iss
-iscc /DAppVersion=0.8.0 /DUserInstall installer\ImeModePersistence.iss
+iscc /DAppVersion=0.9.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.9.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
 The installers need [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer; regenerating the icon needs [ImageMagick](https://imagemagick.org) 7 (`./tools/make_icon.sh`).
