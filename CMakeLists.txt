@@ -22,6 +22,7 @@ target_compile_definitions(ImeModePersistence PRIVATE
 target_link_libraries(ImeModePersistence PRIVATE
     user32
     imm32
+    shell32
 )
 
 if(MSVC)
