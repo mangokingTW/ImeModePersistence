@@ -102,6 +102,8 @@ Which mechanism was last tried, and whether the layout ended up where the rule w
 
 A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
 
+The readouts show whatever identity could be established, in exactly the form a rule key takes: the full path when readable, otherwise `class:<name>`. Reporting only the failure — which the first attempt did — left no way to see the class a rule has to match, so a `class:` rule could not be checked against reality.
+
 **Identification is the other half of the problem.** Reading an executable path needs `OpenProcess`, which an anti-cheat protected game refuses even to an administrator — so for those the rule never matched and no switching mechanism could have helped. `GetClassName` reads a window property and needs no access to the process, which makes a `class:` rule the only way to name such an application. Lookup runs most specific to least: full path, file name, window class.
 
 The bindings dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, and this dialog's owner is the hidden tool window, so without it the dialog has no taskbar button and vanishes behind whatever the user clicks next. It also tracks its own handle: the dialog is modal only to that hidden owner, which leaves the tray menu live and able to ask for a second copy, so a repeat request raises the existing window rather than nesting another modal loop.

@@ -232,6 +232,23 @@ void set_tray_icon(bool add) {
     }
 }
 
+// What the utility could actually determine about the foreground window. An
+// anti-cheat protected process refuses to have its path read, and reporting only
+// that failure left no way to see the window class a rule has to match -- so the
+// class is what gets shown when the path is unavailable, in exactly the form a
+// rule key takes.
+std::wstring window_identity(HWND hwnd, const std::wstring& executable) {
+    if (!executable.empty()) {
+        return executable;
+    }
+
+    const std::wstring windowClass = rules::window_class_of(hwnd);
+    if (!windowClass.empty()) {
+        return rules::kClassPrefix + windowClass;
+    }
+    return {};
+}
+
 void record_snapshot(HWND hwnd) {
     if (!hwnd || own_window(hwnd) || shell_window(hwnd) ||
         shell_ui(g_app.observedExecutable)) {
@@ -242,7 +259,7 @@ void record_snapshot(HWND hwnd) {
 
     const ime::State state = ime::query_state(hwnd);
 
-    g_app.snapshotApp = g_app.observedExecutable;
+    g_app.snapshotApp = window_identity(hwnd, g_app.observedExecutable);
     g_app.snapshotClass = rules::window_class_of(hwnd);
     g_app.snapshotMode = state.mode;
     g_app.snapshotReachable = state.valid;
@@ -260,6 +277,8 @@ void update_tooltip(HWND hwnd) {
     const text::Strings& t = text::s();
 
     const HKL current = hwnd ? layout::current(hwnd) : nullptr;
+    const std::wstring identity =
+        hwnd ? window_identity(hwnd, g_app.observedExecutable) : std::wstring{};
 
     wchar_t attempt[128]{};
     if (!g_app.layoutRequested) {
@@ -275,9 +294,9 @@ void update_tooltip(HWND hwnd) {
         composed,
         ARRAYSIZE(composed),
         t.tooltipFormat,
-        g_app.observedExecutable.empty()
-            ? t.unknownApplication
-            : rules::file_name_of(g_app.observedExecutable).c_str(),
+        // The full class is shown rather than a trimmed name: it is the thing a
+        // rule matches, so an abbreviation would defeat the point.
+        identity.empty() ? t.unknownApplication : identity.c_str(),
         g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str(),
         current ? layout::describe(layout::language_of(current)).c_str() : t.unknownApplication,
         attempt);
