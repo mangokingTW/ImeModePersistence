@@ -5,7 +5,7 @@ namespace {
 
 const Strings kEnglish{
     .trayTip = L"IME Mode Persistence",
-    .tooltipFormat = L"%s\nBound: %s\nCurrent: %s\n%s",
+    .tooltipFormat = L"App: %s\nBound language: %s\nActive language: %s\n%s",
 
     .menuAutostart = L"Start with Windows",
     .menuRules = L"App language bindings...",
@@ -15,9 +15,9 @@ const Strings kEnglish{
     .statusFormat = L"Desired mode: %s\n"
                     L"Foreground mode: %s\n"
                     L"IME reachable: %s\n"
-                    L"Application: %s\n"
+                    L"Current app: %s\n"
                     L"Bound language: %s\n"
-                    L"Current language: %s\n"
+                    L"Active language: %s\n"
                     L"Last switch attempt: %s",
     .modeNative = L"Native",
     .modeAlphanumeric = L"Alphanumeric",
@@ -39,6 +39,7 @@ const Strings kEnglish{
     .labelExecutable = L"Executable:",
     .labelLayout = L"Language:",
     .buttonUseLast = L"Use &last app",
+    .buttonUseClass = L"Use window &class",
     .buttonBrowse = L"&Browse...",
     .buttonAdd = L"&Add / update",
     .buttonRemove = L"&Remove selected",
@@ -55,6 +56,9 @@ const Strings kEnglish{
     .hintRemoveFailed = L"Could not remove the rule from the registry.",
     .hintRemovedFormat = L"Removed the rule for %s.",
     .hintNoLastApp = L"No other application has been in the foreground yet.",
+    .hintNoLastClass = L"No window class has been seen yet.",
+    .hintClassRule = L"Matches any window of this class. Use it when the executable "
+                     L"cannot be read, as with anti-cheat protected games.",
     .hintPickLayout = L"Pick a language, then choose Add / update.",
     .hintNameOnly = L"Rules match the file name, so the folder you picked does not matter.",
 
@@ -67,7 +71,7 @@ const Strings kEnglish{
 
 const Strings kTraditionalChinese{
     .trayTip = L"輸入法模式延續",
-    .tooltipFormat = L"%s\n綁定：%s\n目前：%s\n%s",
+    .tooltipFormat = L"當前程式：%s\n綁定語言：%s\n實際語言：%s\n%s",
 
     .menuAutostart = L"開機時自動啟動",
     .menuRules = L"程式綁定輸入語言...",
@@ -77,9 +81,9 @@ const Strings kTraditionalChinese{
     .statusFormat = L"目標模式：%s\n"
                     L"前景視窗模式：%s\n"
                     L"可讀取輸入法：%s\n"
-                    L"程式：%s\n"
+                    L"當前程式：%s\n"
                     L"綁定語言：%s\n"
-                    L"目前語言：%s\n"
+                    L"實際語言：%s\n"
                     L"上次切換嘗試：%s",
     .modeNative = L"中文",
     .modeAlphanumeric = L"英數",
@@ -101,6 +105,7 @@ const Strings kTraditionalChinese{
     .labelExecutable = L"執行檔：",
     .labelLayout = L"輸入語言：",
     .buttonUseLast = L"用剛才的程式(&L)",
+    .buttonUseClass = L"用視窗類別(&C)",
     .buttonBrowse = L"瀏覽(&B)...",
     .buttonAdd = L"新增／更新(&A)",
     .buttonRemove = L"刪除選取的規則(&R)",
@@ -115,6 +120,8 @@ const Strings kTraditionalChinese{
     .hintRemoveFailed = L"無法從登錄刪除規則。",
     .hintRemovedFormat = L"已刪除 %s 的規則。",
     .hintNoLastApp = L"還沒有其他程式進入過前景。",
+    .hintNoLastClass = L"還沒有取得任何視窗類別。",
+    .hintClassRule = L"會比對這個類別的任何視窗。適用於讀不到執行檔的情況，例如有反作弊的遊戲。",
     .hintPickLayout = L"選擇輸入語言後按「新增／更新」。",
     .hintNameOnly = L"規則比對的是檔案名稱，所以你選的資料夾位置不影響結果。",
 

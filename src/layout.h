@@ -44,7 +44,7 @@ HKL current(HWND hwnd);
 enum class Method {
     FocusWindow,    // post to the focus window of the owning thread
     ThreadWindows,  // post to every top-level window of that thread
-    AttachInput,    // join its input queue and activate the layout directly
+    TsfSession,     // ask the Text Services Framework, never the window
 };
 
 const wchar_t* method_name(Method method);

@@ -43,7 +43,8 @@ BEGIN
     PUSHBUTTON      "&Browse...", IDC_BROWSE, 8, 150, 56, 14
     PUSHBUTTON      "Use &last app", IDC_USE_LAST, 68, 150, 66, 14
     PUSHBUTTON      "&Add / update", IDC_ADD, 138, 150, 66, 14
-    PUSHBUTTON      "&Remove selected", IDC_REMOVE, 208, 150, 82, 14
+    PUSHBUTTON      "Use window &class", IDC_USE_CLASS, 208, 150, 78, 14
+    PUSHBUTTON      "&Remove selected", IDC_REMOVE, 290, 150, 82, 14
     LTEXT           "", IDC_HINT, 8, 172, 424, 24
     DEFPUSHBUTTON   "Close", IDOK, 376, 196, 56, 14
 END

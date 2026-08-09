@@ -92,13 +92,17 @@ Three mechanisms are now tried in escalating order, one per retry attempt, each 
 
 1. **Focus window.** `GetGUIThreadInfo` gives the window that actually holds keyboard focus, which is what owns the input language; the top-level window frequently forwards nothing. `wParam` is now 0 — `INPUTLANGCHANGE_SYSCHARSET` asks the window to switch only if the layout matches the system character set, a condition irrelevant to an explicit request that some windows honour by refusing.
 2. **Every top-level window of the thread**, via `EnumThreadWindows`. Some applications keep a separate message-handling window that honours the request when the visible one ignores it.
-3. **`AttachThreadInput` then `ActivateKeyboardLayout`.** Attaching shares the target's input queue and with it the active layout. Last resort because it briefly couples our message queue to another process, so a hung target stalls us until the detach.
+3. **`ITfInputProcessorProfileMgr::ActivateProfile` with `TF_IPPMF_FORSESSION`.** Asks the Text Services Framework to move the *session's* input language rather than asking the window to move its own, so nothing about the target is read, opened or attached to. That matters beyond tidiness: an anti-cheat protected process refuses to be opened at all, and probing it is the behaviour anti-cheat exists to catch.
+
+   This replaced `AttachThreadInput` + `ActivateKeyboardLayout`, which was never shown to work and was the only technique here that anti-cheat is built to notice. Removing it lowers the risk to the user's account and loses nothing demonstrated.
 
 Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is reported in two places.
 
 **The tray tooltip is the primary one, because hovering does not change the foreground window.** The status box originally read the live foreground and so reported `explorer.exe` every single time it was opened: clicking the tray icon is what hands the foreground to the shell, so the act of asking destroyed the answer. It now reports a snapshot of the last application that was neither this process nor the shell — identified by comparing process ids against `GetShellWindow`, not by matching an executable name. Without those, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.
 
 A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
+
+**Identification is the other half of the problem.** Reading an executable path needs `OpenProcess`, which an anti-cheat protected game refuses even to an administrator — so for those the rule never matched and no switching mechanism could have helped. `GetClassName` reads a window property and needs no access to the process, which makes a `class:` rule the only way to name such an application. Lookup runs most specific to least: full path, file name, window class.
 
 The bindings dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, and this dialog's owner is the hidden tool window, so without it the dialog has no taskbar button and vanishes behind whatever the user clicks next. It also tracks its own handle: the dialog is modal only to that hidden owner, which leaves the tray menu live and able to ask for a second copy, so a repeat request raises the existing window rather than nesting another modal loop.
 

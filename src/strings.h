@@ -40,6 +40,7 @@ struct Strings {
     const wchar_t* labelExecutable;
     const wchar_t* labelLayout;
     const wchar_t* buttonUseLast;
+    const wchar_t* buttonUseClass;
     const wchar_t* buttonBrowse;
     const wchar_t* buttonAdd;
     const wchar_t* buttonRemove;
@@ -54,6 +55,8 @@ struct Strings {
     const wchar_t* hintRemoveFailed;
     const wchar_t* hintRemovedFormat;  // executable
     const wchar_t* hintNoLastApp;
+    const wchar_t* hintNoLastClass;
+    const wchar_t* hintClassRule;
     const wchar_t* hintPickLayout;
     const wchar_t* hintNameOnly;
 
