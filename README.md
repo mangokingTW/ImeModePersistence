@@ -67,7 +67,7 @@ This is what makes native vs alphanumeric detection meaningful: Microsoft Bopomo
 
 Every write is best-effort and verified by reading the state back, because an IME that is still activating can discard the change. After four attempts (~930 ms) the utility gives up on that window and adopts whatever mode the target settled on, rather than fighting it.
 
-Behaviour has been validated by compilation in CI for x64 and x86. Runtime behaviour with **Microsoft Bopomofo** on real hardware is still unverified &mdash; see the roadmap.
+Mode persistence across foreground windows has been **confirmed working with Microsoft Bopomofo on real hardware**, which is what validates the IMM32/TSF interop route above. CI additionally builds x64 and x86 on every change.
 
 ## Install
 
@@ -82,7 +82,7 @@ Any of these works:
 
 - **Settings > Apps > Installed apps > ImeModePersistence > Uninstall**
 - **Start menu > ImeModePersistence > Uninstall ImeModePersistence**
-- Re-run the installer: it detects the existing copy and offers to remove it
+- Re-run the installer with the *same* version: it offers to remove or reinstall
 - `%LocalAppData%\Programs\ImeModePersistence\unins000.exe`
 
 Uninstalling removes the install directory and the autostart Run entry, including one enabled from the tray menu rather than during setup. Nothing else is left behind.
@@ -90,6 +90,10 @@ Uninstalling removes the install directory and the autostart Run entry, includin
 `SHA256SUMS.txt` accompanies every release. Both downloads are **unsigned**, so SmartScreen will warn on first run &mdash; choose *More info > Run anyway*, or verify the checksum first.
 
 The installer is per-user on purpose. A machine-wide install buys nothing here, and only a scheduled task running with highest privileges could also reach elevated windows, at the price of keeping an elevated process resident. See *Scope and security* below.
+
+### Updating
+
+Run the newer installer. It reads the installed version and upgrades in place without asking, keeping the install directory and the autostart choice. Running the *same* version offers repair or removal instead, and an *older* installer warns before downgrading.
 
 ## Running at logon
 
@@ -128,7 +132,7 @@ cmake --build build-x86 --config Release
 The installer needs both architectures present, then [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer:
 
 ```powershell
-iscc /DAppVersion=0.2.1 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.3.0 installer\ImeModePersistence.iss
 ```
 
 ## Icon
@@ -152,8 +156,8 @@ The artwork's three elements inside a double border stop being readable below ab
 Push a tag matching the version already declared in `CMakeLists.txt`, and the `Release` workflow builds both architectures, compiles the installer, and publishes a GitHub release with the installer, both portable archives, and `SHA256SUMS.txt`:
 
 ```powershell
-git tag v0.2.1
-git push origin v0.2.1
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 The tag must be `vMAJOR.MINOR.PATCH`, because Inno Setup's `VersionInfoVersion` accepts nothing else. The workflow refuses to publish a tag that disagrees with `CMakeLists.txt`, so a release can never ship a binary whose reported version contradicts it. The workflow can also be dispatched manually with a tag name.
@@ -173,7 +177,7 @@ The tag must be `vMAJOR.MINOR.PATCH`, because Inno Setup's `VersionInfoVersion` 
 ## Roadmap
 
 - [x] TSF-aware conversion-mode adapter (via the IMM32/TSF interop layer, since TSF interfaces are per-thread and in-process only)
-- [ ] Microsoft Bopomofo verification on real hardware
+- [x] Microsoft Bopomofo verification on real hardware
 - [x] Retry/verify after focus activation
 - [x] Better distinction between user-initiated and system-initiated changes
 - [ ] Configuration UI
