@@ -131,16 +131,32 @@ The installer needs both architectures present, then [Inno Setup](https://jrsoft
 iscc /DAppVersion=1.0.0 installer\ImeModePersistence.iss
 ```
 
-## Releasing
+## Icon
 
-Push a tag and the `Release` workflow builds both architectures, compiles the installer, and publishes a GitHub release with the installer, both portable archives, and `SHA256SUMS.txt`:
+`assets/app_icon.png` is the source artwork; `assets/ImeModePersistence.ico` is what the build embeds. Regenerate with [ImageMagick](https://imagemagick.org) 7:
 
-```powershell
-git tag v1.0.0
-git push origin v1.0.0
+```bash
+./tools/make_icon.sh
 ```
 
-The tag must be a numeric version prefixed with `v`, because Inno Setup's `VersionInfoVersion` accepts nothing else. The workflow can also be dispatched manually with a tag name.
+The artwork's three elements inside a double border stop being readable below about 32 px, so the `.ico` carries a purpose-drawn **中** badge at 16, 20 and 24 px &mdash; the sizes the notification area actually uses &mdash; and the full artwork from 32 px up. Windows selects per slot. The small images are placed on integer coordinates so nothing is antialiased and they stay crisp.
+
+## Versioning
+
+`project(ImeModePersistence VERSION ...)` in `CMakeLists.txt` is the single source of truth. It is stamped into each executable's `VERSIONINFO` resource, so the version Explorer shows in **Properties > Details** is the version that was built.
+
+**Every pull request must bump it.** CI fails a PR that leaves the version untouched, or that moves it sideways or backwards.
+
+## Releasing
+
+Push a tag matching the version already declared in `CMakeLists.txt`, and the `Release` workflow builds both architectures, compiles the installer, and publishes a GitHub release with the installer, both portable archives, and `SHA256SUMS.txt`:
+
+```powershell
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The tag must be `vMAJOR.MINOR.PATCH`, because Inno Setup's `VersionInfoVersion` accepts nothing else. The workflow refuses to publish a tag that disagrees with `CMakeLists.txt`, so a release can never ship a binary whose reported version contradicts it. The workflow can also be dispatched manually with a tag name.
 
 ## Scope and security
 

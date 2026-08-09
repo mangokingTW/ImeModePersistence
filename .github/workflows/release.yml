@@ -28,19 +28,29 @@ jobs:
           # Inno Setup's VersionInfoVersion needs a bare numeric version, so the
           # leading "v" of the tag is stripped.
           $version = $env:TAG -replace '^v', ''
-          if ($version -notmatch '^\d+(\.\d+){0,3}$') {
-            throw "Tag '$env:TAG' is not a numeric version like v1.2.3"
+          if ($version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Tag '$env:TAG' is not MAJOR.MINOR.PATCH like v1.2.3"
           }
+
+          # CMakeLists.txt owns the version that gets stamped into the
+          # executable. Publishing a tag that disagrees would ship a binary
+          # whose reported version contradicts its release, so refuse instead.
+          $declared = (Select-String -Path CMakeLists.txt `
+            -Pattern 'project\(ImeModePersistence VERSION ([0-9]+\.[0-9]+\.[0-9]+)').Matches[0].Groups[1].Value
+          if ($declared -ne $version) {
+            throw "Tag says $version but CMakeLists.txt declares $declared - bump one of them"
+          }
+
           "VERSION=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Build x64
         run: |
-          cmake -S . -B build-x64 -A x64 -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          cmake -S . -B build-x64 -A x64 -DAPP_VERSION=$env:VERSION -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
           cmake --build build-x64 --config Release
 
       - name: Build x86
         run: |
-          cmake -S . -B build-x86 -A Win32 -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          cmake -S . -B build-x86 -A Win32 -DAPP_VERSION=$env:VERSION -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
           cmake --build build-x86 --config Release
 
       - name: Build installer
