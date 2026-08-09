@@ -31,7 +31,7 @@ jobs:
       TAG: ${{ inputs.tag || github.ref_name }}
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
       - name: Derive version
         shell: pwsh
@@ -127,7 +127,7 @@ jobs:
         # mangokingTW/ImeModePersistence` then proves a download was built here
         # and not tampered with -- the impartial half of "not malicious" that a
         # weakness scanner cannot give.
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
         with:
           subject-path: |
             dist/*.exe
