@@ -65,7 +65,7 @@ An earlier attempt used a `restoring` boolean guard. It could never be observed 
 
 Every write is verified by reading the state back, because an IME that is still activating can discard it. After four attempts (~930 ms) the utility adopts whatever mode the target settled on rather than fighting it. If a context only becomes readable after the attempts run out, the observer starts a fresh round.
 
-## Per-application layout rules
+## App language bindings
 
 Binding a layout is a different operation from setting a conversion mode. The mode lives on whichever layout a thread already has active; a rule replaces the layout itself, which is how Bopomofo, a US keyboard and a Japanese IME become distinct targets rather than shades of one.
 
@@ -79,9 +79,9 @@ A window class was rejected as the key: neither stable nor discoverable by whoev
 
 **`WM_INPUTLANGCHANGEREQUEST` is posted, not sent**, so the switch lands on the target's message loop later and there is no meaningful return value. The existing retry-and-verify loop covers it: each attempt re-reads the layout, and after four attempts the utility stops trying. A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
 
-The rules dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, and this dialog's owner is the hidden tool window, so without it the dialog has no taskbar button and vanishes behind whatever the user clicks next. It also tracks its own handle: the dialog is modal only to that hidden owner, which leaves the tray menu live and able to ask for a second copy, so a repeat request raises the existing window rather than nesting another modal loop.
+The bindings dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, and this dialog's owner is the hidden tool window, so without it the dialog has no taskbar button and vanishes behind whatever the user clicks next. It also tracks its own handle: the dialog is modal only to that hidden owner, which leaves the tray menu live and able to ask for a second copy, so a repeat request raises the existing window rather than nesting another modal loop.
 
-The rules dialog receives the last foreground application from the caller instead of asking the system. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
+The bindings dialog receives the last foreground application from the caller instead of asking the system. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
 
 ## Autostart
 
@@ -133,6 +133,8 @@ User-visible text lives in `src/strings.cpp` as one struct per language, chosen 
 A struct with designated initialisers, not an enum indexing parallel arrays — adding a string then forces every language to supply it at the same place instead of silently shifting every index after it.
 
 The dialog template keeps English text and is relabelled at `WM_INITDIALOG`, so there is one layout to maintain rather than one per language. Control widths are sized for the English strings, which are the longer of the two. The static labels share `IDC_STATIC`, so they are addressed by position in the child order.
+
+**`/utf-8` is mandatory for MSVC.** The sources are UTF-8 without a BOM, and without that flag MSVC reads them in the system ANSI code page: on an en-US machine every Chinese literal becomes CP1252 mojibake. It compiles without a single warning — those bytes are nearly all valid CP1252, so not even C4819 fires — and passes every other check, so v0.4.2 and v0.4.3 both shipped with an unreadable Chinese UI. A CI step now searches the built binary for the UTF-16LE bytes a menu string should have, because nothing short of inspecting the binary or the screen catches this.
 
 Any Chinese display language selects Traditional; no Simplified translation is provided. The installer wizard stays English because Inno Setup's official distribution ships no Chinese `.isl`, and fetching an unofficial translation at build time would put a third-party download in the release path.
 
