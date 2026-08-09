@@ -17,6 +17,7 @@
 #include "rules.h"
 #include "settings.h"
 #include "strings.h"
+#include "presets.h"
 #include "schedule.h"
 #include "theme.h"
 #include "tsf.h"
@@ -1139,6 +1140,18 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
                 autostart_label(),
                 g_app.persistMode ? L"on" : L"off",
                 kLayoutPollIntervalMs);
+
+    // Apply any starting rule the installer dropped, once per user. This process
+    // is what the logon task or Run key started, so it runs as the actual user
+    // and the rule lands in the right HKCU -- which the elevated installer could
+    // not guarantee. The marker sits next to the executable.
+    {
+        const std::wstring exe = autostart::module_path();
+        const size_t slash = exe.find_last_of(L"\\/");
+        if (slash != std::wstring::npos) {
+            presets::seed(exe.substr(0, slash + 1) + L"presets.txt");
+        }
+    }
 
     if (!tsf::initialise()) {
         // Not fatal, but it removes the one mechanism that reaches a protected

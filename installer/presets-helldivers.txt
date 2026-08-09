@@ -1,0 +1,8 @@
+; Installed as presets.txt when the Helldivers 2 task is chosen at setup.
+; ImeModePersistence reads this once per user on startup and adds any rule the
+; user does not already have -- writing to the correct HKCU because it runs as
+; the user, which the elevated installer could not guarantee.
+;
+; Format: <rule key>=<language id in hex>. A key is a full path, a file name, or
+; class:<window class>. 0409 is English (United States). See docs/design.md.
+class:stingray_window=0409

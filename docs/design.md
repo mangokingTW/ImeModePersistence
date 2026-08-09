@@ -154,6 +154,16 @@ The bindings dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, 
 
 The bindings dialog receives the last foreground application from the caller instead of asking the system, and from the same shell-excluding snapshot the status box uses. It originally had its own field updated on every context switch, which meant **Use last app** filled in `explorer.exe` for exactly the reason the status box did: reaching the dialog goes through the tray icon. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
 
+## Installer presets
+
+The installer can offer to bind Helldivers 2 to English on the user's behalf, and the interesting part is what it does *not* do: it does not write the rule.
+
+The rule is a value under `HKCU\Software\ImeModePersistence\Rules`, and the administrator installer runs elevated. Under over-the-shoulder elevation — a standard user typing an administrator's credentials — the elevated process's `HKCU` is the administrator's hive, not the hive of the user who will actually play the game. Writing the rule from the installer would put it in the wrong place, the same trap the logon task's `/RU` had. So the installer only installs a marker file, `presets.txt`, next to the executable when the task is ticked (a tracked `[Files]` entry, so uninstall removes it, and installed before the `[Run]` launch). The utility reads it on startup and writes the rule to **its own** `HKCU` — and the utility runs as the user, so that hive is the right one.
+
+**This is exactly why it survives elevation.** The elevated autostart path is the logon scheduled task, which runs with `/RU` set to the interactive session's user: elevated, but as that user, so `HKCU` still resolves to their hive and the seed lands correctly. The one case that seeds the "wrong" hive is the administrator installer's own immediate post-install launch under over-the-shoulder elevation — it runs as the administrator and seeds the administrator's hive (harmless) and sets that hive's offered-flag; the real user is then seeded at their next logon, when the task starts the utility as them. In the common case where the installing administrator *is* the player, even the immediate launch is correct. Reading the marker itself is never in question: it is an ordinary file in Program Files, readable at any integrity level.
+
+Seeding is once per user and never destructive: a per-key flag under `HKCU\Software\ImeModePersistence\SeededPresets` records that the offer was made, so a rule the user later deletes does not reappear, and a rule the user had already set is never overwritten. The marker's format is one `key=langid` line, so future presets are more lines and more tasks with no code change; `presets::parse` is a pure function with its own tests, and the seeding logic redirects both registry keys in tests the way the rules suite does.
+
 ## Autostart
 
 Not a Windows service: a service runs in session 0 with no interactive desktop, so `GetForegroundWindow` would never see the user's windows and `WM_IME_CONTROL` would never reach their threads. This has to live in the interactive session.

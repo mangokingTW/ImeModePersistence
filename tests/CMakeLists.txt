@@ -10,6 +10,7 @@ add_executable(ime_tests
     test_layout.cpp
     test_schedule.cpp
     test_rules.cpp
+    test_presets.cpp
     test_diagnostic.cpp
     test_windows.cpp
 )
@@ -26,6 +27,7 @@ set(IME_TEST_SUITES
     layout
     schedule
     rules
+    presets
     diagnostic
     window-identity
     layout-switch
