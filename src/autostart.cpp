@@ -14,27 +14,6 @@ constexpr wchar_t kValueName[] = L"ImeModePersistence";
 // leaving the other's behind.
 constexpr wchar_t kTaskName[] = L"ImeModePersistence";
 
-// GetModuleFileNameW truncates instead of failing when the buffer is too small,
-// so grow until the path fits rather than assuming MAX_PATH.
-std::wstring module_path() {
-    std::wstring path(MAX_PATH, L'\0');
-    for (;;) {
-        const DWORD written =
-            GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
-        if (written == 0) {
-            return {};
-        }
-        if (written < path.size()) {
-            path.resize(written);
-            return path;
-        }
-        if (path.size() >= 32768) {
-            return {};
-        }
-        path.resize(path.size() * 2);
-    }
-}
-
 // Quoted so a path containing spaces survives the shell's command-line parsing.
 std::wstring launch_command() {
     const std::wstring path = module_path();
@@ -164,18 +143,43 @@ std::wstring read_value() {
 
 } // namespace
 
-bool elevated() {
-    HANDLE token{};
-    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
-        return false;
+std::wstring module_path() {
+    std::wstring path(MAX_PATH, L'\0');
+    for (;;) {
+        const DWORD written =
+            GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+        if (written == 0) {
+            return {};
+        }
+        if (written < path.size()) {
+            path.resize(written);
+            return path;
+        }
+        if (path.size() >= 32768) {
+            return {};
+        }
+        path.resize(path.size() * 2);
     }
+}
 
-    TOKEN_ELEVATION elevation{};
-    DWORD size = sizeof(elevation);
-    const BOOL ok = GetTokenInformation(token, TokenElevation, &elevation, size, &size);
-    CloseHandle(token);
+bool elevated() {
+    // Static, not queried per call: elevation cannot change for the life of a
+    // process, and this is on the tooltip's 50 ms path.
+    static const bool result = [] {
+        HANDLE token{};
+        if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
+            return false;
+        }
 
-    return ok && elevation.TokenIsElevated != 0;
+        TOKEN_ELEVATION elevation{};
+        DWORD size = sizeof(elevation);
+        const BOOL ok =
+            GetTokenInformation(token, TokenElevation, &elevation, size, &size);
+        CloseHandle(token);
+
+        return ok && elevation.TokenIsElevated != 0;
+    }();
+    return result;
 }
 
 Kind current() {

@@ -28,8 +28,6 @@ State query_state(HWND hwnd);
 // because an IME that is still activating can silently discard the change.
 bool set_mode(HWND hwnd, Mode desired);
 
-Mode query_mode(HWND hwnd);
-
 const wchar_t* mode_name(Mode mode);
 
 } // namespace ime

@@ -72,7 +72,6 @@ const Strings kEnglish{
     .hintClassRule = L"Matches any window of this class. Use it when the executable "
                      L"cannot be read, as with anti-cheat protected games.",
     .hintPickLayout = L"Pick a language, then choose Add / update.",
-    .hintNameOnly = L"Rules match the file name, so the folder you picked does not matter.",
 
     .suffixIme = L" (IME)",
     .suffixNotInstalled = L"  (not installed)",
@@ -147,7 +146,6 @@ const Strings kTraditionalChinese{
     .hintNoLastClass = L"還沒有取得任何視窗類別。",
     .hintClassRule = L"會比對這個類別的任何視窗。適用於讀不到執行檔的情況，例如有反作弊的遊戲。",
     .hintPickLayout = L"選擇輸入語言後按「新增／更新」。",
-    .hintNameOnly = L"規則比對的是檔案名稱，所以你選的資料夾位置不影響結果。",
 
     .suffixIme = L"（輸入法）",
     .suffixNotInstalled = L"（未安裝）",
