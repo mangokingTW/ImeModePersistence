@@ -86,6 +86,11 @@ ArchitecturesInstallIn64BitMode=x64compatible
 ; ticking it while leaving autostart off did nothing at all, which is not a state to
 ; offer. Each installer variant now offers the autostart its privileges support.
 Name: "logon"; Description: "{cm:TaskLogon}"
+; Unchecked: most installs are not for this game. When ticked, presets.txt is
+; installed (below) and the utility seeds the rule on its next start -- the
+; installer does not write the rule itself, because the rule lives in HKCU and an
+; elevated installer cannot be sure whose hive that is (the /RU trap again).
+Name: "helldivers"; Description: "{cm:TaskHelldivers}"; Flags: unchecked
 
 [CustomMessages]
 #ifdef UserInstall
@@ -94,6 +99,7 @@ TaskLogon=Start automatically at logon
 TaskLogon=Start automatically at logon, as administrator
 #endif
 TaskCreating=Registering the logon task...
+TaskHelldivers=Bind Helldivers 2 to English input (adds a rule on first run)
 
 [Files]
 Source: "..\build-x64\Release\{#AppExeName}"; DestDir: "{app}"; DestName: "{#AppExeName}"; \
@@ -102,6 +108,11 @@ Source: "..\build-x86\Release\{#AppExeName}"; DestDir: "{app}"; DestName: "{#App
     Check: not Is64BitInstallMode; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+; Only when the Helldivers task is ticked. The utility reads it once per user and
+; then leaves it; a tracked file, so uninstall removes it. Installed before the
+; [Run] launch, so a same-account elevated install seeds on the spot.
+Source: "presets-helldivers.txt"; DestDir: "{app}"; DestName: "presets.txt"; \
+    Tasks: helldivers; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"

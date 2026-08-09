@@ -6,6 +6,7 @@
 void run_layout_tests();
 void run_schedule_tests();
 void run_rules_tests();
+void run_presets_tests();
 void run_diagnostic_tests();
 void run_window_identity_tests();
 void run_layout_switch_tests();
@@ -24,6 +25,7 @@ constexpr Suite kSuites[] = {
     {"layout", run_layout_tests},
     {"schedule", run_schedule_tests},
     {"rules", run_rules_tests},
+    {"presets", run_presets_tests},
     {"diagnostic", run_diagnostic_tests},
     {"window-identity", run_window_identity_tests},
     {"layout-switch", run_layout_switch_tests},
