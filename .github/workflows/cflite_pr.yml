@@ -1,0 +1,27 @@
+name: ClusterFuzzLite
+
+# Runs the presets-parser fuzz target on the code a PR changes, catching a crash
+# or hang before it merges. This is also what OpenSSF Scorecard recognises as
+# fuzzing, unlike a bespoke libFuzzer workflow.
+on:
+  pull_request:
+
+permissions: read-all
+
+jobs:
+  fuzzing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build fuzzers
+        uses: google/clusterfuzzlite/actions/build_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          language: c++
+          sanitizer: address
+
+      - name: Run fuzzers
+        uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          fuzz-seconds: 120
+          mode: code-change
+          sanitizer: address

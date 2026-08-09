@@ -1,6 +1,13 @@
 #pragma once
 
+// LANGID is the one Windows type this header exposes; the parser below is pure
+// and byte-based so the fuzz harness can build it on Linux, where windows.h does
+// not exist. LANGID is a WORD -- an unsigned 16-bit value.
+#ifdef _WIN32
 #include <windows.h>
+#else
+typedef unsigned short LANGID;
+#endif
 
 #include <string>
 #include <vector>
@@ -17,17 +24,22 @@
 namespace presets {
 
 struct Preset {
-    std::wstring key;   // a rules key: full path, file name, or "class:<name>"
+    // UTF-8, exactly as it appears in the marker: a full path, a file name, or
+    // "class:<name>". Widened to a wide string only when handed to the registry.
+    std::string key;
     LANGID language{};
 };
 
-// Parses the marker's contents: one "key=langid" per line, the langid in hex
-// (an optional 0x is accepted). Blank lines and lines beginning with ';' or '#'
-// are ignored, and a malformed line is skipped rather than failing the rest.
+// Parses the marker's raw UTF-8 bytes: one "key=langid" per line, the langid in
+// hex (an optional 0x is accepted). Blank lines and lines beginning with ';' or
+// '#' are ignored, and a malformed line is skipped rather than failing the rest.
 // Keys are taken verbatim and must already be in the lower-case form rules
-// stores, because the marker is authored by the installer, not the user. Pure,
-// so the format is testable without a file or a registry.
-std::vector<Preset> parse(const std::wstring& text);
+// stores, because the marker is authored by the installer, not the user.
+//
+// Byte-based and free of platform types, so it compiles and behaves identically
+// everywhere -- which is what lets the fuzz harness exercise the exact
+// production logic rather than an approximation of it.
+std::vector<Preset> parse(const std::string& text);
 
 // Applies each preset the current user has not already been offered: adds the
 // rule when the user has none for that key, then records the offer -- so a rule
