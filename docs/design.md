@@ -124,7 +124,9 @@ The bindings dialog receives the last foreground application from the caller ins
 
 Not a Windows service: a service runs in session 0 with no interactive desktop, so `GetForegroundWindow` would never see the user's windows and `WM_IME_CONTROL` would never reach their threads. This has to live in the interactive session.
 
-`HKCU\...\Run` rather than `HKLM` or a scheduled task: it needs no administrator rights and no UAC prompt, and it starts the utility at the same integrity level as the ordinary applications whose IME state it adjusts. Only a scheduled task running with highest privileges could also reach elevated windows, at the cost of keeping an elevated process resident.
+Two mechanisms, because the Run key can only ever start an **unelevated** copy. An elevated utility needs a scheduled task with highest privileges instead, which is also the only way to start elevated without a UAC prompt at every logon.
+
+This section originally argued for the Run key alone, on the grounds that the utility should sit at the same integrity level as ordinary applications. That reasoning was overturned by evidence: reading the windows of an elevated process requires equal privileges, and the games this exists for are elevated.
 
 A single-instance mutex is required once autostart is on, because two copies overwrite each other's restores in a loop.
 
@@ -140,7 +142,13 @@ Setup needs the same rights to register the logon task, and gets one thing for f
 
 Setup always elevates in the administrator variant. An earlier attempt used `PrivilegesRequiredOverridesAllowed=dialog` and read "install for all users or just me" as the elevation question, which conflates install *scope* with whether the *utility* runs elevated — not the same choice, and only the second one is what a user cares about here. Setup being elevated is also what lets it register the logon task and close a running elevated copy when updating. Anyone without administrator rights has the portable archive.
 
-Elevation is therefore a task checkbox, ticked by default, and autostart is a second independent one. Elevation decides the autostart mechanism: a scheduled task with highest privileges when elevated, a Run entry when not, because the Run key cannot launch an elevated program at all and a task is the only way to do it without a UAC prompt at every logon.
+Elevation is therefore a task checkbox, ticked by default, and autostart is a second independent one. Elevation decides the autostart mechanism: a scheduled task with highest privileges when elevated, a Run entry when not.
+
+**The tray toggle follows the same rule**, managing whichever mechanism matches the privileges the utility currently has. It previously only ever wrote the Run key, reasoning that creating a task needs administrator rights the utility does not have — which stopped being true the moment elevation became the default. An elevated copy has exactly those rights, so the toggle had been offering the one mechanism that cannot start the copy the user is running.
+
+Turning autostart off removes both mechanisms: leaving the other behind would keep starting the utility after the user turned it off. Enabling while elevated also clears any Run entry, which would otherwise start a *second*, unelevated copy.
+
+`schtasks.exe` rather than the Task Scheduler COM API — one documented command line against several interfaces and a great deal of boilerplate. It runs with `CREATE_NO_WINDOW`, and with a bounded wait because it is called from the UI thread: a wedged `schtasks` must not take the tray menu with it.
 
 Both `[Run]` entries that start the utility use `shellexec`. Inno's default is `CreateProcess`, which **refuses** to start an executable carrying the `RUNASADMIN` compatibility layer — it fails with 740, `ERROR_ELEVATION_REQUIRED`, because elevation is the shell's job, and it fails even when Setup is already elevated. v0.7.1 set that layer without changing these entries, so installation ended in that error.
 
