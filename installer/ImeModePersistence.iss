@@ -217,11 +217,28 @@ begin
 end;
 
 #ifndef UserInstall
-{ schtasks wants a user name for /RU, and Setup runs elevated so its own user is
-  not necessarily the one logging in. The original user is the right target. }
+{ schtasks wants a user name for /RU. Setup runs elevated, so {username} is the
+  account that passed the UAC prompt -- with over-the-shoulder elevation (a
+  standard user typing an administrator's credentials) that is the administrator,
+  and a logon task registered for it never fires for the user actually logging
+  in. LogonUI records who is signed in at the console, which is the account the
+  task is for; {username} remains as the fallback for contexts with no console
+  logon recorded. }
 function CurrentUser(Param: String): String;
+var
+  User: String;
 begin
-  Result := ExpandConstant('{username}');
+  if RegQueryStringValue(HKLM,
+      'SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI',
+      'LastLoggedOnUser', User) and (User <> '') then
+  begin
+    { A local account is recorded as ".\name"; schtasks wants the name alone. }
+    if Copy(User, 1, 2) = '.\' then
+      User := Copy(User, 3, Length(User));
+    Result := User;
+  end
+  else
+    Result := ExpandConstant('{username}');
 end;
 #endif
 

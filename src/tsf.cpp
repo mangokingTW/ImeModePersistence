@@ -13,12 +13,18 @@ bool g_comInitialised = false;
 
 bool initialise() {
     const HRESULT com = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-    if (FAILED(com)) {
+    if (com == RPC_E_CHANGED_MODE) {
+        // Someone already initialised this thread with a different model. COM is
+        // usable -- there is just nothing of ours to uninitialise. This case has
+        // to be tested before FAILED(): RPC_E_CHANGED_MODE is a failure HRESULT,
+        // and treating it as fatal would silently disable the TSF mechanism for
+        // the whole session whenever a loaded DLL touched COM first.
+        g_comInitialised = false;
+    } else if (FAILED(com)) {
         return false;
+    } else {
+        g_comInitialised = true;
     }
-    // RPC_E_CHANGED_MODE means someone already initialised this thread with a
-    // different model; there is then nothing of ours to uninitialise.
-    g_comInitialised = com != RPC_E_CHANGED_MODE;
 
     ITfInputProcessorProfiles* profiles = nullptr;
     if (FAILED(CoCreateInstance(CLSID_TF_InputProcessorProfiles, nullptr,

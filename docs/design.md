@@ -86,9 +86,15 @@ Reading the **layout** costs nothing comparable: `GetKeyboardLayout` asks the wi
 
 **Why the first delay differs by trigger.** The 60 ms wait exists because a foreground change fires *before* the new thread's IME is usable, and an attempt that lands too early is spent for nothing. Drift inside the application already in front has nothing to wait for — that thread is running and its IME is up — so its first attempt goes out as soon as `SetTimer` can deliver one. The two schedules live in `src/schedule.cpp` and are asserted in `tests/test_schedule.cpp`, because they are numbers whose safety is a relationship rather than a value.
 
-**The cooldown is part of the faster poll, not a caveat to it.** Raising the polling rate without one would mean that an application which insists on its own layout gets a fresh round of requests every 15 ms for as long as it stays in front. So a round that exhausts its budget marks the target as left alone for three seconds, logged as such. A genuine context change clears it: switching away and back is the way to make a binding try again, and it is what the wiki tells the user to do.
+**The cooldown is part of the faster poll, not a caveat to it.** Raising the polling rate without one would mean that an application which insists on its own layout gets a fresh round of requests every 15 ms for as long as it stays in front. So a round whose layout was still refused when the budget ran out marks the target as left alone for three seconds, logged as such. Only then: a protected target's conversion mode is typically unreadable, so its rounds routinely exhaust the budget on the *mode* with the layout satisfied on the first attempt, and punishing the poll for that would disable it in exactly the scenario it exists for. A genuine context change clears the cooldown: switching away and back is the way to make a binding try again, and it is what the wiki tells the user to do.
+
+**The observer must not answer drift itself.** The 50 ms tick re-keys its state when the foreground thread's layout changes, and an in-flight drift round *is* such a change -- treating it as a context switch killed the round mid-escalation, restarted the budget, and wiped the cooldown, which both slowed the reassert back down to the old latency and re-opened the endless-fight case the cooldown closes. So a same-thread layout change in a bound window is adopted and otherwise left to the fast poll; only a change with no rule in play re-keys the observer, because there it really is the user switching layouts by hand.
+
+**Satisfaction is judged by language, not by handle.** A rule stores a LANGID, and `find_by_language` resolves it to the first matching HKL -- but a user with two layouts of one language (QWERTY and Dvorak, two IMEs of one language) satisfies the rule with either. Comparing the full HKL made the binding revert the user's pick between same-language variants every 15 ms, enforcing a distinction no rule can express.
 
 That circuit breaker is also the answer to whether this can lock the keyboard up. It cannot fight indefinitely, and every mechanism it uses is bounded: nothing intercepts keystrokes, so quitting the utility or removing the rule restores normal behaviour immediately.
+
+**Blocking reads are re-entry points.** Reading another process's IME state blocks inside `SendMessageTimeoutW`, and out-of-context WinEvent callbacks are delivered during that wait -- so a foreground change can run `note_context_switch` *inside* `restore_tick`'s read, after which the resumed code would overwrite the newer round's state with the stale window's. Every function that blocks across a read now checks afterwards whether the world it captured still exists: a generation counter bumped by each context switch, and `pendingWindow` identity for a round's own reschedules.
 
 ## Why not actually lock the layout
 
@@ -153,6 +159,8 @@ Two mechanisms, because the Run key can only ever start an **unelevated** copy. 
 This section originally argued for the Run key alone, on the grounds that the utility should sit at the same integrity level as ordinary applications. That reasoning was overturned by evidence: reading the windows of an elevated process requires equal privileges, and the games this exists for are elevated.
 
 A single-instance mutex is required once autostart is on, because two copies overwrite each other's restores in a loop.
+
+The account the task is registered for is the **interactive session's user**, not the process token's. The two differ under over-the-shoulder elevation -- a standard user typing an administrator's credentials leaves the elevated copy (and elevated Setup) running as the administrator, and a task registered with `/RU` that account never fires for the user who actually logs in. The utility reads the session user from WTS; the installer reads LogonUI's record of who is signed in at the console, with `{username}` as the fallback.
 
 ## Installer
 

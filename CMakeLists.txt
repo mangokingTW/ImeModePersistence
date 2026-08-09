@@ -71,6 +71,7 @@ target_link_libraries(ime_core PUBLIC
     comctl32
     dwmapi
     ole32
+    wtsapi32
 )
 
 if(MSVC)
