@@ -18,16 +18,15 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 | 檔案 | 說明 |
 |---|---|
-| **`...-setup.exe`** | 需要管理員權限。裝在 Program Files，可讓程式以管理員身分執行 —— **有防作弊的遊戲需要這個版本** |
+| **`...-setup.exe`** | 需要管理員權限。裝在 Program Files，可建立提權的開機啟動 —— **有防作弊的遊戲需要這個版本** |
 | **`...-setup-user.exe`** | 不需要管理員權限。裝在使用者目錄，無法控制提權的程式 |
 | **`...-x64.zip`** / **`-x86.zip`** | 免安裝，解壓即用 |
 
-需要管理員權限的版本有兩個獨立的勾選項：
+> **防毒軟體可能刪除安裝檔。** 未簽章的安裝檔常被啟發式誤判 —— 遇到時請改用免安裝的 zip，功能完全相同。
 
-- **以管理員身分執行** —— 預設勾選。Windows 不讓權限較低的程式讀取權限較高的程式的視窗，而有防作弊的遊戲都是提權執行，不勾就完全看不到它們。勾選後**每一次啟動**都是管理員身分，不只自動啟動那一次。
-- **開機時自動啟動** —— 勾了「以管理員身分執行」時建立**登入時以最高權限執行**的排程工作（那一次不彈 UAC）；沒勾則寫一般權限的登錄項目，因為登錄項目無法啟動提權的程式。
+兩個版本各只有一個勾選項 **開機時自動啟動**：管理員版建立**登入時以最高權限執行**的排程工作（那一次不彈 UAC），免管理員版寫一般權限的登錄項目，因為登錄項目無法啟動提權的程式。
 
-免管理員版本只有「開機時自動啟動」一項，寫一般權限的登錄項目。任何版本都可以用托盤選單的**以管理員身分重新啟動**臨時提權。
+**手動啟動時要提權，用托盤選單的「以管理員身分重新啟動」。** 安裝檔不再設定「每次啟動都提權」的相容性層 —— 那是這個安裝檔最像惡意程式的行為，防毒因此刪除它，而排程工作已經負責開機提權。
 
 托盤選單的「開機時自動啟動」機制**跟著目前的權限走**：提權時建立排程工作，未提權時寫登錄項目 —— 因為登錄項目無法啟動提權的程式。關閉時兩者都會清掉。雙擊圖示可以看到目前設定的是哪一種。要確認目前是哪一種：把滑鼠停在托盤圖示上，未提權時最後一行會寫「一般權限 － 看不到提權的程式」。
 
@@ -65,7 +64,7 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 - UIPI 會阻止修改**更高完整性等級**程式的輸入法狀態，例如以管理員身分開啟的終端機
 - 介面依 Windows 顯示語言自動選繁體中文或英文；沒有簡體版本，安裝程式精靈仍是英文
 - 深色模式只作用於**標題列**，控制項仍是淺色
-- 提權執行是預設，因為讀取提權程式的視窗需要同等權限。代價是托盤的「開機時自動啟動（一般權限）」對提權的副本沒有意義 —— 提權的自動啟動由安裝檔建立的排程工作負責
+- 讀取提權程式的視窗需要同等權限，所以要控制有防作弊的遊戲就必須提權執行。手動啟動時用托盤的「以管理員身分重新啟動」
 - 不會為了切換輸入語言而注入或附加到其他程式。有反作弊的遊戲用視窗類別綁定即可，切換走 TSF 的工作階段層級 API，完全不接觸該程式；若仍無法生效，本工具會安靜放棄而不是加大力道
 
 ## 開發
@@ -78,7 +77,8 @@ cmake -S . -B build -A x64 && cmake --build build --config Release
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.4 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.8.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.8.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
 圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7：`./tools/make_icon.sh`
@@ -118,24 +118,21 @@ Confirmed working with **Microsoft Bopomofo** on real hardware. This is not a "f
 
 ## Install
 
-From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases), take **`...-setup.exe`** or **`...-x64.zip`** / **`-x86.zip`** (unzip and run).
-
 Two installers, plus a portable archive:
 
 | File | What it is |
 |---|---|
-| **`...-setup.exe`** | Needs administrator rights. Installs to Program Files and can run the utility elevated — **required for anti-cheat protected games** |
+| **`...-setup.exe`** | Needs administrator rights. Installs to Program Files and can set up elevated autostart — **required for anti-cheat protected games** |
 | **`...-setup-user.exe`** | No administrator rights needed. Installs into your user directory; cannot control elevated programs |
 | **`...-x64.zip`** / **`-x86.zip`** | Portable; unzip and run |
 
-The administrator installer offers two independent choices:
+> **Antivirus may delete the installer.** Unsigned installers are frequently caught by heuristics — use the portable archive instead, which is functionally identical.
 
-- **Run as administrator** — ticked by default. Windows does not let a lower-privileged program read a higher-privileged one's windows, and anti-cheat protected games are elevated, so without this they cannot be seen at all. With it, **every** launch is elevated, not only the automatic one.
-- **Start automatically at logon** — with elevation, a scheduled task running at logon with highest privileges (no UAC prompt for that start); without it, a normal-privilege registry entry, since a registry entry cannot launch an elevated program.
+Each installer has a single **Start automatically at logon** option. The administrator one registers a scheduled task running at logon with highest privileges (no UAC prompt for that start); the user one writes a normal-privilege registry entry, since a registry entry cannot launch an elevated program.
 
-The user installer has only the autostart option, writing a normal-privilege registry entry. Either way, **Restart as administrator** in the tray menu elevates on demand.
+**To elevate a manual launch, use Restart as administrator in the tray menu.** The installer no longer sets a compatibility layer to elevate every launch — that was the most malware-like thing it did, antivirus was deleting the installer over it, and the logon task already covers elevated autostart.
 
-The tray's autostart toggle **follows the privileges it currently has**: a scheduled task when elevated, a registry entry when not, since a registry entry cannot start an elevated program. Turning it off removes both. Double-click the icon to see which is configured. To tell which you have, hover the tray icon: when unelevated the last line reads *Normal privileges - elevated programs are invisible*.
+The tray's autostart toggle **follows the privileges it currently has**: a scheduled task when elevated, a registry entry when not, since a registry entry cannot start an elevated program. Turning it off removes both. Double-click the icon to see which is configured; hovering shows *Normal privileges - elevated programs are invisible* when the utility is not elevated.
 
 Both are **unsigned**, so SmartScreen warns on first run — choose *More info → Run anyway*, or verify against `SHA256SUMS.txt`.
 
@@ -144,7 +141,7 @@ Both are **unsigned**, so SmartScreen warns on first run — choose *More info �
 
 ## Using it
 
-It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start with Windows (normal privileges)**, **Restart as administrator** (shown only when not elevated), **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
+It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start automatically at logon**, **Restart as administrator** (shown only when not elevated), **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
 
 #### Turning off global persistence
 
@@ -184,7 +181,8 @@ The installer needs both architectures built, then [Inno Setup](https://jrsoftwa
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.4 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.8.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.8.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
 Regenerating the icon needs [ImageMagick](https://imagemagick.org) 7: `./tools/make_icon.sh`
