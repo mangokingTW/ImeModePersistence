@@ -93,7 +93,7 @@ A rule naming an uninstalled layout is dropped rather than retried, since retryi
 
 The bindings dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, and this dialog's owner is the hidden tool window, so without it the dialog has no taskbar button and vanishes behind whatever the user clicks next. It also tracks its own handle: the dialog is modal only to that hidden owner, which leaves the tray menu live and able to ask for a second copy, so a repeat request raises the existing window rather than nesting another modal loop.
 
-The bindings dialog receives the last foreground application from the caller instead of asking the system. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
+The bindings dialog receives the last foreground application from the caller instead of asking the system, and from the same shell-excluding snapshot the status box uses. It originally had its own field updated on every context switch, which meant **Use last app** filled in `explorer.exe` for exactly the reason the status box did: reaching the dialog goes through the tray icon. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
 
 ## Autostart
 

@@ -71,7 +71,6 @@ struct AppState {
     // the last application the user was actually working in: once the dialog is
     // open, the foreground window belongs to us.
     std::wstring observedExecutable;
-    std::wstring lastApplication;
     LANGID ruleLanguage{};
 
     // Which switching mechanism was last tried and whether the layout ended up
@@ -310,9 +309,6 @@ void note_context_switch(HWND hwnd) {
     // front rather than whatever was tried last.
     g_app.layoutRequested = false;
     g_app.layoutSatisfied = false;
-    if (!g_app.observedExecutable.empty()) {
-        g_app.lastApplication = g_app.observedExecutable;
-    }
 
     const ime::State state = ime::query_state(hwnd);
     g_app.observedMode = state.mode;
@@ -571,7 +567,9 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             config::show_rules(
                 reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd, GWLP_HINSTANCE)),
                 hwnd,
-                g_app.lastApplication);
+                // snapshotApp, not the live context: opening this dialog goes
+                // through the tray icon, so the live context is the shell.
+                g_app.snapshotApp);
 
             // Rules may have changed, so re-evaluate the application that is in
             // the foreground once the dialog closes.
