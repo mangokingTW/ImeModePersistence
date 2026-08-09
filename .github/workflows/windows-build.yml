@@ -77,7 +77,10 @@ jobs:
         shell: pwsh
         run: |
           choco install innosetup --no-progress -y
+          # Both variants: one source, compiled twice. A syntax error inside a
+          # /DUserInstall branch is invisible unless that branch is compiled.
           iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+          iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 
       - name: Upload installer
         uses: actions/upload-artifact@v4

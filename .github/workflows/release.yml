@@ -76,6 +76,7 @@ jobs:
           # Quoted for the same reason the cmake arguments are: PowerShell leaves
           # $env: unexpanded inside a bareword that starts with a single dash.
           iscc "/DAppVersion=$env:VERSION" installer\ImeModePersistence.iss
+          iscc "/DAppVersion=$env:VERSION" /DUserInstall installer\ImeModePersistence.iss
 
       - name: Package portable archives
         shell: pwsh

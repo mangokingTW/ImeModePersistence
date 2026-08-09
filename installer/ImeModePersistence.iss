@@ -11,6 +11,20 @@
   #define AppVersion "0.0.0"
 #endif
 
+; Compiled twice from this one file: once plain for the administrator installer,
+; once with /DUserInstall for the one that needs no administrator rights.
+#ifdef UserInstall
+  #define SetupSuffix "-user"
+  ; No elevation task exists in this variant, so the Run entry is the only
+  ; autostart there is and needs no condition. Built as a macro rather than by
+  ; wrapping the entry: a preprocessor directive inside a line continuation
+  ; breaks the entry it is sitting in.
+  #define AutostartCondition ""
+#else
+  #define SetupSuffix ""
+  #define AutostartCondition "Check: NotElevated; "
+#endif
+
 #define AppName "ImeModePersistence"
 #define AppExeName "ImeModePersistence.exe"
 ; Must match kClassName and kSingleInstanceMutex in src/main.cpp.
@@ -35,13 +49,19 @@ VersionInfoVersion={#AppVersion}
 ; one, and anti-cheat protected games are elevated. Setup needs the same rights to
 ; register the scheduled task that starts it elevated at logon -- and, usefully,
 ; only an elevated Setup can close an elevated copy when updating.
+#ifdef UserInstall
+; No administrator rights anywhere. Cannot run the utility elevated, so it cannot
+; reach anti-cheat protected games -- fine for someone who only wants the ordinary
+; behaviour, or who has no administrator rights to give.
+PrivilegesRequired=lowest
+DefaultDirName={localappdata}\Programs\{#AppName}
+#else
+; Setup elevates, which is what lets it register the logon task and close a running
+; elevated copy when updating. Whether the *utility* runs elevated is a separate
+; question, asked as a task below.
 PrivilegesRequired=admin
-; ...but the user decides. The dialog offers "for all users" (elevates, and can
-; register the elevated logon task) or "for me only" (no elevation at all), and
-; {autopf} follows the choice. Forcing admin would lock out anyone who only cares
-; about ordinary applications and does not want elevation anywhere.
-PrivilegesRequiredOverridesAllowed=dialog
 DefaultDirName={autopf}\{#AppName}
+#endif
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExeName}
@@ -54,7 +74,7 @@ AppMutex={#AppMutexName}
 CloseApplications=yes
 
 OutputDir=..\dist
-OutputBaseFilename={#AppName}-{#AppVersion}-setup
+OutputBaseFilename={#AppName}-{#AppVersion}-setup{#SetupSuffix}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -65,12 +85,16 @@ SetupIconFile=..\assets\ImeModePersistence.ico
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Tasks]
-; One choice, not two: whether autostart is elevated follows the install mode the
-; user already picked, so offering both mechanisms would ask the same question
-; twice and allow the contradictory answer of both at once.
+; Two independent choices: whether the utility runs elevated, and whether it starts
+; by itself. Elevation is what decides the autostart mechanism, because the Run key
+; cannot launch an elevated program at all.
+#ifndef UserInstall
+Name: "elevate"; Description: "{cm:TaskElevate}"
+#endif
 Name: "logon"; Description: "{cm:TaskLogon}"
 
 [CustomMessages]
+TaskElevate=Run as administrator (needed to control anti-cheat protected games)
 TaskLogon=Start automatically at logon
 TaskCreating=Registering the logon task...
 
@@ -91,7 +115,7 @@ Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 ; whether autostart is on.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"""; \
-    Tasks: logon; Check: not IsAdminInstallMode; Flags: uninsdeletevalue
+    Tasks: logon; {#AutostartCondition}Flags: uninsdeletevalue
 
 ; Always clean up on uninstall, including an entry the user enabled from the tray
 ; menu rather than through this installer. ValueType none plus dontcreatekey
@@ -100,13 +124,25 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     ValueType: none; ValueName: "{#AppName}"; \
     Flags: dontcreatekey uninsdeletevalue
 
+#ifndef UserInstall
+; An elevated install means every launch is elevated, not just the one the logon
+; task starts. Without this, exiting and reopening from the Start menu silently
+; gives an unelevated copy that cannot see the very programs the user installed
+; this for -- with nothing on screen to say so.
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; \
+    ValueType: string; ValueName: "{app}\{#AppExeName}"; ValueData: "~ RUNASADMIN"; \
+    Tasks: elevate; Flags: uninsdeletevalue
+#endif
+
 [Run]
+#ifndef UserInstall
 ; Only in an elevated install: the Run key cannot start an elevated program at all,
 ; and a task with highest privileges is the only way to do it without a UAC prompt
 ; every logon. /IT keeps it interactive so the tray icon appears, and /RU ties it to
 ; the installing user rather than every account.
 ; Quoted twice: schtasks parses /TR as a command line of its own.
-Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""{#AppName}"" /SC ONLOGON /RL HIGHEST /IT /RU ""{code:CurrentUser}"" /TR ""\""{app}\{#AppExeName}\"""""; Flags: runhidden; Tasks: logon; Check: IsAdminInstallMode; StatusMsg: "{cm:TaskCreating}"
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""{#AppName}"" /SC ONLOGON /RL HIGHEST /IT /RU ""{code:CurrentUser}"" /TR ""\""{app}\{#AppExeName}\"""""; Flags: runhidden; Tasks: logon; Check: Elevated; StatusMsg: "{cm:TaskCreating}"
+#endif
 
 ; It was running when Setup started, so put it back without asking.
 Filename: "{app}\{#AppExeName}"; Flags: nowait; Check: WasRunning
@@ -184,6 +220,22 @@ begin
   ClosedRunningInstance := Result;
 end;
 
+#ifndef UserInstall
+{ The two autostart mechanisms are mutually exclusive and both keyed on the
+  elevation task, so they are asked once here rather than duplicated per entry.
+  Only compiled where that task exists: asking about a task that was never declared
+  would fail at run time. }
+function Elevated(): Boolean;
+begin
+  Result := WizardIsTaskSelected('elevate');
+end;
+
+function NotElevated(): Boolean;
+begin
+  Result := not WizardIsTaskSelected('elevate');
+end;
+#endif
+
 { schtasks wants a user name for /RU, and Setup runs elevated so its own user is
   not necessarily the one logging in. The original user is the right target. }
 function CurrentUser(Param: String): String;
@@ -191,11 +243,27 @@ begin
   Result := ExpandConstant('{username}');
 end;
 
+{ Both hives, because where the uninstall entry lands depends on how the copy that
+  wrote it was installed: an elevated install records itself in HKLM, an
+  unelevated one in HKCU. Reading only HKCU meant an administrator install was
+  invisible to the version comparison below, so re-running Setup neither
+  recognised an upgrade nor offered removal. }
 function InstalledCopy(var Command, Version: String): Boolean;
+var
+  Root: Integer;
 begin
-  Result := RegQueryStringValue(HKCU, UninstallRegKey, 'UninstallString', Command)
+  Root := HKLM;
+  Result := RegQueryStringValue(Root, UninstallRegKey, 'UninstallString', Command)
             and (Command <> '');
-  if Result and not RegQueryStringValue(HKCU, UninstallRegKey, 'DisplayVersion', Version) then
+
+  if not Result then
+  begin
+    Root := HKCU;
+    Result := RegQueryStringValue(Root, UninstallRegKey, 'UninstallString', Command)
+              and (Command <> '');
+  end;
+
+  if Result and not RegQueryStringValue(Root, UninstallRegKey, 'DisplayVersion', Version) then
     Version := '';
 end;
 

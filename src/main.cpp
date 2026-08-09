@@ -306,7 +306,11 @@ void update_tooltip(HWND hwnd) {
         identity.empty() ? t.unknownApplication : identity.c_str(),
         g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str(),
         current ? layout::describe(layout::language_of(current)).c_str() : t.unknownApplication,
-        attempt);
+        attempt,
+        // Shown only when it is a problem: the successful case stays compact, and
+        // the tooltip is where this has to appear, since hovering is the one way
+        // to read state without disturbing the window being read.
+        autostart::elevated() ? L"" : t.tooltipUnelevated);
 
     if (g_app.tooltip == composed) {
         return;
@@ -452,7 +456,14 @@ void restore_tick() {
                                      ? static_cast<size_t>(attempt)
                                      : ARRAYSIZE(kMethods) - 1;
 
-            g_app.layoutMethod = kMethods[index];
+            // A target whose executable could not be read is a protected process,
+            // which in practice means anti-cheat. Posting window messages into one
+            // is contact it never has to tolerate, and it would repeat on every
+            // switch into that application -- while the framework route reaches it
+            // without touching it at all. So go straight there.
+            const bool protectedTarget = g_app.observedExecutable.empty();
+            g_app.layoutMethod =
+                protectedTarget ? layout::Method::TsfSession : kMethods[index];
             g_app.layoutRequested = true;
             g_app.layoutSatisfied = false;
             layout::request(hwnd, required, g_app.layoutMethod);
