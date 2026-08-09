@@ -9,6 +9,7 @@
 #include "resource.h"
 #include "rules.h"
 #include "strings.h"
+#include "theme.h"
 
 namespace config {
 namespace {
@@ -260,6 +261,7 @@ void on_use_last(HWND dialog, const State& state) {
 void on_init(HWND dialog, State& state) {
     apply_language(dialog);
     apply_icon(dialog);
+    theme::apply_titlebar(dialog);
 
     // One tab stop so the path column lines up; the units are quarters of the
     // dialog font's average character width.
@@ -288,6 +290,15 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
         }
         return TRUE;
     }
+
+    case WM_SETTINGCHANGE:
+        // Following the user switching light/dark while the dialog is open costs
+        // one comparison and avoids a title bar that contradicts the rest of the
+        // desktop until the dialog is reopened.
+        if (theme::is_colour_change(lParam)) {
+            theme::apply_titlebar(dialog);
+        }
+        break;
 
     case WM_COMMAND: {
         State* state = state_of(dialog);

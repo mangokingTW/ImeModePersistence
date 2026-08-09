@@ -12,6 +12,11 @@
 // tools/make_icon.sh.
 IDI_APPICON ICON "@CMAKE_CURRENT_SOURCE_DIR@/assets/ImeModePersistence.ico"
 
+// 1 is CREATEPROCESS_MANIFEST_RESOURCE_ID, 24 is RT_MANIFEST. The linker is told
+// not to generate its own manifest (see CMakeLists.txt), because two would
+// collide and the generated one would win.
+1 24 "@CMAKE_CURRENT_SOURCE_DIR@/assets/ImeModePersistence.manifest"
+
 // Every string here is replaced at runtime from src/strings.cpp, so the text in
 // this template only matters if that ever fails. Widths are sized for the
 // English strings, which are the longer of the two.

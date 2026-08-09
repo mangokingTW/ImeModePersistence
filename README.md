@@ -35,6 +35,12 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 每個登入工作階段只會有一份執行中。
 
+## 外觀
+
+介面採用目前的 Windows 視覺樣式（ComCtl32 v6），標題列會跟隨系統的淺色／深色設定，並宣告 **Per-Monitor DPI Awareness V2** —— 在不同縮放比例的螢幕之間搬動視窗不會變模糊。
+
+深色模式只作用於**標題列**。要讓控制項本身也變深色必須依賴 uxtheme 未公開的 ordinal，不值得為此引入會被 Windows 更新弄壞的相依。
+
 ## 語言
 
 介面會依 Windows 的**顯示語言**自動選擇繁體中文或英文。任何中文顯示語言都會得到繁體中文（沒有另外提供簡體）。安裝程式精靈本身仍是英文 —— Inno Setup 官方發行版沒有附中文語言檔。
@@ -67,7 +73,7 @@ cmake --build build --config Release
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.2 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.4.3 installer\ImeModePersistence.iss
 ```
 
 圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7：`./tools/make_icon.sh`
@@ -128,6 +134,12 @@ It lives in the notification area:
 
 One instance runs per logon session.
 
+## Appearance
+
+The interface uses current Windows visual styles (ComCtl32 v6), the title bar follows the system light/dark setting, and the application declares **Per-Monitor DPI Awareness V2** — moving a window between monitors with different scaling does not leave it blurry.
+
+Dark mode applies to the **title bar** only. Making the controls themselves dark requires undocumented uxtheme ordinals, which is not a dependency worth taking on for it.
+
 ## Language
 
 The interface follows Windows' **display language**, choosing Traditional Chinese or English. Any Chinese display language gets Traditional Chinese; a separate Simplified translation is not provided. The installer wizard itself is still English — Inno Setup's official distribution ships no Chinese language file.
@@ -160,7 +172,7 @@ The installer needs both architectures built, then [Inno Setup](https://jrsoftwa
 
 ```powershell
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.4.2 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.4.3 installer\ImeModePersistence.iss
 ```
 
 Regenerating the icon needs [ImageMagick](https://imagemagick.org) 7: `./tools/make_icon.sh`

@@ -1,6 +1,7 @@
 // WIN32_LEAN_AND_MEAN, NOMINMAX and UNICODE come from the build definitions in
 // CMakeLists.txt, so every translation unit sees the same configuration.
 #include <windows.h>
+#include <commctrl.h>
 #include <shellapi.h>
 #include <strsafe.h>
 
@@ -13,6 +14,7 @@
 #include "resource.h"
 #include "rules.h"
 #include "strings.h"
+#include "theme.h"
 
 namespace {
 
@@ -78,8 +80,30 @@ struct AppState {
 
 AppState g_app;
 
+// A task dialog rather than a message box: it carries the current visual style,
+// and unlike MessageBox it centres on the screen instead of on its owner, which
+// matters because this owner is a hidden zero-sized window in the top-left
+// corner. Falls back if comctl32 v6 is somehow unavailable.
+void show_message(const wchar_t* title, const wchar_t* body, bool error) {
+    int pressed = 0;
+    const HRESULT result = TaskDialog(
+        g_app.hwnd,
+        nullptr,
+        title,
+        nullptr,
+        body,
+        TDCBF_OK_BUTTON,
+        error ? TD_ERROR_ICON : TD_INFORMATION_ICON,
+        &pressed);
+
+    if (FAILED(result)) {
+        MessageBoxW(g_app.hwnd, body, title,
+                    MB_OK | (error ? MB_ICONERROR : MB_ICONINFORMATION));
+    }
+}
+
 void show_error(const wchar_t* body) {
-    MessageBoxW(g_app.hwnd, body, text::s().errorTitle, MB_ICONERROR | MB_OK);
+    show_message(text::s().errorTitle, body, true);
 }
 
 // ime::mode_name stays in English so the adapter has no opinion on presentation.
@@ -354,7 +378,7 @@ void show_status() {
         g_app.observedExecutable.empty() ? t.unknownApplication
                                          : g_app.observedExecutable.c_str(),
         g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str());
-    MessageBoxW(g_app.hwnd, body, t.statusTitle, MB_OK | MB_ICONINFORMATION);
+    show_message(t.statusTitle, body, false);
 }
 
 LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -432,6 +456,14 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
+    // The manifest activates ComCtl32 version 6; this loads it and registers the
+    // classes. Per-Monitor V2 awareness comes from the manifest too, so there is
+    // no DPI call to make here.
+    INITCOMMONCONTROLSEX controls{};
+    controls.dwSize = sizeof(controls);
+    controls.dwICC = ICC_STANDARD_CLASSES;
+    InitCommonControlsEx(&controls);
+
     // Held for the process lifetime; the OS releases it on exit.
     const HANDLE singleInstance = CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
     if (!singleInstance || GetLastError() == ERROR_ALREADY_EXISTS) {
