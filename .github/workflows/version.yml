@@ -17,11 +17,19 @@ jobs:
           # The base commit has to be reachable to compare versions against it.
           fetch-depth: 0
 
-      - name: Require a version bump
+      - name: Check the version change, if any
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
           set -euo pipefail
+
+          # The version is bumped when a release is cut, not on every PR: most
+          # PRs (docs, CI, refactors) never ship a release number of their own,
+          # and forcing a bump churned CMakeLists.txt on every change -- which
+          # also defeated path filters, since that file then changed constantly.
+          # This check no longer requires a bump; it only rejects a version that
+          # moved sideways or backwards, which would break the release
+          # workflow's tag-matching guard.
 
           read_version() {
             sed -n 's/^project(ImeModePersistence VERSION \([0-9.]*\).*/\1/p' "$1"
@@ -40,13 +48,10 @@ jobs:
           fi
 
           if [ "$head_version" = "$base_version" ]; then
-            echo "::error file=CMakeLists.txt::Version is still $base_version." \
-                 "Bump project(ImeModePersistence VERSION ...) so the merge ships a new release number."
-            exit 1
+            echo "No version change; nothing to release from this PR."
+            exit 0
           fi
 
-          # Sideways or backwards moves would break the tag-matching check in the
-          # release workflow, so require the new version to sort newer.
           newest="$(printf '%s\n%s\n' "$base_version" "$head_version" | sort -V | tail -1)"
           if [ "$newest" != "$head_version" ]; then
             echo "::error file=CMakeLists.txt::$head_version is not newer than $base_version"

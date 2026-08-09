@@ -5,9 +5,24 @@ name: MSVC analysis
 # lives on (handle misuse, wrong-sized structures, ignored return codes). Its
 # SARIF goes to the same Security tab.
 on:
+  # Skip on non-code changes. MSVC analysis inspects C++, so docs/assets/installer
+  # PRs gain nothing from it. CodeQL is deliberately left running on every PR so
+  # the Scorecard SAST check keeps counting it.
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'assets/**'
+      - 'installer/**'
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'assets/**'
+      - 'installer/**'
 
 permissions:
   contents: read
