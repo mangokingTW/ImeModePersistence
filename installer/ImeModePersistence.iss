@@ -15,8 +15,14 @@
 ; once with /DUserInstall for the one that needs no administrator rights.
 #ifdef UserInstall
   #define SetupSuffix "-user"
+  ; No elevation task exists in this variant, so the Run entry is the only
+  ; autostart there is and needs no condition. Built as a macro rather than by
+  ; wrapping the entry: a preprocessor directive inside a line continuation
+  ; breaks the entry it is sitting in.
+  #define AutostartCondition ""
 #else
   #define SetupSuffix ""
+  #define AutostartCondition "Check: NotElevated; "
 #endif
 
 #define AppName "ImeModePersistence"
@@ -109,11 +115,7 @@ Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 ; whether autostart is on.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"""; \
-#ifdef UserInstall
-    Tasks: logon; Flags: uninsdeletevalue
-#else
-    Tasks: logon; Check: NotElevated; Flags: uninsdeletevalue
-#endif
+    Tasks: logon; {#AutostartCondition}Flags: uninsdeletevalue
 
 ; Always clean up on uninstall, including an entry the user enabled from the tray
 ; menu rather than through this installer. ValueType none plus dontcreatekey
