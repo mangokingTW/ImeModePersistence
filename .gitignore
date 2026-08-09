@@ -16,6 +16,9 @@ Win32/
 Debug/
 Release/
 
+# Release output
+/dist/
+
 # Binaries
 *.exe
 *.dll
