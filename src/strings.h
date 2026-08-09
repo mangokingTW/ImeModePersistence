@@ -31,6 +31,9 @@ struct Strings {
     const wchar_t* no;
     const wchar_t* unknownApplication;
     const wchar_t* noRule;
+    const wchar_t* autostartTask;
+    const wchar_t* autostartRegistry;
+    const wchar_t* autostartOff;
     const wchar_t* elevatedYes;
     const wchar_t* elevatedNo;
     const wchar_t* switchOk;

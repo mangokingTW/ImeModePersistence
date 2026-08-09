@@ -27,7 +27,9 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 - **以管理員身分執行** —— 預設勾選。Windows 不讓權限較低的程式讀取權限較高的程式的視窗，而有防作弊的遊戲都是提權執行，不勾就完全看不到它們。勾選後**每一次啟動**都是管理員身分，不只自動啟動那一次。
 - **開機時自動啟動** —— 勾了「以管理員身分執行」時建立**登入時以最高權限執行**的排程工作（那一次不彈 UAC）；沒勾則寫一般權限的登錄項目，因為登錄項目無法啟動提權的程式。
 
-免管理員版本只有「開機時自動啟動」一項，寫一般權限的登錄項目。任何版本都可以用托盤選單的**以管理員身分重新啟動**臨時提權。要確認目前是哪一種：把滑鼠停在托盤圖示上，未提權時最後一行會寫「一般權限 － 看不到提權的程式」。
+免管理員版本只有「開機時自動啟動」一項，寫一般權限的登錄項目。任何版本都可以用托盤選單的**以管理員身分重新啟動**臨時提權。
+
+托盤選單的「開機時自動啟動」機制**跟著目前的權限走**：提權時建立排程工作，未提權時寫登錄項目 —— 因為登錄項目無法啟動提權的程式。關閉時兩者都會清掉。雙擊圖示可以看到目前設定的是哪一種。要確認目前是哪一種：把滑鼠停在托盤圖示上，未提權時最後一行會寫「一般權限 － 看不到提權的程式」。
 
 兩者都**未經簽章**，首次執行會有 SmartScreen 警告，選「更多資訊 → 仍要執行」，或先用 `SHA256SUMS.txt` 核對。
 
@@ -131,7 +133,9 @@ The administrator installer offers two independent choices:
 - **Run as administrator** — ticked by default. Windows does not let a lower-privileged program read a higher-privileged one's windows, and anti-cheat protected games are elevated, so without this they cannot be seen at all. With it, **every** launch is elevated, not only the automatic one.
 - **Start automatically at logon** — with elevation, a scheduled task running at logon with highest privileges (no UAC prompt for that start); without it, a normal-privilege registry entry, since a registry entry cannot launch an elevated program.
 
-The user installer has only the autostart option, writing a normal-privilege registry entry. Either way, **Restart as administrator** in the tray menu elevates on demand. To tell which you have, hover the tray icon: when unelevated the last line reads *Normal privileges - elevated programs are invisible*.
+The user installer has only the autostart option, writing a normal-privilege registry entry. Either way, **Restart as administrator** in the tray menu elevates on demand.
+
+The tray's autostart toggle **follows the privileges it currently has**: a scheduled task when elevated, a registry entry when not, since a registry entry cannot start an elevated program. Turning it off removes both. Double-click the icon to see which is configured. To tell which you have, hover the tray icon: when unelevated the last line reads *Normal privileges - elevated programs are invisible*.
 
 Both are **unsigned**, so SmartScreen warns on first run — choose *More info → Run anyway*, or verify against `SHA256SUMS.txt`.
 

@@ -9,7 +9,7 @@ const Strings kEnglish{
     .tooltipUnelevated = L"\nNormal privileges - elevated programs are invisible",
 
     .menuPersist = L"Keep mode across windows",
-    .menuAutostart = L"Start with Windows (normal privileges)",
+    .menuAutostart = L"Start automatically at logon",
     .menuElevate = L"Restart as administrator",
     .menuRules = L"App language bindings...",
     .menuExit = L"Exit",
@@ -22,7 +22,8 @@ const Strings kEnglish{
                     L"Bound language: %s\n"
                     L"Active language: %s\n"
                     L"Last switch attempt: %s\n"
-                    L"Running as administrator: %s",
+                    L"Running as administrator: %s\n"
+                    L"Autostart: %s",
     .modeNative = L"Native",
     .modeAlphanumeric = L"Alphanumeric",
     .modeUnknown = L"Unknown",
@@ -30,6 +31,9 @@ const Strings kEnglish{
     .no = L"no",
     .unknownApplication = L"(unknown)",
     .noRule = L"(no rule)",
+    .autostartTask = L"scheduled task, elevated",
+    .autostartRegistry = L"registry entry, normal privileges",
+    .autostartOff = L"off",
     .elevatedYes = L"yes",
     .elevatedNo = L"no - cannot control elevated programs",
     .switchOk = L"%s - took effect",
@@ -82,7 +86,7 @@ const Strings kTraditionalChinese{
     .tooltipUnelevated = L"\n一般權限 － 看不到提權的程式",
 
     .menuPersist = L"跨程式維持輸入模式",
-    .menuAutostart = L"開機時自動啟動（一般權限）",
+    .menuAutostart = L"開機時自動啟動",
     .menuElevate = L"以管理員身分重新啟動",
     .menuRules = L"程式綁定輸入語言...",
     .menuExit = L"結束",
@@ -95,7 +99,8 @@ const Strings kTraditionalChinese{
                     L"綁定語言：%s\n"
                     L"實際語言：%s\n"
                     L"上次切換嘗試：%s\n"
-                    L"以管理員身分執行：%s",
+                    L"以管理員身分執行：%s\n"
+                    L"開機自動啟動：%s",
     .modeNative = L"中文",
     .modeAlphanumeric = L"英數",
     .modeUnknown = L"未知",
@@ -103,6 +108,9 @@ const Strings kTraditionalChinese{
     .no = L"否",
     .unknownApplication = L"（未知）",
     .noRule = L"（無規則）",
+    .autostartTask = L"排程工作（提權）",
+    .autostartRegistry = L"登錄項目（一般權限）",
+    .autostartOff = L"關閉",
     .elevatedYes = L"是",
     .elevatedNo = L"否 － 無法控制提權的程式",
     .switchOk = L"%s － 已生效",
