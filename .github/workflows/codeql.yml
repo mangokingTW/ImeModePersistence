@@ -1,0 +1,47 @@
+name: CodeQL
+
+# GitHub's own static analysis, run on the actual build. Results land in the
+# repository's Security tab, so anyone can read an impartial weakness report
+# rather than take the author's word for it. It finds security *weaknesses*
+# (overruns, uninitialised reads) -- not malice, which the sandbox scanners and
+# build provenance cover.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so new queries reach old code without a push.
+    - cron: "27 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze
+    runs-on: windows-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: c-cpp
+          # Manual, because C/C++ has to be built under CodeQL's tracer; the
+          # build below is the one whose output ships.
+          build-mode: manual
+
+      - name: Build
+        run: |
+          cmake -S . -B build -A x64 -DBUILD_TESTING=OFF
+          cmake --build build --config Release
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:c-cpp"

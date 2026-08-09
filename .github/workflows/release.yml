@@ -11,6 +11,12 @@ on:
 
 permissions:
   contents: write
+  # For build provenance: attest signs a statement that these exact artifacts
+  # came from this commit and this workflow run, which anyone can check with
+  # `gh attestation verify`. id-token mints the signing token; attestations
+  # records the statement.
+  id-token: write
+  attestations: write
 
 jobs:
   release:
@@ -108,6 +114,19 @@ jobs:
 
           Get-Content $path
           if ((Get-Content $path -Raw) -match "`r") { throw 'SHA256SUMS.txt contains CR' }
+
+      - name: Attest build provenance
+        # Signs a provenance statement for every published artifact, tying each
+        # to this commit and workflow run. `gh attestation verify <file> --repo
+        # mangokingTW/ImeModePersistence` then proves a download was built here
+        # and not tampered with -- the impartial half of "not malicious" that a
+        # weakness scanner cannot give.
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            dist/*.exe
+            dist/*.zip
+            dist/SHA256SUMS.txt
 
       - name: Create release
         shell: pwsh
