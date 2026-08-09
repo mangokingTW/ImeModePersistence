@@ -56,57 +56,57 @@ LANGID rule_for(const std::wstring& key) {
 
 void parses_the_documented_format() {
     const std::vector<presets::Preset> got = presets::parse(
-        L"class:stingray_window=0409\n"
-        L"notepad.exe=0x0411\n");
+        "class:stingray_window=0409\n"
+        "notepad.exe=0x0411\n");
 
     CHECK_MSG(got.size() == 2, "expected 2 presets, got %zu", got.size());
     if (got.size() == 2) {
-        CHECK(got[0].key == L"class:stingray_window");
+        CHECK(got[0].key == "class:stingray_window");
         CHECK(got[0].language == kEnglish);
         // The 0x prefix is accepted, so a hand-edit in either form works.
-        CHECK(got[1].key == L"notepad.exe");
+        CHECK(got[1].key == "notepad.exe");
         CHECK(got[1].language == kJapanese);
     }
 }
 
 void ignores_comments_blanks_and_whitespace() {
     const std::vector<presets::Preset> got = presets::parse(
-        L"; a comment\n"
-        L"# another\n"
-        L"\n"
-        L"   \n"
-        L"  class:stingray_window = 0409  \r\n"     // surrounding space, CRLF
-        L"class:other=0411");                        // no trailing newline
+        "; a comment\n"
+        "# another\n"
+        "\n"
+        "   \n"
+        "  class:stingray_window = 0409  \r\n"     // surrounding space, CRLF
+        "class:other=0411");                        // no trailing newline
 
     CHECK_MSG(got.size() == 2, "expected 2 presets, got %zu", got.size());
     if (got.size() == 2) {
-        CHECK(got[0].key == L"class:stingray_window");
+        CHECK(got[0].key == "class:stingray_window");
         CHECK(got[0].language == kEnglish);
-        CHECK(got[1].key == L"class:other");
+        CHECK(got[1].key == "class:other");
     }
 }
 
 void skips_malformed_lines_without_losing_the_rest() {
     const std::vector<presets::Preset> got = presets::parse(
-        L"no-equals-sign\n"
-        L"=0409\n"                 // empty key
-        L"empty-value=\n"          // empty value
-        L"zero=0000\n"             // a zero LANGID is "no rule", not a rule
-        L"toobig=10409\n"          // beyond 0xFFFF
-        L"nothex=english\n"        // not a number
-        L"trailing=0409x\n"        // hex with junk after it
-        L"good=0409");             // the one survivor
+        "no-equals-sign\n"
+        "=0409\n"                 // empty key
+        "empty-value=\n"          // empty value
+        "zero=0000\n"             // a zero LANGID is "no rule", not a rule
+        "toobig=10409\n"          // beyond 0xFFFF
+        "nothex=english\n"        // not a number
+        "trailing=0409x\n"        // hex with junk after it
+        "good=0409");             // the one survivor
 
     CHECK_MSG(got.size() == 1, "expected 1 valid preset, got %zu", got.size());
     if (got.size() == 1) {
-        CHECK(got[0].key == L"good");
+        CHECK(got[0].key == "good");
         CHECK(got[0].language == kEnglish);
     }
 }
 
 void empty_input_is_empty() {
-    CHECK(presets::parse(L"").empty());
-    CHECK(presets::parse(L"; only a comment\n").empty());
+    CHECK(presets::parse("").empty());
+    CHECK(presets::parse("; only a comment\n").empty());
 }
 
 void seeds_once_then_leaves_the_user_alone() {
