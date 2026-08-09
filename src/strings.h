@@ -13,6 +13,7 @@ struct Strings {
     const wchar_t* trayTip;
     const wchar_t* tooltipFormat;     // application, bound language, current language, attempt
 
+    const wchar_t* menuPersist;
     const wchar_t* menuAutostart;
     const wchar_t* menuRules;
     const wchar_t* menuExit;
@@ -37,6 +38,7 @@ struct Strings {
 
     const wchar_t* rulesCaption;
     const wchar_t* rulesHeader;
+    const wchar_t* groupAddUpdate;
     const wchar_t* labelExecutable;
     const wchar_t* labelLayout;
     const wchar_t* buttonUseLast;

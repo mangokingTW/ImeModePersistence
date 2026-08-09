@@ -23,18 +23,24 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 ## 使用
 
-常駐在通知區域，右鍵選單三項：**開機時自動啟動**、**程式綁定輸入語言…**、**結束**。把滑鼠停在圖示上會顯示綁定與目前的輸入語言；左鍵雙擊顯示完整狀態。每個登入工作階段只會有一份執行中。
+常駐在通知區域，右鍵選單四項：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**結束**。把滑鼠停在圖示上會顯示綁定與目前的輸入語言；左鍵雙擊顯示完整狀態。每個登入工作階段只會有一份執行中。
 
-### 程式綁定輸入語言
+#### 關閉全域延續
+
+**跨程式維持輸入模式**預設開啟，就是這個工具原本的行為。關掉之後只有下面的程式綁定會作用 —— 適合只想要「某些程式固定用某個語言」而不要全域跟隨的人。設定記在 `HKCU\Software\ImeModePersistence`。
+
+## 程式綁定輸入語言
 
 把程式綁定到一個輸入語言，例如終端機綁英文、Word 綁中文。綁定後切到該程式就會自動切換。
 
 - **瀏覽** 選執行檔，規則就是那個**完整路徑**，所以兩個同名的執行檔可以分開設定
 - 也可以只填**檔名**（`notepad.exe`），這樣不管程式裝在哪都套用。查詢時先比對完整路徑，找不到才比對檔名
 - **用剛才的程式** 會填入你開這個視窗之前那個程式，不必自己找
-- **用視窗類別** 填入 `class:視窗類別名` —— 有反作弊的遊戲讀不到執行檔路徑（連管理員也讀不到），視窗類別是唯一不需要碰該程式就能識別它的方式
+- **用視窗類別** 填入 `class:視窗類別名`（Win32 視窗類別，不是程式名或標題）—— 有反作弊的遊戲讀不到執行檔路徑，連管理員也讀不到，視窗類別是唯一不需要碰該程式就能識別它的方式。不必自己查：這個按鈕會用你開視窗之前那個程式的類別填入，托盤提示在讀不到路徑時也會直接顯示 `class:實際類別`
 
 比對順序由精確到寬鬆：完整路徑 → 檔名 → 視窗類別。
+
+**已確認可用於有反作弊的全螢幕遊戲。** 例如 Helldivers 2 的視窗類別是 `stingray_window`（Autodesk Stingray 引擎），用 `class:stingray_window` 綁定即可生效 —— 它的執行檔路徑讀不到，但視窗類別讀得到。
 
 綁定的是**語言**（中文／英文／日文…）。同一語言裝了多個輸入法（注音與倉頡都是 zh-TW）時，會用第一個已安裝的。
 
@@ -44,7 +50,8 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 - UIPI 會阻止修改**更高完整性等級**程式的輸入法狀態，例如以管理員身分開啟的終端機
 - 介面依 Windows 顯示語言自動選繁體中文或英文；沒有簡體版本，安裝程式精靈仍是英文
 - 深色模式只作用於**標題列**，控制項仍是淺色
-- 不會為了切換輸入語言而注入或附加到其他程式。有反作弊的遊戲請用視窗類別綁定；若連 TSF 都無法生效，本工具會安靜放棄而不是加大力道
+- **不要以管理員身分執行。** 提權不會讓受保護的 process 變得可讀，卻會讓每次登入都要過 UAC、`HKCU\Run` 開機啟動失效，而且非提權的安裝檔無法自動關閉提權的程式（UIPI 擋住 `WM_CLOSE`），安裝時會要求你手動關閉
+- 不會為了切換輸入語言而注入或附加到其他程式。有反作弊的遊戲用視窗類別綁定即可，切換走 TSF 的工作階段層級 API，完全不接觸該程式；若仍無法生效，本工具會安靜放棄而不是加大力道
 
 ## 開發
 
@@ -105,18 +112,24 @@ Both are **unsigned**, so SmartScreen warns on first run — choose *More info �
 
 ## Using it
 
-It lives in the notification area. Right-click for **Start with Windows**, **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
+It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start with Windows**, **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
 
-### App language bindings
+#### Turning off global persistence
+
+**Keep mode across windows** is on by default and is what the utility is for. Turning it off leaves only the bindings below active — for someone who wants specific applications pinned to a language without the global carry-over. Stored in `HKCU\Software\ImeModePersistence`.
+
+## App language bindings
 
 Bind an application to an input language — a terminal to English, Word to Chinese. Activating a bound application switches to its language.
 
 - **Browse** picks an executable and the rule is that **full path**, so two executables sharing a name can be configured separately
 - A bare **file name** (`notepad.exe`) also works and applies wherever the application is installed. Lookup tries the path first, then the name
 - **Use last app** fills in the application you were in before opening the dialog
-- **Use window class** fills in `class:<name>` — anti-cheat protected games refuse to have their executable path read, even by an administrator, and a window class is the only way to identify one without touching the process
+- **Use window class** fills in `class:<name>` (the Win32 window class, not the program or title) — anti-cheat protected games refuse to have their executable path read, even by an administrator, and a window class is the only way to identify one without touching the process. You do not have to look it up: the button fills it from the application you were in, and the tooltip shows `class:<name>` whenever the path cannot be read
 
 Lookup goes from most specific to least: full path, then file name, then window class.
+
+**Confirmed working for anti-cheat protected fullscreen games.** Helldivers 2's window class is `stingray_window` (the Autodesk Stingray engine), so `class:stingray_window` binds it — its executable path cannot be read, but its window class can.
 
 What gets bound is a **language** (Chinese / English / Japanese...). Where one language has several IMEs installed — Bopomofo and Cangjie are both zh-TW — the first is used.
 
@@ -126,7 +139,8 @@ What gets bound is a **language** (Chinese / English / Japanese...). Where one l
 - UIPI prevents changing the IME state of a **higher integrity level** process, such as an elevated terminal
 - The interface follows Windows' display language, choosing Traditional Chinese or English. No Simplified translation; the installer wizard is still English
 - Dark mode applies to the **title bar** only; controls stay light
-- Nothing is injected into or attached to another process to switch its language. For an anti-cheat protected game, bind by window class; if even TSF cannot reach it the utility gives up quietly rather than trying harder
+- **Do not run it as administrator.** Elevation does not make a protected process readable, and it costs a UAC prompt at every logon, `HKCU\Run` autostart no longer working, and an installer that cannot close the running copy for you — UIPI blocks `WM_CLOSE` from the unelevated installer, so setup asks you to close it by hand
+- Nothing is injected into or attached to another process to switch its language. An anti-cheat protected game is bound by window class and switched through TSF's session-level API, which touches nothing belonging to it; where that still fails the utility gives up quietly rather than trying harder
 
 ## Development
 

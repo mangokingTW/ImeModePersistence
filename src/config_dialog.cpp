@@ -54,6 +54,7 @@ void apply_language(HWND dialog) {
     const text::Strings& t = text::s();
 
     SetWindowTextW(dialog, t.rulesCaption);
+    SetDlgItemTextW(dialog, IDC_GROUP, t.groupAddUpdate);
     SetDlgItemTextW(dialog, IDC_BROWSE, t.buttonBrowse);
     SetDlgItemTextW(dialog, IDC_USE_LAST, t.buttonUseLast);
     SetDlgItemTextW(dialog, IDC_USE_CLASS, t.buttonUseClass);

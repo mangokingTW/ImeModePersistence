@@ -74,6 +74,12 @@ An earlier attempt used a `restoring` boolean guard. It could never be observed 
 
 Every write is verified by reading the state back, because an IME that is still activating can discard it. After four attempts (~930 ms) the utility adopts whatever mode the target settled on rather than fighting it. If a context only becomes readable after the attempts run out, the observer starts a fresh round.
 
+## Turning the global behaviour off
+
+Per-application bindings are useful without the carry-over, so the tray menu can disable it. Off means three things stop: no mode is promoted to the global target, no mode is restored on a context switch, and the recovery round that retries an unreadable context does not run. Bindings are unaffected, since they are enforced before the mode in `restore_tick` and do not consult the target mode at all.
+
+Toggling either way clears the remembered target. Keeping it would show a desired mode in the status box that is not being applied, and re-enabling should pick up what the user is doing now rather than something from before the switch.
+
 ## App language bindings
 
 Binding a layout is a different operation from setting a conversion mode. The mode lives on whichever layout a thread already has active; a rule replaces the layout itself, which is how Bopomofo, a US keyboard and a Japanese IME become distinct targets rather than shades of one.
@@ -96,11 +102,15 @@ Three mechanisms are now tried in escalating order, one per retry attempt, each 
 
    This replaced `AttachThreadInput` + `ActivateKeyboardLayout`, which was never shown to work and was the only technique here that anti-cheat is built to notice. Removing it lowers the risk to the user's account and loses nothing demonstrated.
 
+   **Confirmed to reach a raw-input fullscreen game protected by anti-cheat** (Helldivers 2, window class `stingray_window`). This was the central unknown: the documentation says session rather than thread scope, and whether that crossed into such a process could only be settled by trying it. It does.
+
 Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is reported in two places.
 
 **The tray tooltip is the primary one, because hovering does not change the foreground window.** The status box originally read the live foreground and so reported `explorer.exe` every single time it was opened: clicking the tray icon is what hands the foreground to the shell, so the act of asking destroyed the answer. It now reports a snapshot of the last application that was neither this process nor the shell — identified by comparing process ids against `GetShellWindow`, not by matching an executable name. Without those, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.
 
 A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
+
+The readouts show whatever identity could be established, in exactly the form a rule key takes: the full path when readable, otherwise `class:<name>`. Reporting only the failure — which the first attempt did — left no way to see the class a rule has to match, so a `class:` rule could not be checked against reality.
 
 **Identification is the other half of the problem.** Reading an executable path needs `OpenProcess`, which an anti-cheat protected game refuses even to an administrator — so for those the rule never matched and no switching mechanism could have helped. `GetClassName` reads a window property and needs no access to the process, which makes a `class:` rule the only way to name such an application. Lookup runs most specific to least: full path, file name, window class.
 
