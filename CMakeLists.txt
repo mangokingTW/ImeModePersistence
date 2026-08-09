@@ -9,6 +9,8 @@ add_executable(ImeModePersistence WIN32
     src/main.cpp
     src/ime_state.cpp
     src/ime_state.h
+    src/ime_interop.cpp
+    src/ime_interop.h
 )
 
 target_compile_definitions(ImeModePersistence PRIVATE
