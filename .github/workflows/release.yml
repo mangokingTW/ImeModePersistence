@@ -45,12 +45,12 @@ jobs:
 
       - name: Build x64
         run: |
-          cmake -S . -B build-x64 -A x64 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          cmake -S . -B build-x64 -A x64 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
       - name: Build x86
         run: |
-          cmake -S . -B build-x86 -A Win32 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          cmake -S . -B build-x86 -A Win32 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_TESTING=OFF
           cmake --build build-x86 --config Release
 
       - name: Check the stamped version

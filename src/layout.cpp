@@ -133,6 +133,21 @@ const wchar_t* method_name(Method method) {
     return L"unknown";
 }
 
+Method method_for_attempt(int attempt) {
+    static constexpr Method kOrder[] = {
+        Method::FocusWindow,
+        Method::ThreadWindows,
+        Method::TsfSession,
+    };
+
+    if (attempt <= 0) {
+        return kOrder[0];
+    }
+
+    const size_t index = static_cast<size_t>(attempt);
+    return index < ARRAYSIZE(kOrder) ? kOrder[index] : kOrder[ARRAYSIZE(kOrder) - 1];
+}
+
 bool request(HWND hwnd, HKL hkl, Method method) {
     if (!hwnd || !hkl || !IsWindow(hwnd)) {
         return false;

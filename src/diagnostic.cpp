@@ -11,7 +11,7 @@ namespace {
 
 // One rotation is enough. A tray application that runs for months would otherwise
 // grow without bound, and nobody reads a log older than the previous session.
-constexpr LONGLONG kMaxBytes = 1024 * 1024;
+LONGLONG g_maxBytes = 1024 * 1024;
 
 HANDLE g_file = INVALID_HANDLE_VALUE;
 std::wstring g_path;
@@ -20,7 +20,12 @@ std::wstring g_path;
 // filesystem each time would cost more than the write itself.
 LONGLONG g_bytes = 0;
 
-std::wstring directory() {
+std::wstring directory(const std::wstring& preferred) {
+    if (!preferred.empty()) {
+        CreateDirectoryW(preferred.c_str(), nullptr);
+        return preferred;
+    }
+
     PWSTR base = nullptr;
     if (FAILED(SHGetKnownFolderPath(FOLDERID_LocalAppData, 0, nullptr, &base))) {
         return {};
@@ -45,7 +50,7 @@ void rotate_if_large(const std::wstring& file) {
 
     const LONGLONG size =
         (static_cast<LONGLONG>(info.nFileSizeHigh) << 32) | info.nFileSizeLow;
-    if (size < kMaxBytes) {
+    if (size < g_maxBytes) {
         return;
     }
 
@@ -122,7 +127,7 @@ void emit(const wchar_t* message) {
     // thread, so there is nothing to lock.
     FlushFileBuffers(g_file);
 
-    if (g_bytes < kMaxBytes || g_path.empty()) {
+    if (g_bytes < g_maxBytes || g_path.empty()) {
         return;
     }
 
@@ -138,8 +143,10 @@ void emit(const wchar_t* message) {
 
 } // namespace
 
-bool initialise() {
-    const std::wstring folder = directory();
+bool initialise(const Options& options) {
+    g_maxBytes = options.maxBytes > 0 ? options.maxBytes : 1024 * 1024;
+
+    const std::wstring folder = directory(options.folder);
     if (folder.empty()) {
         return false;
     }
@@ -159,6 +166,10 @@ void shutdown() {
         g_file = INVALID_HANDLE_VALUE;
     }
     g_path.clear();
+
+    // So that reopening a log starts with a clean slate rather than silently
+    // suppressing every context line written before the previous shutdown.
+    g_seen.clear();
 }
 
 void write(const wchar_t* format, ...) {

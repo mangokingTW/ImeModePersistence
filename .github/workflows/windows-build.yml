@@ -30,6 +30,23 @@ jobs:
       - name: Build
         run: cmake --build build --config Release
 
+      - name: Test
+        shell: pwsh
+        working-directory: build
+        run: |
+          # --output-on-failure because the harness prints the failing expression
+          # and its file and line, which is the whole diagnostic. --no-tests=error
+          # so a test binary that failed to register anything is a failure rather
+          # than a silent pass.
+          #
+          # A suite whose environment cannot support it exits 77 and CTest counts
+          # it as skipped rather than passed, listing it under "did not run" in the
+          # summary. That is the honest result for a headless runner that cannot
+          # create a window or change a keyboard layout -- and it is worth reading,
+          # because a suite that quietly stops testing anything looks identical to
+          # one that passes.
+          ctest --build-config Release --output-on-failure --no-tests=error
+
       - name: Check the Chinese strings survived compilation
         shell: pwsh
         run: |
@@ -68,9 +85,11 @@ jobs:
 
       - name: Build both architectures
         run: |
-          cmake -S . -B build-x64 -A x64
+          # BUILD_TESTING=OFF: this job packages the application, and the tests
+          # already ran in the build job above.
+          cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
-          cmake -S . -B build-x86 -A Win32
+          cmake -S . -B build-x86 -A Win32 -DBUILD_TESTING=OFF
           cmake --build build-x86 --config Release
 
       - name: Build installer
