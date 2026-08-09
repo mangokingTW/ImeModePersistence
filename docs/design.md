@@ -282,3 +282,15 @@ TSF is deliberately not exercised. It moves the input language for the whole ses
 - No global `WH_CALLWNDPROC` DLL injection.
 - UIPI stops any process from changing IME state at a higher integrity level. Run the utility at the same integrity level as the target application when that matters.
 - No attempt is made to bypass Windows security boundaries. Elevation only ever happens explicitly and by the user's hand: the manifest stays `asInvoker`, and the only requests are the *Restart as administrator* menu item and the admin installer's own UAC prompt.
+
+## Verifying it, without taking the author's word
+
+The utility is unsigned and its logon task trips Defender's behaviour heuristic (`Behavior:Win32/Persistence.A!ml`), so "trust me" is not enough. Verification splits in two, because the impartial tools do:
+
+**Weaknesses, in the source.** [CodeQL](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/codeql.yml) (GitHub's own SAST) and MSVC `/analyze` run on every push, and their findings are public in the repository's Security tab. They judge whether the code is *safe* — overruns, uninitialised reads, ignored return codes — not whether it is *malicious*.
+
+**Malice, in the binary.** That is a behaviour question, so the impartial authorities are the multi-engine and sandbox scanners — VirusTotal, Hybrid Analysis — plus Microsoft's own submission channel, and the build provenance below. A weakness scanner cannot certify "not malware," and a clean AV verdict cannot certify "no bugs"; the two are separate claims with separate tools.
+
+**Provenance ties the two together.** The release workflow signs an `actions/attest-build-provenance` statement for every artifact, so `gh attestation verify <file> --repo mangokingTW/ImeModePersistence` proves a download was built from this source by this workflow and not swapped afterward — which is what makes the source audit *about the binary someone actually ran*.
+
+**The capability inventory is small enough to read.** The whole program links `user32 imm32 shell32 advapi32 comdlg32 gdi32 comctl32 dwmapi ole32 wtsapi32` — no `ws2_32`/`wininet`/`winhttp`/`urlmon`, so "transfers no information" is structural, not a promise: there is no networking API in the binary to call. It writes only under `HKCU\Software\ImeModePersistence` and the `Run` key, and only to `%LocalAppData%\ImeModePersistence\log.txt`; it spawns only `schtasks.exe` (the logon task) and `ShellExecute` (open the log, or elevate on request). It contains none of `WriteProcessMemory`, `CreateRemoteThread`, `VirtualAllocEx`, `SetWindowsHookEx`, `GetAsyncKeyState`, `SendInput`, `CreateService`, or `DeviceIoControl` — the families a reader would grep for first.

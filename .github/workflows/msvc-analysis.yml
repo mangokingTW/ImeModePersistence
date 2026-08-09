@@ -1,0 +1,40 @@
+name: MSVC analysis
+
+# The Microsoft compiler's own static analyzer, complementary to CodeQL: one is
+# broad on general weakness patterns, the other knows the Win32 API this program
+# lives on (handle misuse, wrong-sized structures, ignored return codes). Its
+# SARIF goes to the same Security tab.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: analyze
+    runs-on: windows-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure
+        run: cmake -S . -B build -A x64 -DBUILD_TESTING=OFF
+
+      - name: Run MSVC Code Analysis
+        uses: microsoft/msvc-code-analysis-action@v0.1.1
+        id: run-analysis
+        with:
+          cmakeBuildDirectory: ${{ github.workspace }}/build
+          buildConfiguration: Release
+          ruleset: NativeRecommendedRules.ruleset
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: ${{ steps.run-analysis.outputs.sarif }}
