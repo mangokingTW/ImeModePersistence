@@ -1,5 +1,20 @@
 cmake_minimum_required(VERSION 3.21)
-project(ImeModePersistence LANGUAGES CXX)
+
+# Single source of truth for the version. The release workflow reads it and
+# refuses to publish a tag that disagrees, so the number stamped into the
+# executable always matches the release it shipped in.
+project(ImeModePersistence VERSION 0.2.0 LANGUAGES CXX)
+
+set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable")
+
+if(NOT APP_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
+    message(FATAL_ERROR "APP_VERSION must be MAJOR.MINOR.PATCH, got '${APP_VERSION}'")
+endif()
+set(APP_VERSION_MAJOR "${CMAKE_MATCH_1}")
+set(APP_VERSION_MINOR "${CMAKE_MATCH_2}")
+set(APP_VERSION_PATCH "${CMAKE_MATCH_3}")
+
+configure_file(src/resources.rc.in "${CMAKE_CURRENT_BINARY_DIR}/resources.rc" @ONLY)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -14,7 +29,7 @@ add_executable(ImeModePersistence WIN32
     src/autostart.cpp
     src/autostart.h
     src/resource.h
-    src/resources.rc
+    "${CMAKE_CURRENT_BINARY_DIR}/resources.rc"
 )
 
 target_compile_definitions(ImeModePersistence PRIVATE

@@ -1,0 +1,53 @@
+name: Version
+
+on:
+  pull_request:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    name: version bump
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The base commit has to be reachable to compare versions against it.
+          fetch-depth: 0
+
+      - name: Require a version bump
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          read_version() {
+            sed -n 's/^project(ImeModePersistence VERSION \([0-9.]*\).*/\1/p' "$1"
+          }
+
+          head_version="$(read_version CMakeLists.txt)"
+          git show "$BASE_SHA:CMakeLists.txt" > /tmp/base-CMakeLists.txt
+          base_version="$(read_version /tmp/base-CMakeLists.txt)"
+
+          echo "base: ${base_version:-<none>}"
+          echo "head: ${head_version:-<none>}"
+
+          if [ -z "$head_version" ]; then
+            echo "::error file=CMakeLists.txt::Could not read project(ImeModePersistence VERSION ...)"
+            exit 1
+          fi
+
+          if [ "$head_version" = "$base_version" ]; then
+            echo "::error file=CMakeLists.txt::Version is still $base_version." \
+                 "Bump project(ImeModePersistence VERSION ...) so the merge ships a new release number."
+            exit 1
+          fi
+
+          # Sideways or backwards moves would break the tag-matching check in the
+          # release workflow, so require the new version to sort newer.
+          newest="$(printf '%s\n%s\n' "$base_version" "$head_version" | sort -V | tail -1)"
+          if [ "$newest" != "$head_version" ]; then
+            echo "::error file=CMakeLists.txt::$head_version is not newer than $base_version"
+            exit 1
+          fi
+
+          echo "$base_version -> $head_version"
