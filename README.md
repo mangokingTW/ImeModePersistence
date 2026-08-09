@@ -20,9 +20,9 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 
 「設定 → 時間與語言 → 輸入 → 進階鍵盤設定」裡的**「允許我為每個應用程式視窗使用不同的輸入法」解決不了這件事**。那個設定管的是「哪一個輸入法在作用」，不管「該輸入法處於中文還是英數」—— 關掉它之後，切換視窗照樣切回中文。
 
-**沒有任何 Windows 設定能處理轉換模式**，這就是這個工具存在的原因。
+**沒有任何 Windows 設定能處理轉換模式** —— 這是這個工具的**第一個**目的：讓你選的中／英模式跟著你走。
 
-還有一種情況更是連設定都碰不到：**使用 raw input 的全螢幕遊戲**直接讀取鍵盤裝置，完全不參與輸入法的狀態管理 —— 那類程式只能從外部處理。
+**第二個**目的是把特定程式固定在某個輸入語言，包含連設定都碰不到的那類：**使用 raw input 的全螢幕遊戲**直接讀取鍵盤裝置，完全不參與輸入法的狀態管理，只能從外部處理。[Helldivers 2](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2) 就是這種。
 
 ## 安裝
 
@@ -114,9 +114,9 @@ Windows keeps IME state **per thread**. Move to another window and the conversio
 
 **Settings → Time & language → Typing → Advanced keyboard settings → _Let me use a different input method for each app window_ does not fix this.** That setting governs *which* input method is active, not whether that method is in native or alphanumeric mode — turn it off and switching windows still reverts to Chinese.
 
-**No Windows setting covers the conversion mode**, which is why this utility exists.
+**No Windows setting covers the conversion mode.** That is this utility's **first** purpose: carrying the native/alphanumeric mode you chose to the next window.
 
-One case is further out of reach still: a **fullscreen game reading raw input** takes the keyboard directly and does not participate in IME state management at all, so no setting affects it. Such programs can only be handled from outside.
+Its **second** purpose is pinning a specific program to an input language, including the kind no setting can reach: a **fullscreen game reading raw input** takes the keyboard directly and does not participate in IME state management at all, so it can only be handled from outside. [Helldivers 2](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2-English) is one.
 
 ## Install
 
