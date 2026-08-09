@@ -77,7 +77,17 @@ A window class was rejected as the key: neither stable nor discoverable by whoev
 
 **The layout is enforced before the mode.** Writing the mode first would write it to the layout that is on its way out.
 
-**`WM_INPUTLANGCHANGEREQUEST` is posted, not sent**, so the switch lands on the target's message loop later and there is no meaningful return value. The existing retry-and-verify loop covers it: each attempt re-reads the layout, and after four attempts the utility stops trying. A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
+**Switching another process's layout has no single reliable mechanism.** `WM_INPUTLANGCHANGEREQUEST` only takes effect if the receiving window lets it reach `DefWindowProc`, and plenty of applications — anything Chromium-based, most UWP and WinUI — do not. v0.4.4 posted it to the top-level foreground window with `INPUTLANGCHANGE_SYSCHARSET` and did not work at all on real applications.
+
+Three mechanisms are now tried in escalating order, one per retry attempt, each verified by reading the layout back:
+
+1. **Focus window.** `GetGUIThreadInfo` gives the window that actually holds keyboard focus, which is what owns the input language; the top-level window frequently forwards nothing. `wParam` is now 0 — `INPUTLANGCHANGE_SYSCHARSET` asks the window to switch only if the layout matches the system character set, a condition irrelevant to an explicit request that some windows honour by refusing.
+2. **Every top-level window of the thread**, via `EnumThreadWindows`. Some applications keep a separate message-handling window that honours the request when the visible one ignores it.
+3. **`AttachThreadInput` then `ActivateKeyboardLayout`.** Attaching shares the target's input queue and with it the active layout. Last resort because it briefly couples our message queue to another process, so a hung target stalls us until the detach.
+
+Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is shown in the status box. Without that, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.
+
+A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
 
 The bindings dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, and this dialog's owner is the hidden tool window, so without it the dialog has no taskbar button and vanishes behind whatever the user clicks next. It also tracks its own handle: the dialog is modal only to that hidden owner, which leaves the tray menu live and able to ask for a second copy, so a repeat request raises the existing window rather than nesting another modal loop.
 

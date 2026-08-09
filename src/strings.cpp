@@ -15,7 +15,9 @@ const Strings kEnglish{
                     L"Foreground mode: %s\n"
                     L"IME reachable: %s\n"
                     L"Application: %s\n"
-                    L"Input language: %s",
+                    L"Bound language: %s\n"
+                    L"Current language: %s\n"
+                    L"Last switch attempt: %s",
     .modeNative = L"Native",
     .modeAlphanumeric = L"Alphanumeric",
     .modeUnknown = L"Unknown",
@@ -23,6 +25,9 @@ const Strings kEnglish{
     .no = L"no",
     .unknownApplication = L"(unknown)",
     .noRule = L"(no rule)",
+    .switchOk = L"%s - took effect",
+    .switchFailed = L"%s - ignored by the application",
+    .switchNotAttempted = L"none needed",
 
     .errorTitle = L"ImeModePersistence",
     .errorAutostart = L"Could not update the Run registry entry.",
@@ -71,7 +76,9 @@ const Strings kTraditionalChinese{
                     L"前景視窗模式：%s\n"
                     L"可讀取輸入法：%s\n"
                     L"程式：%s\n"
-                    L"輸入語言：%s",
+                    L"綁定語言：%s\n"
+                    L"目前語言：%s\n"
+                    L"上次切換嘗試：%s",
     .modeNative = L"中文",
     .modeAlphanumeric = L"英數",
     .modeUnknown = L"未知",
@@ -79,6 +86,9 @@ const Strings kTraditionalChinese{
     .no = L"否",
     .unknownApplication = L"（未知）",
     .noRule = L"（無規則）",
+    .switchOk = L"%s － 已生效",
+    .switchFailed = L"%s － 該程式未理會",
+    .switchNotAttempted = L"不需切換",
 
     .errorTitle = L"輸入法模式延續",
     .errorAutostart = L"無法更新開機啟動的登錄項目。",
