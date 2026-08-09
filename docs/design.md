@@ -85,13 +85,15 @@ Three mechanisms are now tried in escalating order, one per retry attempt, each 
 2. **Every top-level window of the thread**, via `EnumThreadWindows`. Some applications keep a separate message-handling window that honours the request when the visible one ignores it.
 3. **`AttachThreadInput` then `ActivateKeyboardLayout`.** Attaching shares the target's input queue and with it the active layout. Last resort because it briefly couples our message queue to another process, so a hung target stalls us until the detach.
 
-Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is shown in the status box. Without that, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.
+Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is reported in two places.
+
+**The tray tooltip is the primary one, because hovering does not change the foreground window.** The status box originally read the live foreground and so reported `explorer.exe` every single time it was opened: clicking the tray icon is what hands the foreground to the shell, so the act of asking destroyed the answer. It now reports a snapshot of the last application that was neither this process nor the shell — identified by comparing process ids against `GetShellWindow`, not by matching an executable name. Without those, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.
 
 A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
 
 The bindings dialog carries `WS_EX_APPWINDOW`. The taskbar omits owned windows, and this dialog's owner is the hidden tool window, so without it the dialog has no taskbar button and vanishes behind whatever the user clicks next. It also tracks its own handle: the dialog is modal only to that hidden owner, which leaves the tray menu live and able to ask for a second copy, so a repeat request raises the existing window rather than nesting another modal loop.
 
-The bindings dialog receives the last foreground application from the caller instead of asking the system. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
+The bindings dialog receives the last foreground application from the caller instead of asking the system, and from the same shell-excluding snapshot the status box uses. It originally had its own field updated on every context switch, which meant **Use last app** filled in `explorer.exe` for exactly the reason the status box did: reaching the dialog goes through the tray icon. Once the dialog is open, the foreground window belongs to this process — which is also why the observer now skips windows by process ID rather than by comparing against the message-only window's handle.
 
 ## Autostart
 

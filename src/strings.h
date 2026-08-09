@@ -11,6 +11,7 @@ namespace text {
 
 struct Strings {
     const wchar_t* trayTip;
+    const wchar_t* tooltipFormat;     // application, bound language, current language, attempt
 
     const wchar_t* menuAutostart;
     const wchar_t* menuRules;

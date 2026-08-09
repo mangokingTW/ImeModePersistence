@@ -5,6 +5,7 @@ namespace {
 
 const Strings kEnglish{
     .trayTip = L"IME Mode Persistence",
+    .tooltipFormat = L"%s\nBound: %s\nCurrent: %s\n%s",
 
     .menuAutostart = L"Start with Windows",
     .menuRules = L"App language bindings...",
@@ -66,6 +67,7 @@ const Strings kEnglish{
 
 const Strings kTraditionalChinese{
     .trayTip = L"輸入法模式延續",
+    .tooltipFormat = L"%s\n綁定：%s\n目前：%s\n%s",
 
     .menuAutostart = L"開機時自動啟動",
     .menuRules = L"程式綁定輸入語言...",
