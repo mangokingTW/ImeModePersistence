@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 # Single source of truth for the version. The release workflow reads it and
 # refuses to publish a tag that disagrees, so the number stamped into the
 # executable always matches the release it shipped in.
-project(ImeModePersistence VERSION 0.4.3 LANGUAGES CXX)
+project(ImeModePersistence VERSION 0.4.4 LANGUAGES CXX)
 
 set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable")
 
@@ -62,7 +62,12 @@ target_link_libraries(ImeModePersistence PRIVATE
 )
 
 if(MSVC)
-    target_compile_options(ImeModePersistence PRIVATE /W4 /permissive-)
+    # /utf-8 is not optional here. The sources are UTF-8 without a BOM, and
+    # without this MSVC reads them in the system ANSI code page: on an en-US
+    # machine the Chinese literals in src/strings.cpp come out as CP1252
+    # mojibake. It compiles without a single warning, because those bytes are
+    # nearly all valid CP1252, so nothing but looking at the screen catches it.
+    target_compile_options(ImeModePersistence PRIVATE /utf-8 /W4 /permissive-)
 
     # The application manifest is embedded as an RT_MANIFEST resource (see
     # src/resources.rc.in). Letting the linker generate one as well would collide,
