@@ -1,5 +1,5 @@
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+// WIN32_LEAN_AND_MEAN, NOMINMAX and UNICODE come from the build definitions in
+// CMakeLists.txt, so every translation unit sees the same configuration.
 #include <windows.h>
 #include <shellapi.h>
 #include <strsafe.h>
