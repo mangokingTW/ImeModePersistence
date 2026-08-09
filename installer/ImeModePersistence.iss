@@ -80,3 +80,55 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
 [Run]
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
     Flags: nowait postinstall skipifsilent
+
+[Code]
+{ Inno Setup has no maintenance mode: re-running Setup normally just reinstalls
+  over the existing copy, with no way to remove. Most people expect an installer
+  they run twice to offer removal, so offer it explicitly.
+
+  This key must stay in step with AppId above; Inno forms it by appending _is1. }
+const
+  UninstallRegKey =
+    'Software\Microsoft\Windows\CurrentVersion\Uninstall\' +
+    '{609AC807-6D9F-4D06-8F8D-AC65E29869D5}_is1';
+
+function ExistingUninstaller(var Command: String): Boolean;
+begin
+  Result := RegQueryStringValue(HKCU, UninstallRegKey, 'UninstallString', Command)
+            and (Command <> '');
+end;
+
+function InitializeSetup(): Boolean;
+var
+  Command: String;
+  ResultCode: Integer;
+begin
+  Result := True;
+
+  if not ExistingUninstaller(Command) then
+    exit;
+
+  case SuppressibleMsgBox(
+         '{#AppName} is already installed.' + #13#10#13#10 +
+         'Yes' + #9 + '- remove it now' + #13#10 +
+         'No' + #9 + '- reinstall over the existing copy',
+         mbConfirmation, MB_YESNOCANCEL, IDNO) of
+    IDYES:
+      begin
+        { Already confirmed once above, so do not make the uninstaller ask again. }
+        if Exec(RemoveQuotes(Command), '/SILENT /NORESTART', '',
+                SW_SHOW, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0) then
+          SuppressibleMsgBox('{#AppName} has been removed.', mbInformation, MB_OK, IDOK)
+        else
+          SuppressibleMsgBox('Could not remove {#AppName}. Remove it from ' +
+                             'Settings > Apps > Installed apps instead.',
+                             mbError, MB_OK, IDOK);
+
+        { The user asked to remove, not to install. }
+        Result := False;
+      end;
+
+    IDCANCEL:
+      Result := False;
+  end;
+end;

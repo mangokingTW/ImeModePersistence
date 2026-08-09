@@ -76,6 +76,17 @@ Grab the latest [release](https://github.com/mangokingTW/ImeModePersistence/rele
 - **`ImeModePersistence-<version>-setup.exe`** &mdash; installer. Installs per-user into `%LocalAppData%\Programs\ImeModePersistence`, so it needs no administrator rights and raises no UAC prompt. Offers a *Start with Windows* checkbox during setup, and uninstalls from **Settings > Apps > Installed apps** like any other program, removing the autostart entry with it.
 - **`ImeModePersistence-<version>-x64.zip`** / **`-x86.zip`** &mdash; portable. Unzip and run the executable; nothing is written outside the registry entry the tray toggle manages.
 
+### Uninstalling
+
+Any of these works:
+
+- **Settings > Apps > Installed apps > ImeModePersistence > Uninstall**
+- **Start menu > ImeModePersistence > Uninstall ImeModePersistence**
+- Re-run the installer: it detects the existing copy and offers to remove it
+- `%LocalAppData%\Programs\ImeModePersistence\unins000.exe`
+
+Uninstalling removes the install directory and the autostart Run entry, including one enabled from the tray menu rather than during setup. Nothing else is left behind.
+
 `SHA256SUMS.txt` accompanies every release. Both downloads are **unsigned**, so SmartScreen will warn on first run &mdash; choose *More info > Run anyway*, or verify the checksum first.
 
 The installer is per-user on purpose. A machine-wide install buys nothing here, and only a scheduled task running with highest privileges could also reach elevated windows, at the price of keeping an elevated process resident. See *Scope and security* below.
