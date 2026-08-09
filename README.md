@@ -69,6 +69,31 @@ Every write is best-effort and verified by reading the state back, because an IM
 
 Behaviour has been validated by compilation in CI for x64 and x86. Runtime behaviour with **Microsoft Bopomofo** on real hardware is still unverified &mdash; see the roadmap.
 
+## Install
+
+Grab the latest [release](https://github.com/mangokingTW/ImeModePersistence/releases). Two options:
+
+- **`ImeModePersistence-<version>-setup.exe`** &mdash; installer. Installs per-user into `%LocalAppData%\Programs\ImeModePersistence`, so it needs no administrator rights and raises no UAC prompt. Offers a *Start with Windows* checkbox during setup, and uninstalls from **Settings > Apps > Installed apps** like any other program, removing the autostart entry with it.
+- **`ImeModePersistence-<version>-x64.zip`** / **`-x86.zip`** &mdash; portable. Unzip and run the executable; nothing is written outside the registry entry the tray toggle manages.
+
+`SHA256SUMS.txt` accompanies every release. Both downloads are **unsigned**, so SmartScreen will warn on first run &mdash; choose *More info > Run anyway*, or verify the checksum first.
+
+The installer is per-user on purpose. A machine-wide install buys nothing here, and only a scheduled task running with highest privileges could also reach elevated windows, at the price of keeping an elevated process resident. See *Scope and security* below.
+
+## Running at logon
+
+Toggle **Start with Windows** in the tray menu, or tick the box during setup. Both write the same value to:
+
+```text
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+```
+
+Per-user, no administrator rights, no UAC prompt, and the utility starts at the same integrity level as the ordinary applications whose IME state it adjusts.
+
+This is deliberately **not** a Windows service. A service runs in session 0 with no interactive desktop, so `GetForegroundWindow` would never see the user's windows and `WM_IME_CONTROL` would never reach their threads.
+
+Only one instance runs per logon session, guarded by a named mutex &mdash; two copies would overwrite each other's restores.
+
 ## Build
 
 ```powershell
@@ -89,12 +114,34 @@ cmake -S . -B build-x86 -A Win32
 cmake --build build-x86 --config Release
 ```
 
+The installer needs both architectures present, then [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer:
+
+```powershell
+iscc /DAppVersion=1.0.0 installer\ImeModePersistence.iss
+```
+
+## Releasing
+
+Push a tag and the `Release` workflow builds both architectures, compiles the installer, and publishes a GitHub release with the installer, both portable archives, and `SHA256SUMS.txt`:
+
+```powershell
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The tag must be a numeric version prefixed with `v`, because Inno Setup's `VersionInfoVersion` accepts nothing else. The workflow can also be dispatched manually with a tag name.
+
 ## Scope and security
 
 - No global `WH_CALLWNDPROC` DLL injection is required by the current prototype.
 - `SetWinEventHook(..., WINEVENT_OUTOFCONTEXT, ...)` observes foreground changes from the utility process.
 - Windows security boundaries (UIPI / elevated applications) can prevent changing IME state in another integrity level. Run at the same integrity level as the target application when required.
 - This project does not attempt to bypass Windows security boundaries.
+- Autostart is a per-user `HKCU` Run entry, never a machine-wide `HKLM` one, and the utility never requests elevation.
+
+## License
+
+[MIT](LICENSE).
 
 ## Roadmap
 
@@ -103,5 +150,6 @@ cmake --build build-x86 --config Release
 - [x] Retry/verify after focus activation
 - [x] Better distinction between user-initiated and system-initiated changes
 - [ ] Configuration UI
-- [ ] Start with Windows
+- [x] Start with Windows
 - [x] Automated Windows CI
+- [x] Installer and release pipeline

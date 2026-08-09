@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (created at the current commit if it does not exist)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Derive version
+        shell: pwsh
+        run: |
+          # Inno Setup's VersionInfoVersion needs a bare numeric version, so the
+          # leading "v" of the tag is stripped.
+          $version = $env:TAG -replace '^v', ''
+          if ($version -notmatch '^\d+(\.\d+){0,3}$') {
+            throw "Tag '$env:TAG' is not a numeric version like v1.2.3"
+          }
+          "VERSION=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Build x64
+        run: |
+          cmake -S . -B build-x64 -A x64 -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          cmake --build build-x64 --config Release
+
+      - name: Build x86
+        run: |
+          cmake -S . -B build-x86 -A Win32 -DCMAKE_COMPILE_WARNING_AS_ERROR=ON
+          cmake --build build-x86 --config Release
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress -y
+          iscc /DAppVersion=$env:VERSION installer\ImeModePersistence.iss
+
+      - name: Package portable archives
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          foreach ($arch in 'x64', 'x86') {
+            Compress-Archive `
+              -Path "build-$arch/Release/ImeModePersistence.exe", 'README.md', 'LICENSE' `
+              -DestinationPath "dist/ImeModePersistence-$env:VERSION-$arch.zip"
+          }
+
+      - name: Checksums
+        shell: pwsh
+        run: |
+          Get-FileHash dist/*.zip, dist/*.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content -Encoding ascii dist/SHA256SUMS.txt
+          Get-Content dist/SHA256SUMS.txt
+
+      - name: Create release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # --generate-notes derives the changelog from the commits since the
+          # previous tag, so a release needs no hand-written body.
+          $assets = Get-ChildItem dist -File | ForEach-Object { $_.FullName }
+          gh release create $env:TAG `
+            --target $env:GITHUB_SHA `
+            --title $env:TAG `
+            --generate-notes `
+            $assets

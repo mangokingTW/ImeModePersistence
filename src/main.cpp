@@ -4,6 +4,7 @@
 #include <shellapi.h>
 #include <strsafe.h>
 
+#include "autostart.h"
 #include "ime_state.h"
 
 namespace {
@@ -12,7 +13,12 @@ constexpr UINT WMAPP_TRAY = WM_APP + 1;
 constexpr UINT_PTR TIMER_RESTORE = 1;
 constexpr UINT_PTR TIMER_OBSERVE = 2;
 constexpr UINT ID_TRAY_EXIT = 1001;
+constexpr UINT ID_TRAY_AUTOSTART = 1002;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
+
+// Session-local: one instance per interactive logon session is what we want, and
+// two instances would fight over restoring each other's writes.
+constexpr wchar_t kSingleInstanceMutex[] = L"Local\\ImeModePersistence.SingleInstance";
 
 constexpr UINT kObserveIntervalMs = 50;
 
@@ -276,6 +282,12 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         } else if (lParam == WM_RBUTTONUP) {
             HMENU menu = CreatePopupMenu();
             if (menu) {
+                AppendMenuW(
+                    menu,
+                    MF_STRING | (autostart::is_enabled() ? MF_CHECKED : MF_UNCHECKED),
+                    ID_TRAY_AUTOSTART,
+                    L"Start with Windows");
+                AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, L"Exit");
                 POINT pt{};
                 GetCursorPos(&pt);
@@ -289,6 +301,12 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_COMMAND:
         if (LOWORD(wParam) == ID_TRAY_EXIT) {
             DestroyWindow(hwnd);
+            return 0;
+        }
+        if (LOWORD(wParam) == ID_TRAY_AUTOSTART) {
+            if (!autostart::set_enabled(!autostart::is_enabled())) {
+                show_error(L"Could not update the Run registry entry.");
+            }
             return 0;
         }
         break;
@@ -310,6 +328,12 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 } // namespace
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
+    // Held for the process lifetime; the OS releases it on exit.
+    const HANDLE singleInstance = CreateMutexW(nullptr, TRUE, kSingleInstanceMutex);
+    if (!singleInstance || GetLastError() == ERROR_ALREADY_EXISTS) {
+        return 0;
+    }
+
     WNDCLASSW wc{};
     wc.lpfnWndProc = wnd_proc;
     wc.hInstance = instance;
