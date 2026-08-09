@@ -1,5 +1,6 @@
 #include "config_dialog.h"
 
+#include <commdlg.h>
 #include <strsafe.h>
 
 #include <vector>
@@ -7,6 +8,7 @@
 #include "layout.h"
 #include "resource.h"
 #include "rules.h"
+#include "strings.h"
 
 namespace config {
 namespace {
@@ -17,12 +19,100 @@ struct State {
     std::vector<rules::Rule> rules;   // parallel to the list box items
 };
 
+// The dialog is modal to a hidden owner, which leaves the tray menu live and
+// able to ask for a second copy. One is tracked so the request raises the
+// existing window instead of nesting another modal loop.
+HWND g_open;
+
 State* state_of(HWND dialog) {
     return reinterpret_cast<State*>(GetWindowLongPtrW(dialog, GWLP_USERDATA));
 }
 
-void set_hint(HWND dialog, const wchar_t* text) {
-    SetDlgItemTextW(dialog, IDC_HINT, text);
+void apply_icon(HWND dialog) {
+    HINSTANCE module = GetModuleHandleW(nullptr);
+
+    if (HICON large = static_cast<HICON>(LoadImageW(
+            module, MAKEINTRESOURCEW(IDI_APPICON), IMAGE_ICON,
+            GetSystemMetrics(SM_CXICON), GetSystemMetrics(SM_CYICON), 0))) {
+        SendMessageW(dialog, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(large));
+    }
+
+    if (HICON small = static_cast<HICON>(LoadImageW(
+            module, MAKEINTRESOURCEW(IDI_APPICON), IMAGE_ICON,
+            GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0))) {
+        SendMessageW(dialog, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
+    }
+}
+
+void set_hint(HWND dialog, const wchar_t* hint) {
+    SetDlgItemTextW(dialog, IDC_HINT, hint);
+}
+
+void apply_language(HWND dialog) {
+    const text::Strings& t = text::s();
+
+    SetWindowTextW(dialog, t.rulesCaption);
+    SetDlgItemTextW(dialog, IDC_BROWSE, t.buttonBrowse);
+    SetDlgItemTextW(dialog, IDC_USE_LAST, t.buttonUseLast);
+    SetDlgItemTextW(dialog, IDC_ADD, t.buttonAdd);
+    SetDlgItemTextW(dialog, IDC_REMOVE, t.buttonRemove);
+    SetDlgItemTextW(dialog, IDOK, t.buttonClose);
+
+    // The static labels share IDC_STATIC, so they are addressed by position
+    // rather than by control id.
+    HWND child = GetWindow(dialog, GW_CHILD);
+    int statics = 0;
+    while (child) {
+        wchar_t className[16]{};
+        GetClassNameW(child, className, ARRAYSIZE(className));
+        if (CompareStringOrdinal(className, -1, L"Static", -1, TRUE) == CSTR_EQUAL &&
+            GetDlgCtrlID(child) == IDC_STATIC) {
+            switch (statics++) {
+            case 0: SetWindowTextW(child, t.rulesHeader); break;
+            case 1: SetWindowTextW(child, t.labelExecutable); break;
+            case 2: SetWindowTextW(child, t.labelLayout); break;
+            default: break;
+            }
+        }
+        child = GetWindow(child, GW_HWNDNEXT);
+    }
+}
+
+// A full path easily outruns the list box, so the scrollable width has to be
+// measured rather than guessed.
+void update_horizontal_extent(HWND list) {
+    HDC dc = GetDC(list);
+    if (!dc) {
+        return;
+    }
+    HGDIOBJ previous = SelectObject(dc, reinterpret_cast<HGDIOBJ>(
+                                            SendMessageW(list, WM_GETFONT, 0, 0)));
+
+    int widest = 0;
+    const int count = static_cast<int>(SendMessageW(list, LB_GETCOUNT, 0, 0));
+    for (int i = 0; i < count; ++i) {
+        const int chars = static_cast<int>(SendMessageW(list, LB_GETTEXTLEN, static_cast<WPARAM>(i), 0));
+        if (chars <= 0) {
+            continue;
+        }
+
+        std::vector<wchar_t> buffer(static_cast<size_t>(chars) + 1);
+        SendMessageW(list, LB_GETTEXT, static_cast<WPARAM>(i),
+                     reinterpret_cast<LPARAM>(buffer.data()));
+
+        SIZE size{};
+        if (GetTextExtentPoint32W(dc, buffer.data(), chars, &size) && size.cx > widest) {
+            widest = size.cx;
+        }
+    }
+
+    if (previous) {
+        SelectObject(dc, previous);
+    }
+    ReleaseDC(list, dc);
+
+    // Tab expansion is not accounted for by GetTextExtentPoint32, so leave room.
+    SendMessageW(list, LB_SETHORIZONTALEXTENT, static_cast<WPARAM>(widest + 40), 0);
 }
 
 void fill_layouts(HWND dialog, State& state) {
@@ -32,7 +122,7 @@ void fill_layouts(HWND dialog, State& state) {
     for (const layout::Installed& entry : state.layouts) {
         std::wstring label = entry.name;
         if (entry.is_ime) {
-            label += L" (IME)";
+            label += text::s().suffixIme;
         }
 
         const int index = static_cast<int>(
@@ -54,19 +144,20 @@ void fill_rules(HWND dialog, State& state) {
     state.rules = rules::load();
 
     for (const rules::Rule& rule : state.rules) {
-        // A rule can name a layout that has since been uninstalled; say so
-        // rather than showing a blank column.
-        const bool present = layout::find_by_language(rule.language) != nullptr;
-
-        std::wstring text = rule.executable;
-        text += L"\t";
-        text += layout::describe(rule.language);
-        if (!present) {
-            text += L"  (not installed)";
+        // Layout first, path second: layout names have a bounded length, so the
+        // columns stay aligned however long the path is.
+        std::wstring text = layout::describe(rule.language);
+        if (layout::find_by_language(rule.language) == nullptr) {
+            // The rule names a layout the user has since removed.
+            text += text::s().suffixNotInstalled;
         }
+        text += L"\t";
+        text += rule.executable;
 
         SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text.c_str()));
     }
+
+    update_horizontal_extent(list);
 }
 
 LANGID selected_language(HWND dialog) {
@@ -78,30 +169,59 @@ LANGID selected_language(HWND dialog) {
     return static_cast<LANGID>(SendMessageW(combo, CB_GETITEMDATA, static_cast<WPARAM>(index), 0));
 }
 
+void on_browse(HWND dialog) {
+    wchar_t path[1024]{};
+    GetDlgItemTextW(dialog, IDC_EXECUTABLE, path, ARRAYSIZE(path));
+
+    // A bare file name in the field is not a valid initial path, and passing one
+    // makes the dialog open somewhere arbitrary.
+    if (rules::file_name_of(path) == path) {
+        path[0] = L'\0';
+    }
+
+    OPENFILENAMEW open{};
+    open.lStructSize = sizeof(open);
+    open.hwndOwner = dialog;
+    open.lpstrFilter = text::s().browseFilter;
+    open.lpstrFile = path;
+    open.nMaxFile = ARRAYSIZE(path);
+    open.lpstrTitle = text::s().browseTitle;
+    open.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_EXPLORER | OFN_NOCHANGEDIR;
+
+    if (!GetOpenFileNameW(&open)) {
+        // Cancelling is not an error, and CommDlgExtendedError only distinguishes
+        // the two for callers that care.
+        return;
+    }
+
+    SetDlgItemTextW(dialog, IDC_EXECUTABLE, path);
+    set_hint(dialog, text::s().hintPickLayout);
+}
+
 void on_add(HWND dialog, State& state) {
-    wchar_t executable[MAX_PATH]{};
+    wchar_t executable[1024]{};
     GetDlgItemTextW(dialog, IDC_EXECUTABLE, executable, ARRAYSIZE(executable));
 
     if (executable[0] == L'\0') {
-        set_hint(dialog, L"Type an executable name such as notepad.exe, or press Use last app.");
+        set_hint(dialog, text::s().hintNeedExecutable);
         return;
     }
 
     const LANGID language = selected_language(dialog);
     if (language == 0) {
-        set_hint(dialog, L"No keyboard layout is selected.");
+        set_hint(dialog, text::s().hintNeedLayout);
         return;
     }
 
     if (!rules::set(executable, language)) {
-        set_hint(dialog, L"Could not write the rule to the registry.");
+        set_hint(dialog, text::s().hintWriteFailed);
         return;
     }
 
     fill_rules(dialog, state);
 
-    wchar_t message[256]{};
-    StringCchPrintfW(message, ARRAYSIZE(message), L"%s is now bound to %s.",
+    wchar_t message[1280]{};
+    StringCchPrintfW(message, ARRAYSIZE(message), text::s().hintBoundFormat,
                      executable, layout::describe(language).c_str());
     set_hint(dialog, message);
 }
@@ -110,36 +230,40 @@ void on_remove(HWND dialog, State& state) {
     HWND list = GetDlgItem(dialog, IDC_RULE_LIST);
     const int index = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
     if (index == LB_ERR || static_cast<size_t>(index) >= state.rules.size()) {
-        set_hint(dialog, L"Select a rule to remove.");
+        set_hint(dialog, text::s().hintSelectRule);
         return;
     }
 
     const std::wstring executable = state.rules[static_cast<size_t>(index)].executable;
     if (!rules::clear(executable)) {
-        set_hint(dialog, L"Could not remove the rule from the registry.");
+        set_hint(dialog, text::s().hintRemoveFailed);
         return;
     }
 
     fill_rules(dialog, state);
 
-    wchar_t message[256]{};
-    StringCchPrintfW(message, ARRAYSIZE(message), L"Removed the rule for %s.", executable.c_str());
+    wchar_t message[1280]{};
+    StringCchPrintfW(message, ARRAYSIZE(message), text::s().hintRemovedFormat,
+                     executable.c_str());
     set_hint(dialog, message);
 }
 
 void on_use_last(HWND dialog, const State& state) {
     if (state.lastApplication.empty()) {
-        set_hint(dialog, L"No other application has been in the foreground yet.");
+        set_hint(dialog, text::s().hintNoLastApp);
         return;
     }
     SetDlgItemTextW(dialog, IDC_EXECUTABLE, state.lastApplication.c_str());
-    set_hint(dialog, L"Pick a layout, then press Add / update.");
+    set_hint(dialog, text::s().hintPickLayout);
 }
 
 void on_init(HWND dialog, State& state) {
-    // One tab stop so the layout column lines up; the units are quarters of the
+    apply_language(dialog);
+    apply_icon(dialog);
+
+    // One tab stop so the path column lines up; the units are quarters of the
     // dialog font's average character width.
-    const int tabStop = 440;
+    const int tabStop = 200;
     SendMessageW(GetDlgItem(dialog, IDC_RULE_LIST), LB_SETTABSTOPS, 1,
                  reinterpret_cast<LPARAM>(&tabStop));
 
@@ -150,14 +274,13 @@ void on_init(HWND dialog, State& state) {
         SetDlgItemTextW(dialog, IDC_EXECUTABLE, state.lastApplication.c_str());
     }
 
-    set_hint(dialog,
-             L"A rule binds an application to a language. Where one language has "
-             L"several IMEs, the first installed one is used.");
+    set_hint(dialog, text::s().hintIntro);
 }
 
 INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_INITDIALOG: {
+        g_open = dialog;
         SetWindowLongPtrW(dialog, GWLP_USERDATA, static_cast<LONG_PTR>(lParam));
         State* state = reinterpret_cast<State*>(lParam);
         if (state) {
@@ -173,6 +296,9 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
         }
 
         switch (LOWORD(wParam)) {
+        case IDC_BROWSE:
+            on_browse(dialog);
+            return TRUE;
         case IDC_ADD:
             on_add(dialog, *state);
             return TRUE;
@@ -202,6 +328,14 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
 } // namespace
 
 void show_rules(HINSTANCE instance, HWND owner, const std::wstring& lastApplication) {
+    if (g_open) {
+        if (IsIconic(g_open)) {
+            ShowWindow(g_open, SW_RESTORE);
+        }
+        SetForegroundWindow(g_open);
+        return;
+    }
+
     State state;
     state.lastApplication = lastApplication;
 
@@ -211,6 +345,8 @@ void show_rules(HINSTANCE instance, HWND owner, const std::wstring& lastApplicat
         owner,
         dialog_proc,
         reinterpret_cast<LPARAM>(&state));
+
+    g_open = nullptr;
 }
 
 } // namespace config

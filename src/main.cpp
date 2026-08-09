@@ -12,6 +12,7 @@
 #include "layout.h"
 #include "resource.h"
 #include "rules.h"
+#include "strings.h"
 
 namespace {
 
@@ -77,8 +78,17 @@ struct AppState {
 
 AppState g_app;
 
-void show_error(const wchar_t* text) {
-    MessageBoxW(g_app.hwnd, text, L"ImeModePersistence", MB_ICONERROR | MB_OK);
+void show_error(const wchar_t* body) {
+    MessageBoxW(g_app.hwnd, body, text::s().errorTitle, MB_ICONERROR | MB_OK);
+}
+
+// ime::mode_name stays in English so the adapter has no opinion on presentation.
+const wchar_t* mode_label(ime::Mode mode) {
+    switch (mode) {
+    case ime::Mode::Native: return text::s().modeNative;
+    case ime::Mode::Alphanumeric: return text::s().modeAlphanumeric;
+    default: return text::s().modeUnknown;
+    }
 }
 
 // Our own windows must never be treated as a target. Checking the message-only
@@ -110,7 +120,7 @@ void set_tray_icon(bool add) {
         g_app.tray.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
         g_app.tray.uCallbackMessage = WMAPP_TRAY;
         g_app.tray.hIcon = g_app.trayIcon;
-        StringCchCopyW(g_app.tray.szTip, ARRAYSIZE(g_app.tray.szTip), L"IME Mode Persistence");
+        StringCchCopyW(g_app.tray.szTip, ARRAYSIZE(g_app.tray.szTip), text::s().trayTip);
         Shell_NotifyIconW(NIM_ADD, &g_app.tray);
     } else {
         Shell_NotifyIconW(NIM_DELETE, &g_app.tray);
@@ -331,22 +341,20 @@ void show_status() {
     const HWND foreground = GetForegroundWindow();
     const ime::State state = ime::query_state(foreground);
 
-    wchar_t text[512]{};
+    const text::Strings& t = text::s();
+
+    wchar_t body[1280]{};
     StringCchPrintfW(
-        text,
-        ARRAYSIZE(text),
-        L"Desired mode: %s\n"
-        L"Foreground mode: %s\n"
-        L"IME reachable: %s\n"
-        L"Application: %s\n"
-        L"Bound layout: %s",
-        ime::mode_name(g_app.desiredMode),
-        ime::mode_name(state.mode),
-        state.valid ? L"yes" : L"no",
-        g_app.observedExecutable.empty() ? L"(unknown)" : g_app.observedExecutable.c_str(),
-        g_app.ruleLanguage == 0 ? L"(no rule)"
-                                : layout::describe(g_app.ruleLanguage).c_str());
-    MessageBoxW(g_app.hwnd, text, L"IME Mode Persistence", MB_OK | MB_ICONINFORMATION);
+        body,
+        ARRAYSIZE(body),
+        t.statusFormat,
+        mode_label(g_app.desiredMode),
+        mode_label(state.mode),
+        state.valid ? t.yes : t.no,
+        g_app.observedExecutable.empty() ? t.unknownApplication
+                                         : g_app.observedExecutable.c_str(),
+        g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str());
+    MessageBoxW(g_app.hwnd, body, t.statusTitle, MB_OK | MB_ICONINFORMATION);
 }
 
 LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -369,10 +377,10 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     menu,
                     MF_STRING | (autostart::is_enabled() ? MF_CHECKED : MF_UNCHECKED),
                     ID_TRAY_AUTOSTART,
-                    L"Start with Windows");
-                AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, L"Application rules...");
+                    text::s().menuAutostart);
+                AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-                AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+                AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, text::s().menuExit);
                 POINT pt{};
                 GetCursorPos(&pt);
                 SetForegroundWindow(hwnd);
@@ -389,7 +397,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         if (LOWORD(wParam) == ID_TRAY_AUTOSTART) {
             if (!autostart::set_enabled(!autostart::is_enabled())) {
-                show_error(L"Could not update the Run registry entry.");
+                show_error(text::s().errorAutostart);
             }
             return 0;
         }
@@ -467,7 +475,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS);
 
     if (!g_app.foregroundHook) {
-        show_error(L"SetWinEventHook failed.");
+        show_error(text::s().errorHook);
         DestroyWindow(g_app.hwnd);
         return 1;
     }
