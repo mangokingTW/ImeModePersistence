@@ -134,9 +134,9 @@ A single-instance mutex is required once autostart is on, because two copies ove
 
 Setup needs the same rights to register the logon task, and gets one thing for free: only an elevated Setup can close an elevated copy of the utility, so updating no longer asks the user to close it by hand.
 
-`PrivilegesRequiredOverridesAllowed=dialog` leaves the decision with the user: install for all users and elevate, or for this user only and not elevate anywhere. Forcing admin would lock out someone who only cares about ordinary applications, and `{autopf}` follows whichever they pick.
+Setup always elevates. An earlier attempt used `PrivilegesRequiredOverridesAllowed=dialog` and read "install for all users or just me" as the elevation question, which conflates install *scope* with whether the *utility* runs elevated — not the same choice, and only the second one is what a user cares about here. Setup being elevated is also what lets it register the logon task and close a running elevated copy when updating. Anyone without administrator rights has the portable archive.
 
-Autostart is therefore a single checkbox whose mechanism follows the install mode — a scheduled task with highest privileges when elevated, a Run entry when not. Offering both mechanisms would ask the same question twice and permit the contradictory answer of both at once. The Run key cannot start an elevated program at all, and a task is the only way to do it without a UAC prompt at every logon.
+Elevation is therefore a task checkbox, ticked by default, and autostart is a second independent one. Elevation decides the autostart mechanism: a scheduled task with highest privileges when elevated, a Run entry when not, because the Run key cannot launch an elevated program at all and a task is the only way to do it without a UAC prompt at every logon.
 
 An elevated install also sets the `RUNASADMIN` compatibility layer for the installed executable, so *every* launch elevates rather than only the one the logon task starts. Without it, exiting and reopening from the Start menu silently produced an unelevated copy that could not see the very programs the user installed it for, with nothing on screen saying so. The unelevated readout is now in the tooltip too, since hovering is the one way to read state without disturbing the window being read.
 
