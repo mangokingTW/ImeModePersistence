@@ -90,26 +90,51 @@ void the_budget_matches_the_escalation() {
 }
 
 void a_lost_round_is_followed_by_a_real_pause() {
-    const UINT cooldown = schedule::cooldown_ms();
+    const UINT first = schedule::cooldown_ms(1);
 
     // This is the safety property the 15 ms poll depends on. Without a cooldown
     // meaningfully longer than the poll, an application that insists on its own
     // layout would be sent a fresh round of requests every poll for as long as it
     // stayed in front.
-    CHECK_MSG(cooldown >= 1000, "cooldown is only %u ms", cooldown);
+    CHECK_MSG(first >= 1000, "first cooldown is only %u ms", first);
 
     // But not so long that a binding appears broken after one lost argument. A
     // focus change clears it, and that is the documented way out.
-    CHECK_MSG(cooldown <= 30000, "cooldown is %u ms, long enough to look broken",
-              cooldown);
+    CHECK_MSG(first <= 30000, "first cooldown is %u ms, long enough to look broken",
+              first);
 
     // The whole point: one lost round costs far more waiting than one poll.
     UINT round = 0;
     for (int attempt = 0; attempt < schedule::max_attempts(); ++attempt) {
         round += schedule::delay_for(attempt, schedule::Trigger::LayoutDrift);
     }
-    CHECK_MSG(cooldown > round, "cooldown %u ms is shorter than a full round of %u ms",
-              cooldown, round);
+    CHECK_MSG(first > round, "cooldown %u ms is shorter than a full round of %u ms",
+              first, round);
+}
+
+void repeated_losses_back_off_but_never_stop() {
+    // Never shorter after another loss: shrinking would mean fighting harder the
+    // more hopeless the argument gets.
+    for (int losses = 1; losses < 12; ++losses) {
+        const UINT current = schedule::cooldown_ms(losses);
+        const UINT next = schedule::cooldown_ms(losses + 1);
+        CHECK_MSG(next >= current, "loss %d waits %u ms after %u ms",
+                  losses + 1, next, current);
+    }
+
+    // Capped, not unbounded: the retry has to stay on a human timescale, so a
+    // game whose fight stops (a loading screen ends) is rebound without the user
+    // switching windows. And the cap must not overflow into zero for absurd
+    // counts, which would re-open the every-15-ms flood at maximum frustration.
+    const UINT capped = schedule::cooldown_ms(20);
+    CHECK(schedule::cooldown_ms(1000) == capped);
+    CHECK_MSG(capped <= 60000, "cap is %u ms; a binding that silent looks broken",
+              capped);
+    CHECK_MSG(capped > schedule::cooldown_ms(1), "the back-off never backs off");
+
+    // Nonsense counts clamp to the base rather than misbehaving.
+    CHECK(schedule::cooldown_ms(0) == schedule::cooldown_ms(1));
+    CHECK(schedule::cooldown_ms(-5) == schedule::cooldown_ms(1));
 }
 
 } // namespace
@@ -121,4 +146,5 @@ void run_schedule_tests() {
     out_of_range_attempts_clamp();
     the_budget_matches_the_escalation();
     a_lost_round_is_followed_by_a_real_pause();
+    repeated_losses_back_off_but_never_stop();
 }

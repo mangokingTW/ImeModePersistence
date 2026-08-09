@@ -35,11 +35,18 @@ int max_attempts();
 // clamp rather than read off the end.
 UINT delay_for(int attempt, Trigger trigger);
 
-// How long to leave a target alone after a round has given up on it. This exists
-// because of the faster poll, not despite it: without a cooldown, an application
-// that insists on its own layout would be sent a request every poll for as long
-// as it stayed in front -- and for an anti-cheat-protected game, repeatedly
-// posting into it is the one thing worth not doing.
-UINT cooldown_ms();
+// How long to leave a target alone after losing `consecutiveLosses` rounds in a
+// row against it. This exists because of the faster poll, not despite it:
+// without a cooldown, an application that insists on its own layout would be
+// sent a request every poll for as long as it stayed in front -- and for an
+// anti-cheat-protected game, repeatedly posting into it is the one thing worth
+// not doing.
+//
+// It doubles per consecutive loss, up to a cap. A flat pause meant a target
+// that always wins was re-fought -- and its defeat logged, seven lines a
+// round -- every few seconds indefinitely; backing off makes a hopeless
+// argument asymptotically quiet while still retrying now and then, and one won
+// round (or a genuine change of application) resets it.
+UINT cooldown_ms(int consecutiveLosses);
 
 } // namespace schedule

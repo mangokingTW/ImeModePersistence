@@ -97,6 +97,16 @@ struct AppState {
     // than asked again on the very next poll.
     ULONGLONG layoutCooldownUntil{};
 
+    // The class of the window the context was last keyed on, kept so a context
+    // switch can recognise "same application, same rule" -- the executable is the
+    // usual identity, but a protected process yields none and the class is all
+    // there is.
+    std::wstring observedWindowClass;
+
+    // Consecutive rounds lost against the current target. Drives the cooldown's
+    // back-off, so an application that always wins is asked ever less often.
+    int lostRounds{};
+
     // Bumped by every context switch. Reading another process's IME state blocks
     // inside SendMessageTimeoutW, and an out-of-context WinEvent callback can run
     // note_context_switch during that wait -- so any function that blocked
@@ -431,9 +441,15 @@ void schedule_restore_attempt(HWND hwnd) {
             // exhaust the budget on the mode with the layout satisfied on the
             // first attempt -- punishing the fast poll for that would disable it
             // in exactly the scenario it was built for.
-            g_app.layoutCooldownUntil = GetTickCount64() + schedule::cooldown_ms();
-            diag::write(L"layout: leaving this target alone for %u ms",
-                        schedule::cooldown_ms());
+            //
+            // Doubling per lost round, so a target that always wins is asked --
+            // and its victory logged -- ever less often, instead of seven lines
+            // every few seconds for as long as it holds the foreground.
+            ++g_app.lostRounds;
+            const UINT cooldown = schedule::cooldown_ms(g_app.lostRounds);
+            g_app.layoutCooldownUntil = GetTickCount64() + cooldown;
+            diag::write(L"layout: leaving this target alone for %u ms (%d rounds lost)",
+                        cooldown, g_app.lostRounds);
         }
 
         const ime::Mode settled = ime::query_state(hwnd).mode;
@@ -489,13 +505,35 @@ void note_context_switch(HWND hwnd) {
 
     const unsigned generation = ++g_app.contextGeneration;
 
+    const std::wstring executable = rules::executable_of(hwnd);
+    const std::wstring windowClass = rules::window_class_of(hwnd);
+    const LANGID rule = rules::lookup(executable, windowClass);
+
+    // The same application under the same rule, seen again. Chromium-style
+    // applications move the foreground between their own threads constantly, and
+    // every move lands here: treating each as a brand-new context restarted the
+    // escalation at the first mechanism every time, so a target that ignores
+    // that mechanism was asked with it forever -- the ladder never climbed. (A
+    // user's diagnostic log showed exactly this: "attempt 1" repeating for as
+    // long as Chrome held the foreground.) A continuation keeps the attempt
+    // counter, the cooldown and the lost-round history; a genuine change of
+    // application resets them all.
+    //
+    // Identity is the executable when it can be read; a protected process yields
+    // none, and there the window class is what a rule matched anyway.
+    const bool continuation =
+        rule != 0 && rule == g_app.ruleLanguage &&
+        (!executable.empty() ? executable == g_app.observedExecutable
+                             : (!windowClass.empty() &&
+                                windowClass == g_app.observedWindowClass));
+
     g_app.observedThread = thread;
     g_app.observedLayout = GetKeyboardLayout(thread);
     g_app.contextSince = GetTickCount64();
 
-    g_app.observedExecutable = rules::executable_of(hwnd);
-    g_app.ruleLanguage =
-        rules::lookup(g_app.observedExecutable, rules::window_class_of(hwnd));
+    g_app.observedExecutable = executable;
+    g_app.observedWindowClass = windowClass;
+    g_app.ruleLanguage = rule;
 
     // Resolved here rather than on every attempt: this is the one place the rule
     // itself can change, and the fast poll needs an answer it can compare against
@@ -505,16 +543,21 @@ void note_context_switch(HWND hwnd) {
     g_app.ruleWindow = g_app.requiredLayout ? hwnd : nullptr;
     update_layout_timer();
 
-    // A genuine context change clears a cooldown: whatever was fighting belonged
-    // to the application being left, and switching away and back is the documented
-    // way to get the binding to try again.
-    g_app.layoutCooldownUntil = 0;
-    g_app.trigger = schedule::Trigger::FocusChange;
+    if (!continuation) {
+        // A genuine context change clears the fight's whole memory: whatever was
+        // being argued about belonged to the application being left, and
+        // switching away and back is the documented way to make a binding try
+        // again. A continuation keeps all of it, or an application could reset
+        // its own cooldown just by moving focus between its threads.
+        g_app.layoutCooldownUntil = 0;
+        g_app.lostRounds = 0;
+        g_app.trigger = schedule::Trigger::FocusChange;
 
-    // Reset per-application, so the status box describes the application in
-    // front rather than whatever was tried last.
-    g_app.layoutRequested = false;
-    g_app.layoutSatisfied = false;
+        // Reset per-application, so the status box describes the application in
+        // front rather than whatever was tried last.
+        g_app.layoutRequested = false;
+        g_app.layoutSatisfied = false;
+    }
 
     const ime::State state = ime::query_state(hwnd);
     if (g_app.contextGeneration != generation) {
@@ -535,8 +578,19 @@ void note_context_switch(HWND hwnd) {
                 state.valid ? L"readable" : L"unreadable");
 
     if (g_app.ruleLanguage != 0) {
-        // A rule needs enforcing even when there is no mode to restore yet.
-        g_app.restoreAttempt = 0;
+        if (continuation && GetTickCount64() < g_app.layoutCooldownUntil) {
+            // Still backing off from this application; its internal focus moves
+            // do not reopen the argument. The fast poll resumes when the
+            // cooldown ends.
+            return;
+        }
+
+        // A rule needs enforcing even when there is no mode to restore yet. A
+        // continuation picks the ladder up where the previous window of the same
+        // application left it, instead of starting over at the first mechanism.
+        if (!continuation) {
+            g_app.restoreAttempt = 0;
+        }
         schedule_restore_attempt(hwnd);
         return;
     }
@@ -603,6 +657,10 @@ void restore_tick() {
                             layout::method_name(g_app.layoutMethod));
             }
             g_app.layoutSatisfied = true;
+
+            // One won round ends the back-off: the fight is over, so the next
+            // disagreement starts from the short cooldown again.
+            g_app.lostRounds = 0;
 
             // Adopt what is actually active (not the HKL we asked for -- a
             // same-language variant also satisfies), so the next observe_tick does
