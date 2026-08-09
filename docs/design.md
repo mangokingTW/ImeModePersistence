@@ -93,7 +93,9 @@ Per-user into `%LocalAppData%\Programs`, matching the autostart reasoning above:
 
 Inno Setup has no maintenance mode, so `InitializeSetup` reads `DisplayVersion` from the uninstall key and branches: an older installed copy is upgraded in place with no prompt, the same version offers repair or removal, and a newer one warns before downgrading. An unparseable version compares as equal, so a corrupted registry value lands on the prompt rather than silently upgrading or downgrading.
 
-`AppMutex` reuses the single-instance mutex so Setup detects a running copy instead of failing to overwrite a locked executable. A second `[Registry]` entry with `ValueType: none` and `dontcreatekey` writes nothing at install time but registers the autostart value for deletion, so uninstalling also cleans up an entry enabled from the tray rather than through Setup.
+Windows cannot replace a running executable, so an upgrade has to stop the utility first. `AppMutex` alone turns that into a prompt telling the user to close it by hand, which is a poor trade for something the installer can do itself: `InitializeSetup` posts `WM_CLOSE` to the window, waits up to 5 s for the mutex to clear, and `[Run]` starts it again afterwards. `AppMutex` stays as the last-resort guard for when a hung process ignores the request.
+
+This is why the hidden window is a normal top-level window rather than an `HWND_MESSAGE` one. Message-only windows are children of `HWND_MESSAGE`, so they are invisible to `FindWindow` and never receive `WM_CLOSE` or `WM_QUERYENDSESSION` — unreachable by both the installer and the shell at logoff. `WS_EX_TOOLWINDOW` and never calling `ShowWindow` keep it out of the taskbar and Alt-Tab. A second `[Registry]` entry with `ValueType: none` and `dontcreatekey` writes nothing at install time but registers the autostart value for deletion, so uninstalling also cleans up an entry enabled from the tray rather than through Setup.
 
 ## Icon
 

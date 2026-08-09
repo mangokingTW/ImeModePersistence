@@ -13,6 +13,9 @@
 
 #define AppName "ImeModePersistence"
 #define AppExeName "ImeModePersistence.exe"
+; Must match kClassName and kSingleInstanceMutex in src/main.cpp.
+#define AppWindowClass "ImeModePersistenceHiddenWindow"
+#define AppMutexName "Local\ImeModePersistence.SingleInstance"
 #define AppPublisher "mangokingTW"
 #define AppUrl "https://github.com/mangokingTW/ImeModePersistence"
 
@@ -33,9 +36,10 @@ DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExeName}
 
-; Refuse to overwrite a running executable: the utility holds this mutex for its
-; whole lifetime, so Setup can detect it and ask the user to exit from the tray.
-AppMutex=Local\{#AppName}.SingleInstance
+; Last-resort guard against overwriting a running executable. [Code] closes the
+; utility itself before Setup gets this far, so the prompt this would otherwise
+; raise only appears when that graceful close fails.
+AppMutex={#AppMutexName}
 CloseApplications=yes
 
 OutputDir=..\dist
@@ -79,8 +83,12 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     Flags: dontcreatekey uninsdeletevalue
 
 [Run]
+; It was running when Setup started, so put it back without asking.
+Filename: "{app}\{#AppExeName}"; Flags: nowait; Check: WasRunning
+
+; Nothing was running, so offer the usual launch checkbox instead.
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
-    Flags: nowait postinstall skipifsilent
+    Flags: nowait postinstall skipifsilent; Check: not WasRunning
 
 [Code]
 { Inno Setup has no maintenance mode: re-running Setup reinstalls over the
@@ -97,6 +105,52 @@ const
   UninstallRegKey =
     'Software\Microsoft\Windows\CurrentVersion\Uninstall\' +
     '{609AC807-6D9F-4D06-8F8D-AC65E29869D5}_is1';
+
+  WM_CLOSE = $0010;
+
+  { Long enough for a tray application with no work to finish, short enough that a
+    hung one falls through to the AppMutex prompt rather than stalling Setup. }
+  CloseTimeoutMs = 5000;
+  ClosePollMs = 100;
+
+var
+  ClosedRunningInstance: Boolean;
+
+{ True when Setup shut the utility down, so [Run] knows to start it again. }
+function WasRunning(): Boolean;
+begin
+  Result := ClosedRunningInstance;
+end;
+
+{ Windows cannot replace a running executable, so an upgrade has to stop the
+  utility first. Asking the user to do that by hand is what AppMutex alone
+  produces; this asks the process politely instead. WM_CLOSE reaches the hidden
+  top-level window, which tears down the tray icon and releases the mutex. }
+function CloseRunningInstance(): Boolean;
+var
+  Window: HWND;
+  Elapsed: Integer;
+begin
+  if not CheckForMutexes('{#AppMutexName}') then
+  begin
+    Result := True;
+    exit;
+  end;
+
+  Window := FindWindowByClassName('{#AppWindowClass}');
+  if Window <> 0 then
+    PostMessage(Window, WM_CLOSE, 0, 0);
+
+  Elapsed := 0;
+  while CheckForMutexes('{#AppMutexName}') and (Elapsed < CloseTimeoutMs) do
+  begin
+    Sleep(ClosePollMs);
+    Elapsed := Elapsed + ClosePollMs;
+  end;
+
+  Result := not CheckForMutexes('{#AppMutexName}');
+  ClosedRunningInstance := Result;
+end;
 
 function InstalledCopy(var Command, Version: String): Boolean;
 begin
@@ -144,6 +198,11 @@ begin
 
   if not InstalledCopy(Command, Installed) then
     exit;
+
+  { Before Setup's own AppMutex check, so the "please close it first" message
+    never appears in the ordinary case. Also clears the way for the uninstaller
+    on the removal paths below, which carries the same mutex check. }
+  CloseRunningInstance();
 
   Comparison := CompareInstalled(Installed);
 
