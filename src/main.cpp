@@ -393,7 +393,10 @@ void note_context_switch(HWND hwnd) {
     const ime::State state = ime::query_state(hwnd);
     g_app.observedMode = state.mode;
 
-    diag::write(L"context: %s | rule %s | mode %s | ime %s",
+    // write_once: this describes a situation, and the same few applications are
+    // switched between all day. The lines that follow describe events and are not
+    // deduplicated.
+    diag::write_once(L"context: %s | rule %s | mode %s | ime %s",
                 window_identity(hwnd, g_app.observedExecutable).c_str(),
                 g_app.ruleLanguage == 0 ? L"none"
                                         : layout::describe(g_app.ruleLanguage).c_str(),
