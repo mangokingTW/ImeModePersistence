@@ -64,10 +64,6 @@ bool set_mode(HWND hwnd, Mode desired) {
     return interop::write_conversion(hwnd, bits);
 }
 
-Mode query_mode(HWND hwnd) {
-    return query_state(hwnd).mode;
-}
-
 const wchar_t* mode_name(Mode mode) {
     switch (mode) {
     case Mode::Native: return L"Native";

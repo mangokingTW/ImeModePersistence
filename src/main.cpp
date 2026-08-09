@@ -121,16 +121,28 @@ struct AppState {
 
     // Clicking the tray icon hands the foreground to the shell, so a status box
     // that reported the live foreground reported explorer.exe every single time.
-    // It reports this snapshot of the last real application instead.
-    std::wstring snapshotApp;
-    std::wstring snapshotClass;
-    ime::Mode snapshotMode{ime::Mode::Unknown};
-    bool snapshotReachable{false};
-    LANGID snapshotRule{};
-    LANGID snapshotLayout{};
-    layout::Method snapshotMethod{layout::Method::FocusWindow};
-    bool snapshotRequested{false};
-    bool snapshotSatisfied{false};
+    // It reports this snapshot of the last real application instead. One struct,
+    // so adding a piece of foreground state is one field and one assignment
+    // rather than three coordinated edits.
+    struct Snapshot {
+        std::wstring app;
+        std::wstring windowClass;
+        ime::Mode mode{ime::Mode::Unknown};
+        bool reachable{false};
+        LANGID rule{};
+        LANGID layout{};
+        layout::Method method{layout::Method::FocusWindow};
+        bool requested{false};
+        bool satisfied{false};
+    };
+    Snapshot snapshot;
+
+    // What autostart is configured to right now. Cached because reading it means
+    // running schtasks.exe, and the tray menu used to do that synchronously on
+    // the UI thread just to draw one checkmark. Refreshed when this process
+    // changes it; a change made behind its back (Task Scheduler by hand) is
+    // noticed at the next start.
+    autostart::Kind autostartKind{autostart::Kind::None};
 
     // Recomposing the tooltip is only worth doing when something in it changed.
     std::wstring tooltip;
@@ -296,15 +308,29 @@ void record_snapshot(HWND hwnd, const ime::State& state) {
 
     const HKL current = layout::current(hwnd);
 
-    g_app.snapshotApp = window_identity(hwnd, g_app.observedExecutable);
-    g_app.snapshotClass = rules::window_class_of(hwnd);
-    g_app.snapshotMode = state.mode;
-    g_app.snapshotReachable = state.valid;
-    g_app.snapshotRule = g_app.ruleLanguage;
-    g_app.snapshotLayout = current ? layout::language_of(current) : 0;
-    g_app.snapshotMethod = g_app.layoutMethod;
-    g_app.snapshotRequested = g_app.layoutRequested;
-    g_app.snapshotSatisfied = g_app.layoutSatisfied;
+    g_app.snapshot.app = window_identity(hwnd, g_app.observedExecutable);
+    g_app.snapshot.windowClass = rules::window_class_of(hwnd);
+    g_app.snapshot.mode = state.mode;
+    g_app.snapshot.reachable = state.valid;
+    g_app.snapshot.rule = g_app.ruleLanguage;
+    g_app.snapshot.layout = current ? layout::language_of(current) : 0;
+    g_app.snapshot.method = g_app.layoutMethod;
+    g_app.snapshot.requested = g_app.layoutRequested;
+    g_app.snapshot.satisfied = g_app.layoutSatisfied;
+}
+
+// One rendering of what the last switch attempt did, shared by the tooltip and
+// the status box. The two used to carry hand-copied versions that had already
+// drifted in buffer size; any new outcome state now has one place to go.
+void compose_attempt(wchar_t* out, size_t count, bool requested, bool satisfied,
+                     layout::Method method) {
+    const text::Strings& t = text::s();
+    if (!requested) {
+        StringCchCopyW(out, count, t.switchNotAttempted);
+    } else {
+        StringCchPrintfW(out, count, satisfied ? t.switchOk : t.switchFailed,
+                         layout::method_name(method));
+    }
 }
 
 // Hovering the tray icon does not change the foreground window, which is what
@@ -314,17 +340,38 @@ void update_tooltip(HWND hwnd) {
     const text::Strings& t = text::s();
 
     const HKL current = hwnd ? layout::current(hwnd) : nullptr;
+
+    // Twenty times a second, in a steady state where nothing changes, composing
+    // the tooltip means two locale lookups, a window-class read and several
+    // allocations -- all discarded against the cached string at the end. The
+    // inputs are trivially comparable, so compare those and skip the rest.
+    struct Inputs {
+        HWND hwnd;
+        HKL layout;
+        LANGID rule;
+        bool requested;
+        bool satisfied;
+        layout::Method method;
+        bool operator==(const Inputs&) const = default;
+    };
+    static Inputs last{};
+    const Inputs inputs{hwnd,
+                        current,
+                        g_app.ruleLanguage,
+                        g_app.layoutRequested,
+                        g_app.layoutSatisfied,
+                        g_app.layoutMethod};
+    if (inputs == last) {
+        return;
+    }
+    last = inputs;
+
     const std::wstring identity =
         hwnd ? window_identity(hwnd, g_app.observedExecutable) : std::wstring{};
 
     wchar_t attempt[128]{};
-    if (!g_app.layoutRequested) {
-        StringCchCopyW(attempt, ARRAYSIZE(attempt), t.switchNotAttempted);
-    } else {
-        StringCchPrintfW(attempt, ARRAYSIZE(attempt),
-                         g_app.layoutSatisfied ? t.switchOk : t.switchFailed,
-                         layout::method_name(g_app.layoutMethod));
-    }
+    compose_attempt(attempt, ARRAYSIZE(attempt), g_app.layoutRequested,
+                    g_app.layoutSatisfied, g_app.layoutMethod);
 
     wchar_t composed[ARRAYSIZE(g_app.tray.szTip)]{};
     StringCchPrintfW(
@@ -417,6 +464,17 @@ void accept_restored_state(HWND hwnd, const ime::State& state) {
     cancel_restore();
 }
 
+// The 15 ms poll exists to guard an active binding; with no rule resolved for
+// the foreground window it would wake the process sixty-six times a second to
+// check a null. Started and stopped as bindings come and go with the foreground.
+void update_layout_timer() {
+    if (g_app.ruleWindow && g_app.ruleLanguage != 0) {
+        SetTimer(g_app.hwnd, TIMER_LAYOUT, kLayoutPollIntervalMs, nullptr);
+    } else {
+        KillTimer(g_app.hwnd, TIMER_LAYOUT);
+    }
+}
+
 // Records that the input context changed, without ever inferring a new desired
 // mode from the window being switched to.
 void note_context_switch(HWND hwnd) {
@@ -445,6 +503,7 @@ void note_context_switch(HWND hwnd) {
     g_app.requiredLayout =
         g_app.ruleLanguage != 0 ? layout::find_by_language(g_app.ruleLanguage) : nullptr;
     g_app.ruleWindow = g_app.requiredLayout ? hwnd : nullptr;
+    update_layout_timer();
 
     // A genuine context change clears a cooldown: whatever was fighting belonged
     // to the application being left, and switching away and back is the documented
@@ -533,6 +592,7 @@ void restore_tick() {
                         g_app.ruleLanguage);
             g_app.ruleLanguage = 0;
             g_app.ruleWindow = nullptr;
+            update_layout_timer();
         } else if (layout::language_of(layout::current(hwnd)) == g_app.ruleLanguage) {
             // Compared by language, not by HKL. The rule stores a LANGID, so any
             // layout of that language satisfies it -- a user who switches from
@@ -792,8 +852,11 @@ void CALLBACK win_event_proc(
 // one. Offered because the choice made at install time should not be permanent:
 // someone who installed unelevated still needs a way to reach an elevated game.
 void restart_elevated() {
-    wchar_t path[1024]{};
-    if (GetModuleFileNameW(nullptr, path, ARRAYSIZE(path)) == 0) {
+    // autostart::module_path grows its buffer until the path fits; the fixed
+    // 1024-char copy this replaced silently truncated long install paths, and a
+    // truncated path here means relaunching some other executable.
+    const std::wstring path = autostart::module_path();
+    if (path.empty()) {
         return;
     }
 
@@ -807,7 +870,7 @@ void restart_elevated() {
     SHELLEXECUTEINFOW execute{};
     execute.cbSize = sizeof(execute);
     execute.lpVerb = L"runas";
-    execute.lpFile = path;
+    execute.lpFile = path.c_str();
     execute.nShow = SW_SHOWNORMAL;
 
     if (ShellExecuteExW(&execute)) {
@@ -822,10 +885,12 @@ void restart_elevated() {
 
 // Which mechanism is configured, not merely whether one is: an elevated copy and an
 // unelevated one need different ones, so "on" alone would not say whether autostart
-// will actually reproduce the current privileges.
+// will actually reproduce the current privileges. Reads the cache: the real answer
+// costs a schtasks run, which is queried once at startup and after every change
+// this process makes, never on the UI thread for a menu or a status box.
 const wchar_t* autostart_label() {
     const text::Strings& t = text::s();
-    switch (autostart::current()) {
+    switch (g_app.autostartKind) {
     case autostart::Kind::ScheduledTask: return t.autostartTask;
     case autostart::Kind::Registry: return t.autostartRegistry;
     default: return t.autostartOff;
@@ -838,13 +903,8 @@ void show_status() {
     const text::Strings& t = text::s();
 
     wchar_t attempt[256]{};
-    if (!g_app.snapshotRequested) {
-        StringCchCopyW(attempt, ARRAYSIZE(attempt), t.switchNotAttempted);
-    } else {
-        StringCchPrintfW(attempt, ARRAYSIZE(attempt),
-                         g_app.snapshotSatisfied ? t.switchOk : t.switchFailed,
-                         layout::method_name(g_app.snapshotMethod));
-    }
+    compose_attempt(attempt, ARRAYSIZE(attempt), g_app.snapshot.requested,
+                    g_app.snapshot.satisfied, g_app.snapshot.method);
 
     wchar_t body[1280]{};
     StringCchPrintfW(
@@ -852,12 +912,12 @@ void show_status() {
         ARRAYSIZE(body),
         t.statusFormat,
         mode_label(g_app.desiredMode),
-        mode_label(g_app.snapshotMode),
-        g_app.snapshotReachable ? t.yes : t.no,
-        g_app.snapshotApp.empty() ? t.unknownApplication : g_app.snapshotApp.c_str(),
-        g_app.snapshotRule == 0 ? t.noRule : layout::describe(g_app.snapshotRule).c_str(),
-        g_app.snapshotLayout == 0 ? t.unknownApplication
-                                  : layout::describe(g_app.snapshotLayout).c_str(),
+        mode_label(g_app.snapshot.mode),
+        g_app.snapshot.reachable ? t.yes : t.no,
+        g_app.snapshot.app.empty() ? t.unknownApplication : g_app.snapshot.app.c_str(),
+        g_app.snapshot.rule == 0 ? t.noRule : layout::describe(g_app.snapshot.rule).c_str(),
+        g_app.snapshot.layout == 0 ? t.unknownApplication
+                                   : layout::describe(g_app.snapshot.layout).c_str(),
         attempt,
         autostart::elevated() ? t.elevatedYes : t.elevatedNo,
         autostart_label());
@@ -884,7 +944,12 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (menu) {
                 AppendMenuW(
                     menu,
-                    MF_STRING | (autostart::is_enabled() ? MF_CHECKED : MF_UNCHECKED),
+                    // The cached kind: reading the real state runs schtasks.exe,
+                    // and blocking the UI thread up to ten seconds to draw a
+                    // checkmark is how right-click used to freeze the tray.
+                    MF_STRING | (g_app.autostartKind != autostart::Kind::None
+                                     ? MF_CHECKED
+                                     : MF_UNCHECKED),
                     ID_TRAY_AUTOSTART,
                     text::s().menuAutostart);
                 AppendMenuW(
@@ -920,9 +985,20 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
         if (LOWORD(wParam) == ID_TRAY_AUTOSTART) {
-            diag::write(L"user: autostart -> %s", autostart::is_enabled() ? L"off" : L"on");
-            if (!autostart::set_enabled(!autostart::is_enabled())) {
+            const bool enable = g_app.autostartKind == autostart::Kind::None;
+            diag::write(L"user: autostart -> %s", enable ? L"on" : L"off");
+            if (autostart::set_enabled(enable)) {
+                // Derived rather than re-queried: set_enabled succeeded, so the
+                // outcome is known and the schtasks round-trip is unnecessary.
+                g_app.autostartKind =
+                    !enable ? autostart::Kind::None
+                            : (autostart::elevated() ? autostart::Kind::ScheduledTask
+                                                     : autostart::Kind::Registry);
+            } else {
                 show_error(text::s().errorAutostart);
+                // Failure leaves the real state unknown; one query on an explicit
+                // user action is acceptable where one per menu-open was not.
+                g_app.autostartKind = autostart::current();
             }
             return 0;
         }
@@ -954,10 +1030,10 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             config::show_rules(
                 reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd, GWLP_HINSTANCE)),
                 hwnd,
-                // snapshotApp, not the live context: opening this dialog goes
+                // The snapshot, not the live context: opening this dialog goes
                 // through the tray icon, so the live context is the shell.
-                g_app.snapshotApp,
-                g_app.snapshotClass);
+                g_app.snapshot.app,
+                g_app.snapshot.windowClass);
 
             // Rules may have changed, so re-evaluate the application that is in
             // the foreground once the dialog closes.
@@ -991,6 +1067,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // Before any window exists, because the framework wants COM on this thread.
     // A failure is not fatal: the other switching mechanisms still work.
     g_app.persistMode = settings::persist_mode();
+
+    // Primed before anything reads autostart_label: the cache is the only thing
+    // the UI consults, and this one schtasks run at startup is what pays for the
+    // menu and status box never blocking on one again.
+    g_app.autostartKind = autostart::current();
 
     diag::initialise();
     diag::write(L"---- started, version %hs, %s, autostart %s, persist mode %s, "
@@ -1066,9 +1147,9 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // the same window stays focused apart from one caused by switching windows.
     SetTimer(g_app.hwnd, TIMER_OBSERVE, kObserveIntervalMs, nullptr);
 
-    // Separate from the observer because it is cheap enough to run far more often:
-    // it reads a layout and nothing else. See layout_tick.
-    SetTimer(g_app.hwnd, TIMER_LAYOUT, kLayoutPollIntervalMs, nullptr);
+    // TIMER_LAYOUT is deliberately not started here: update_layout_timer starts
+    // it when a binding is actually resolved for the foreground window, and the
+    // note_context_switch call above has already done that if one applies.
     set_tray_icon(true);
 
     MSG msg{};

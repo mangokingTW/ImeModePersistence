@@ -79,18 +79,25 @@ jobs:
   installer:
     runs-on: windows-latest
     name: installer
+    # The executables this packages were just built by the matrix job, so take
+    # those instead of compiling both architectures a second time -- the .iss
+    # reads them from the paths the download steps recreate.
+    needs: build
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build both architectures
-        run: |
-          # BUILD_TESTING=OFF: this job packages the application, and the tests
-          # already ran in the build job above.
-          cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
-          cmake --build build-x64 --config Release
-          cmake -S . -B build-x86 -A Win32 -DBUILD_TESTING=OFF
-          cmake --build build-x86 --config Release
+      - name: Fetch the x64 executable
+        uses: actions/download-artifact@v4
+        with:
+          name: ImeModePersistence-x64
+          path: build-x64/Release
+
+      - name: Fetch the x86 executable
+        uses: actions/download-artifact@v4
+        with:
+          name: ImeModePersistence-x86
+          path: build-x86/Release
 
       - name: Build installer
         shell: pwsh

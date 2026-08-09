@@ -69,7 +69,6 @@ struct Strings {
     const wchar_t* hintNoLastClass;
     const wchar_t* hintClassRule;
     const wchar_t* hintPickLayout;
-    const wchar_t* hintNameOnly;
 
     const wchar_t* suffixIme;
     const wchar_t* suffixNotInstalled;

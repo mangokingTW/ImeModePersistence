@@ -9,22 +9,31 @@
 
 namespace layout {
 
-std::vector<Installed> installed() {
-    std::vector<Installed> result;
+namespace {
 
+// The count-then-fill dance, written once. Two hand-rolled copies of it had
+// already drifted in how they treated the second call's return value.
+std::vector<HKL> layout_handles() {
     const int count = GetKeyboardLayoutList(0, nullptr);
     if (count <= 0) {
-        return result;
+        return {};
     }
 
     std::vector<HKL> handles(static_cast<size_t>(count));
     const int written = GetKeyboardLayoutList(count, handles.data());
     if (written <= 0) {
-        return result;
+        return {};
     }
     handles.resize(static_cast<size_t>(written));
+    return handles;
+}
 
-    for (const HKL hkl : handles) {
+} // namespace
+
+std::vector<Installed> installed() {
+    std::vector<Installed> result;
+
+    for (const HKL hkl : layout_handles()) {
         const LANGID language = language_of(hkl);
 
         const bool seen = std::find_if(
@@ -47,16 +56,12 @@ std::vector<Installed> installed() {
 }
 
 HKL find_by_language(LANGID language) {
-    const int count = GetKeyboardLayoutList(0, nullptr);
-    if (count <= 0) {
+    if (language == 0) {
         return nullptr;
     }
-
-    std::vector<HKL> handles(static_cast<size_t>(count));
-    const int written = GetKeyboardLayoutList(count, handles.data());
-    for (int i = 0; i < written; ++i) {
-        if (language_of(handles[static_cast<size_t>(i)]) == language) {
-            return handles[static_cast<size_t>(i)];
+    for (const HKL hkl : layout_handles()) {
+        if (language_of(hkl) == language) {
+            return hkl;
         }
     }
     return nullptr;

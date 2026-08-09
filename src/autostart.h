@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <string>
+
 // Starting the utility at logon, by whichever of two mechanisms fits the
 // privileges it currently has.
 //
@@ -28,10 +30,6 @@ enum class Kind {
 // behind by moving the .exe reads as absent.
 Kind current();
 
-inline bool is_enabled() {
-    return current() != Kind::None;
-}
-
 // Enabling picks the mechanism that matches the current privileges. Disabling
 // removes both, so a leftover from the other mechanism cannot keep starting the
 // utility after the user turned it off.
@@ -40,7 +38,14 @@ bool set_enabled(bool enable);
 // Whether this process is running elevated. Everything about what the utility can
 // reach depends on it: Windows does not let a lower-privileged program read the
 // windows of a higher-privileged one, so an unelevated copy cannot see an
-// anti-cheat protected game at all.
+// anti-cheat protected game at all. Computed once -- elevation is fixed at
+// process creation -- because the tooltip used to re-open the token twenty
+// times a second for an answer that cannot change.
 bool elevated();
+
+// Full path of this executable. Grows the buffer rather than assuming MAX_PATH,
+// because GetModuleFileNameW truncates instead of failing. Shared here so the
+// elevate-and-restart path does not keep its own, shorter-buffered copy.
+std::wstring module_path();
 
 } // namespace autostart

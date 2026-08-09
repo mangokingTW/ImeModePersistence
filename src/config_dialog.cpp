@@ -3,6 +3,7 @@
 #include <commdlg.h>
 #include <strsafe.h>
 
+#include <algorithm>
 #include <vector>
 
 #include "layout.h"
@@ -151,7 +152,14 @@ void fill_rules(HWND dialog, State& state) {
         // Layout first, path second: layout names have a bounded length, so the
         // columns stay aligned however long the path is.
         std::wstring text = layout::describe(rule.language);
-        if (layout::find_by_language(rule.language) == nullptr) {
+        // Against the list the dialog already fetched, not find_by_language:
+        // that would re-enumerate every installed layout twice per rule.
+        const bool installed = std::any_of(
+            state.layouts.begin(), state.layouts.end(),
+            [&rule](const layout::Installed& entry) {
+                return entry.language == rule.language;
+            });
+        if (!installed) {
             // The rule names a layout the user has since removed.
             text += text::s().suffixNotInstalled;
         }
