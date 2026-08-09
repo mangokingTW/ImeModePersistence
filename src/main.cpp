@@ -306,7 +306,11 @@ void update_tooltip(HWND hwnd) {
         identity.empty() ? t.unknownApplication : identity.c_str(),
         g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str(),
         current ? layout::describe(layout::language_of(current)).c_str() : t.unknownApplication,
-        attempt);
+        attempt,
+        // Shown only when it is a problem: the successful case stays compact, and
+        // the tooltip is where this has to appear, since hovering is the one way
+        // to read state without disturbing the window being read.
+        autostart::elevated() ? L"" : t.tooltipUnelevated);
 
     if (g_app.tooltip == composed) {
         return;

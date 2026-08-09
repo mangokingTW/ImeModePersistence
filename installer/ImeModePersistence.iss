@@ -100,6 +100,14 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     ValueType: none; ValueName: "{#AppName}"; \
     Flags: dontcreatekey uninsdeletevalue
 
+; An elevated install means every launch is elevated, not just the one the logon
+; task starts. Without this, exiting and reopening from the Start menu silently
+; gives an unelevated copy that cannot see the very programs the user installed
+; this for -- with nothing on screen to say so.
+Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows NT\CurrentVersion\AppCompatFlags\Layers"; \
+    ValueType: string; ValueName: "{app}\{#AppExeName}"; ValueData: "~ RUNASADMIN"; \
+    Check: IsAdminInstallMode; Flags: uninsdeletevalue
+
 [Run]
 ; Only in an elevated install: the Run key cannot start an elevated program at all,
 ; and a task with highest privileges is the only way to do it without a UAC prompt

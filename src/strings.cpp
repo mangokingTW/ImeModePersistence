@@ -5,7 +5,8 @@ namespace {
 
 const Strings kEnglish{
     .trayTip = L"IME Mode Persistence",
-    .tooltipFormat = L"App: %s\nBound language: %s\nActive language: %s\n%s",
+    .tooltipFormat = L"App: %s\nBound language: %s\nActive language: %s\n%s%s",
+    .tooltipUnelevated = L"\nNormal privileges - elevated programs are invisible",
 
     .menuPersist = L"Keep mode across windows",
     .menuAutostart = L"Start with Windows (normal privileges)",
@@ -77,7 +78,8 @@ const Strings kEnglish{
 
 const Strings kTraditionalChinese{
     .trayTip = L"輸入法模式延續",
-    .tooltipFormat = L"當前程式：%s\n綁定語言：%s\n實際語言：%s\n%s",
+    .tooltipFormat = L"當前程式：%s\n綁定語言：%s\n實際語言：%s\n%s%s",
+    .tooltipUnelevated = L"\n一般權限 － 看不到提權的程式",
 
     .menuPersist = L"跨程式維持輸入模式",
     .menuAutostart = L"開機時自動啟動（一般權限）",

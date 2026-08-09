@@ -18,7 +18,11 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 安裝時可以選擇**為所有使用者安裝**（提權）或**只為我安裝**（完全不提權）。建議前者：Windows 不讓權限較低的程式讀取權限較高的程式的視窗，而有反作弊的遊戲都是提權執行 —— 不提權就完全看不到它們。
 
-勾選「開機時自動啟動」後，提權安裝會建立**登入時以最高權限執行**的排程工作（不會每次彈 UAC），一般安裝則寫一般權限的登錄項目。之後想改主意，可以從托盤選單**以管理員身分重新啟動**。
+**為所有使用者安裝之後，每一次啟動都會是管理員身分** —— 不只是登入時自動啟動的那一次。勾選「開機時自動啟動」會建立**登入時以最高權限執行**的排程工作（那一次不彈 UAC），手動啟動則會彈一次。
+
+一般安裝（只為我）不會提權，開機啟動改寫一般權限的登錄項目。之後想臨時提權，用托盤選單的**以管理員身分重新啟動**。
+
+要確認目前是哪一種：把滑鼠停在托盤圖示上，未提權時最後一行會寫「一般權限 － 看不到提權的程式」。
 
 兩者都**未經簽章**，首次執行會有 SmartScreen 警告，選「更多資訊 → 仍要執行」，或先用 `SHA256SUMS.txt` 核對。
 
@@ -111,7 +115,11 @@ From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases), tak
 
 Setup asks whether to install **for all users** (elevated) or **for me only** (no elevation anywhere). The first is recommended: Windows does not let a lower-privileged program read a higher-privileged one's windows, and anti-cheat protected games are elevated — without it they cannot be seen at all.
 
-With autostart ticked, an elevated install registers a scheduled task running **at logon with highest privileges** (no UAC prompt each time); an unelevated install writes a normal-privilege registry entry instead. To change your mind later, use **Restart as administrator** in the tray menu.
+**After installing for all users, every launch is elevated** — not only the one the logon task starts. With autostart ticked, an elevated install registers a scheduled task running **at logon with highest privileges** (no UAC prompt for that one); launching by hand prompts once.
+
+An install for the current user only never elevates, and writes a normal-privilege registry entry for autostart instead. **Restart as administrator** in the tray menu elevates on demand.
+
+To tell which you have, hover the tray icon: when unelevated the last line reads *Normal privileges - elevated programs are invisible*.
 
 Both are **unsigned**, so SmartScreen warns on first run — choose *More info → Run anyway*, or verify against `SHA256SUMS.txt`.
 
