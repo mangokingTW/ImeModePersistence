@@ -67,15 +67,16 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 - 讀取或修改**提權程式**的視窗需要同等權限，所以控制有防作弊的遊戲必須提權執行
 - 介面依 Windows 顯示語言選繁體中文或英文；沒有簡體版本，安裝程式仍是英文
 - 深色模式只作用於標題列
-- 不會注入或附加到其他程式。切換走 TSF 的公開 API，由作業系統執行；若無法生效就安靜放棄
+- 不注入、不掛勾、不模擬按鍵。切換是向視窗投遞 Windows 標準的「切換輸入語言」通知（視窗可自行忽略），行不通再請 TSF 以公開 API 切換；仍無效就放手，愈輸愈少問
 
 ## 開發
 
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.9.0 installer\ImeModePersistence.iss
-iscc /DAppVersion=0.9.0 /DUserInstall installer\ImeModePersistence.iss
+iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
 安裝檔需要 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3+，圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7（`./tools/make_icon.sh`）。
@@ -161,15 +162,16 @@ Lookup order: full path, file name, window class. A binding pins a **language**;
 - Reading or changing the windows of an **elevated** program requires equal privileges, so controlling an anti-cheat protected game means running elevated
 - The interface follows Windows' display language, Traditional Chinese or English. No Simplified translation; the installer is English only
 - Dark mode applies to the title bar only
-- Nothing is injected into or attached to another process. Switching goes through TSF's public API and is carried out by the OS; where that fails the utility gives up quietly
+- Nothing is injected, hooked or synthesised. Switching posts the window Windows' standard input-language-change notification (which it is free to ignore), then falls back to TSF's public API; where neither takes, the utility backs off, asking less the more it loses
 
 ## Development
 
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
+ctest --test-dir build -C Release --output-on-failure
 cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.9.0 installer\ImeModePersistence.iss
-iscc /DAppVersion=0.9.0 /DUserInstall installer\ImeModePersistence.iss
+iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
 The installers need [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer; regenerating the icon needs [ImageMagick](https://imagemagick.org) 7 (`./tools/make_icon.sh`).

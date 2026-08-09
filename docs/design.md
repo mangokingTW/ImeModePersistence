@@ -140,7 +140,9 @@ The lesson is narrower than "do not optimise": the change was made on an inferen
 
 Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is reported in two places.
 
-**The tray tooltip is the primary one, because hovering does not change the foreground window.** The status box originally read the live foreground and so reported `explorer.exe` every single time it was opened: clicking the tray icon is what hands the foreground to the shell, so the act of asking destroyed the answer. It now reports a snapshot of the last application that was neither this process nor the shell — identified by comparing process ids against `GetShellWindow`, not by matching an executable name. Without those, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.
+**The tray tooltip is the primary one, because hovering does not change the foreground window.** The status box originally read the live foreground and reported `explorer.exe` every time: clicking the tray icon hands the foreground to the shell, so the act of asking destroyed the answer. It now reports a snapshot of the last application that was neither this process nor the shell — the shell identified by process id against `GetShellWindow`, not by executable name.
+
+Both readouts name the mechanism last tried and whether it took. Without that, an ignored request is indistinguishable from a rule that never matched — and rules fail to match for unrelated reasons: the executable a user browses to is sometimes a launcher stub whose process image path differs, common for Store applications under `WindowsApps`.
 
 A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
 
@@ -212,7 +214,7 @@ Three things that all hang off one file. `assets/ImeModePersistence.manifest` is
 
 - the **ComCtl32 version 6** dependency, without which the dialog renders with Windows 95 era controls regardless of anything done in code;
 - **Per-Monitor V2** DPI awareness, which brings automatic non-client scaling, dialog scaling and control scaling, so no `WM_DPICHANGED` handling is needed here;
-- `asInvoker`, restating in the manifest that this never elevates;
+- `asInvoker`, so launching it never demands elevation;
 - the Windows 10/11 `supportedOS` GUID, which stops the shell applying compatibility shims meant for older applications.
 
 The linker is told `/MANIFEST:NO`. MSVC generates a manifest by default, two would collide, and the generated one would win — silently taking visual styles and DPI awareness with it.
@@ -269,4 +271,4 @@ TSF is deliberately not exercised. It moves the input language for the whole ses
 
 - No global `WH_CALLWNDPROC` DLL injection.
 - UIPI stops any process from changing IME state at a higher integrity level. Run the utility at the same integrity level as the target application when that matters.
-- No attempt is made to bypass Windows security boundaries, and the utility never requests elevation.
+- No attempt is made to bypass Windows security boundaries. Elevation only ever happens explicitly and by the user's hand: the manifest stays `asInvoker`, and the only requests are the *Restart as administrator* menu item and the admin installer's own UAC prompt.
