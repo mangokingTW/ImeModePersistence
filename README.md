@@ -23,9 +23,13 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 ## 使用
 
-常駐在通知區域，右鍵選單三項：**開機時自動啟動**、**程式綁定輸入語言…**、**結束**。把滑鼠停在圖示上會顯示綁定與目前的輸入語言；左鍵雙擊顯示完整狀態。每個登入工作階段只會有一份執行中。
+常駐在通知區域，右鍵選單四項：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**結束**。把滑鼠停在圖示上會顯示綁定與目前的輸入語言；左鍵雙擊顯示完整狀態。每個登入工作階段只會有一份執行中。
 
-### 程式綁定輸入語言
+#### 關閉全域延續
+
+**跨程式維持輸入模式**預設開啟，就是這個工具原本的行為。關掉之後只有下面的程式綁定會作用 —— 適合只想要「某些程式固定用某個語言」而不要全域跟隨的人。設定記在 `HKCU\Software\ImeModePersistence`。
+
+## 程式綁定輸入語言
 
 把程式綁定到一個輸入語言，例如終端機綁英文、Word 綁中文。綁定後切到該程式就會自動切換。
 
@@ -108,9 +112,13 @@ Both are **unsigned**, so SmartScreen warns on first run — choose *More info �
 
 ## Using it
 
-It lives in the notification area. Right-click for **Start with Windows**, **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
+It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start with Windows**, **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
 
-### App language bindings
+#### Turning off global persistence
+
+**Keep mode across windows** is on by default and is what the utility is for. Turning it off leaves only the bindings below active — for someone who wants specific applications pinned to a language without the global carry-over. Stored in `HKCU\Software\ImeModePersistence`.
+
+## App language bindings
 
 Bind an application to an input language — a terminal to English, Word to Chinese. Activating a bound application switches to its language.
 

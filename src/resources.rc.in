@@ -20,7 +20,7 @@ IDI_APPICON ICON "@CMAKE_CURRENT_SOURCE_DIR@/assets/ImeModePersistence.ico"
 // Every string here is replaced at runtime from src/strings.cpp, so the text in
 // this template only matters if that ever fails. Widths are sized for the
 // English strings, which are the longer of the two.
-IDD_RULES DIALOGEX 0, 0, 440, 216
+IDD_RULES DIALOGEX 0, 0, 440, 276
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU |
       WS_MINIMIZEBOX
 // WS_EX_APPWINDOW because the taskbar omits owned windows, and this dialog's
@@ -28,25 +28,30 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMEN
 // and disappears behind whatever the user clicks next.
 EXSTYLE WS_EX_APPWINDOW
 FONT 9, "Segoe UI", 400, 0, 0x1
-CAPTION "ImeModePersistence - application rules"
+CAPTION "ImeModePersistence - app language bindings"
 BEGIN
-    LTEXT           "Applications bound to a keyboard layout:", IDC_STATIC, 8, 8, 300, 8
-    // Horizontal scrolling because a full path routinely outruns any width that
-    // fits on screen; the extent is set from the widest row at runtime.
-    LISTBOX         IDC_RULE_LIST, 8, 20, 424, 104,
+    // Grouped by what each control acts on: the list and its Remove button, then
+    // a box for composing a new binding. Five buttons in one row read as five
+    // equal choices, which they are not.
+    LTEXT           "Applications bound to an input language:", IDC_STATIC, 8, 8, 424, 8
+    LISTBOX         IDC_RULE_LIST, 8, 20, 424, 96,
                     LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP
-    LTEXT           "Executable:", IDC_STATIC, 8, 134, 44, 8
-    EDITTEXT        IDC_EXECUTABLE, 54, 132, 232, 12, ES_AUTOHSCROLL
-    LTEXT           "Layout:", IDC_STATIC, 292, 134, 28, 8
-    COMBOBOX        IDC_LAYOUT, 322, 132, 110, 100,
+    PUSHBUTTON      "&Remove selected", IDC_REMOVE, 348, 120, 84, 14
+
+    GROUPBOX        "Add or update a binding", IDC_GROUP, 8, 142, 424, 80
+    LTEXT           "Application or class:", IDC_STATIC, 16, 158, 76, 8
+    EDITTEXT        IDC_EXECUTABLE, 96, 156, 264, 12, ES_AUTOHSCROLL
+    PUSHBUTTON      "&Browse...", IDC_BROWSE, 366, 155, 58, 14
+    PUSHBUTTON      "Use &last app", IDC_USE_LAST, 96, 174, 78, 14
+    PUSHBUTTON      "Use window &class", IDC_USE_CLASS, 178, 174, 96, 14
+    LTEXT           "Language:", IDC_STATIC, 16, 198, 76, 8
+    COMBOBOX        IDC_LAYOUT, 96, 196, 178, 100,
                     CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    PUSHBUTTON      "&Browse...", IDC_BROWSE, 8, 150, 56, 14
-    PUSHBUTTON      "Use &last app", IDC_USE_LAST, 68, 150, 66, 14
-    PUSHBUTTON      "&Add / update", IDC_ADD, 138, 150, 66, 14
-    PUSHBUTTON      "Use window &class", IDC_USE_CLASS, 208, 150, 78, 14
-    PUSHBUTTON      "&Remove selected", IDC_REMOVE, 290, 150, 82, 14
-    LTEXT           "", IDC_HINT, 8, 172, 424, 24
-    DEFPUSHBUTTON   "Close", IDOK, 376, 196, 56, 14
+    // Default button, so Enter in the field commits rather than closing the dialog.
+    DEFPUSHBUTTON   "&Add / update", IDC_ADD, 320, 195, 104, 14
+
+    LTEXT           "", IDC_HINT, 8, 228, 424, 24
+    PUSHBUTTON      "Close", IDOK, 366, 256, 58, 14
 END
 
 VS_VERSION_INFO VERSIONINFO

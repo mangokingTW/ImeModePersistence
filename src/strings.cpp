@@ -7,6 +7,7 @@ const Strings kEnglish{
     .trayTip = L"IME Mode Persistence",
     .tooltipFormat = L"App: %s\nBound language: %s\nActive language: %s\n%s",
 
+    .menuPersist = L"Keep mode across windows",
     .menuAutostart = L"Start with Windows",
     .menuRules = L"App language bindings...",
     .menuExit = L"Exit",
@@ -36,7 +37,8 @@ const Strings kEnglish{
 
     .rulesCaption = L"ImeModePersistence - app language bindings",
     .rulesHeader = L"Applications bound to an input language:",
-    .labelExecutable = L"Executable:",
+    .groupAddUpdate = L"Add or update a binding",
+    .labelExecutable = L"Application or class:",
     .labelLayout = L"Language:",
     .buttonUseLast = L"Use &last app",
     .buttonUseClass = L"Use window &class",
@@ -48,7 +50,7 @@ const Strings kEnglish{
     .hintIntro = L"An application bound to a language switches to it when you "
                  L"activate that application. Where one language has several IMEs "
                  L"installed, the first is used.",
-    .hintNeedExecutable = L"Type an executable name such as notepad.exe, or use Browse.",
+    .hintNeedExecutable = L"Enter a path, an executable name such as notepad.exe, or a class: key.",
     .hintNeedLayout = L"No input language is selected.",
     .hintWriteFailed = L"Could not write the rule to the registry.",
     .hintBoundFormat = L"%s is now bound to %s.",
@@ -73,6 +75,7 @@ const Strings kTraditionalChinese{
     .trayTip = L"輸入法模式延續",
     .tooltipFormat = L"當前程式：%s\n綁定語言：%s\n實際語言：%s\n%s",
 
+    .menuPersist = L"跨程式維持輸入模式",
     .menuAutostart = L"開機時自動啟動",
     .menuRules = L"程式綁定輸入語言...",
     .menuExit = L"結束",
@@ -102,7 +105,8 @@ const Strings kTraditionalChinese{
 
     .rulesCaption = L"輸入法模式延續 － 程式綁定輸入語言",
     .rulesHeader = L"已綁定輸入語言的程式：",
-    .labelExecutable = L"執行檔：",
+    .groupAddUpdate = L"新增或更新綁定",
+    .labelExecutable = L"程式或類別：",
     .labelLayout = L"輸入語言：",
     .buttonUseLast = L"用剛才的程式(&L)",
     .buttonUseClass = L"用視窗類別(&C)",
@@ -112,7 +116,7 @@ const Strings kTraditionalChinese{
     .buttonClose = L"關閉",
 
     .hintIntro = L"綁定後，切到該程式就會自動切換到綁定的輸入語言。同一語言裝了多個輸入法（例如注音與倉頡）時，會使用第一個已安裝的。",
-    .hintNeedExecutable = L"請輸入執行檔名稱（例如 notepad.exe），或按「瀏覽」選取。",
+    .hintNeedExecutable = L"請輸入路徑、執行檔名稱（例如 notepad.exe），或 class: 開頭的類別鍵值。",
     .hintNeedLayout = L"尚未選擇輸入語言。",
     .hintWriteFailed = L"無法將規則寫入登錄。",
     .hintBoundFormat = L"%s 已綁定到 %s。",

@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 # Single source of truth for the version. The release workflow reads it and
 # refuses to publish a tag that disagrees, so the number stamped into the
 # executable always matches the release it shipped in.
-project(ImeModePersistence VERSION 0.5.1 LANGUAGES CXX)
+project(ImeModePersistence VERSION 0.6.0 LANGUAGES CXX)
 
 set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable")
 
@@ -32,6 +32,8 @@ add_executable(ImeModePersistence WIN32
     src/layout.h
     src/rules.cpp
     src/rules.h
+    src/settings.cpp
+    src/settings.h
     src/config_dialog.cpp
     src/config_dialog.h
     src/strings.cpp

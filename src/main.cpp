@@ -14,6 +14,7 @@
 #include "layout.h"
 #include "resource.h"
 #include "rules.h"
+#include "settings.h"
 #include "strings.h"
 #include "theme.h"
 #include "tsf.h"
@@ -26,6 +27,7 @@ constexpr UINT_PTR TIMER_OBSERVE = 2;
 constexpr UINT ID_TRAY_EXIT = 1001;
 constexpr UINT ID_TRAY_AUTOSTART = 1002;
 constexpr UINT ID_TRAY_RULES = 1003;
+constexpr UINT ID_TRAY_PERSIST = 1004;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Session-local: one instance per interactive logon session is what we want, and
@@ -55,6 +57,9 @@ struct AppState {
     // overwrite this value, because the window being switched to may be carrying
     // a stale IME state that Windows saved for it earlier.
     ime::Mode desiredMode{ime::Mode::Unknown};
+
+    // When off, only per-application bindings act; the global carry-over stops.
+    bool persistMode{true};
 
     // IME conversion mode is per-thread and per-layout, not per-window: two
     // windows of the same thread share one mode, so identity is the (thread,
@@ -385,6 +390,12 @@ void note_context_switch(HWND hwnd) {
         return;
     }
 
+    if (!g_app.persistMode) {
+        // Bindings are handled above; without one there is nothing left to do.
+        cancel_restore();
+        return;
+    }
+
     if (g_app.desiredMode == ime::Mode::Unknown) {
         // Nothing to restore yet: seed the desired mode from the first context
         // we can actually read.
@@ -401,7 +412,7 @@ void restore_tick() {
     KillTimer(g_app.hwnd, TIMER_RESTORE);
 
     const HWND hwnd = g_app.pendingWindow;
-    const ime::Mode desired = g_app.desiredMode;
+    const ime::Mode desired = g_app.persistMode ? g_app.desiredMode : ime::Mode::Unknown;
     if (!hwnd || !IsWindow(hwnd)) {
         cancel_restore();
         return;
@@ -515,7 +526,7 @@ void observe_tick() {
                           now - g_app.contextSince < kPromotionDwellMs ||
                           g_app.pendingWindow != nullptr;
 
-    if (!settling &&
+    if (g_app.persistMode && !settling &&
         g_app.observedMode == ime::Mode::Unknown &&
         g_app.desiredMode != ime::Mode::Unknown &&
         state.mode != g_app.desiredMode) {
@@ -530,7 +541,7 @@ void observe_tick() {
     // Same input context + a settled mode change is the strongest signal
     // available without injecting into every process: the user changed the mode
     // while working in this window, so it becomes the new global intent.
-    if (!settling &&
+    if (g_app.persistMode && !settling &&
         state.mode != ime::Mode::Unknown &&
         g_app.observedMode != ime::Mode::Unknown &&
         state.mode != g_app.observedMode) {
@@ -605,6 +616,11 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     MF_STRING | (autostart::is_enabled() ? MF_CHECKED : MF_UNCHECKED),
                     ID_TRAY_AUTOSTART,
                     text::s().menuAutostart);
+                AppendMenuW(
+                    menu,
+                    MF_STRING | (g_app.persistMode ? MF_CHECKED : MF_UNCHECKED),
+                    ID_TRAY_PERSIST,
+                    text::s().menuPersist);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, text::s().menuExit);
@@ -626,6 +642,17 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (!autostart::set_enabled(!autostart::is_enabled())) {
                 show_error(text::s().errorAutostart);
             }
+            return 0;
+        }
+        if (LOWORD(wParam) == ID_TRAY_PERSIST) {
+            g_app.persistMode = !g_app.persistMode;
+            settings::set_persist_mode(g_app.persistMode);
+
+            // Forget the target either way: leaving a stale one would show a
+            // desired mode that is not being applied, and re-enabling should pick
+            // up whatever the user is doing now rather than something from before.
+            g_app.desiredMode = ime::Mode::Unknown;
+            cancel_restore();
             return 0;
         }
         if (LOWORD(wParam) == ID_TRAY_RULES) {
@@ -667,6 +694,8 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // no DPI call to make here.
     // Before any window exists, because the framework wants COM on this thread.
     // A failure is not fatal: the other switching mechanisms still work.
+    g_app.persistMode = settings::persist_mode();
+
     tsf::initialise();
 
     INITCOMMONCONTROLSEX controls{};

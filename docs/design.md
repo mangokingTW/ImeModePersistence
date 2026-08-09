@@ -74,6 +74,12 @@ An earlier attempt used a `restoring` boolean guard. It could never be observed 
 
 Every write is verified by reading the state back, because an IME that is still activating can discard it. After four attempts (~930 ms) the utility adopts whatever mode the target settled on rather than fighting it. If a context only becomes readable after the attempts run out, the observer starts a fresh round.
 
+## Turning the global behaviour off
+
+Per-application bindings are useful without the carry-over, so the tray menu can disable it. Off means three things stop: no mode is promoted to the global target, no mode is restored on a context switch, and the recovery round that retries an unreadable context does not run. Bindings are unaffected, since they are enforced before the mode in `restore_tick` and do not consult the target mode at all.
+
+Toggling either way clears the remembered target. Keeping it would show a desired mode in the status box that is not being applied, and re-enabling should pick up what the user is doing now rather than something from before the switch.
+
 ## App language bindings
 
 Binding a layout is a different operation from setting a conversion mode. The mode lives on whichever layout a thread already has active; a rule replaces the layout itself, which is how Bopomofo, a US keyboard and a Japanese IME become distinct targets rather than shades of one.
