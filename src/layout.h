@@ -49,6 +49,18 @@ enum class Method {
 
 const wchar_t* method_name(Method method);
 
+// The escalation order, by zero-based attempt. Attempts past the end repeat the
+// last method, because a target that ignored all three will keep ignoring them.
+//
+// Every target gets the whole sequence, and that is the invariant this function
+// exists to make assertable. v0.7.1 added a branch sending targets whose
+// executable could not be read -- anti-cheat, in practice -- straight to
+// TsfSession, on the unverified assumption that TSF was what reached them. It is
+// not, and the branch silently disabled the feature for exactly the applications
+// it was built for. The decision lives here, in a pure function, so a test can
+// state that no property of the target changes attempt 0.
+Method method_for_attempt(int attempt);
+
 // Asks the owning thread to switch. Every method is best-effort with no useful
 // return value of its own, so the caller has to read the layout back to learn
 // whether it took.

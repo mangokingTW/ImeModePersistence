@@ -463,27 +463,11 @@ void restore_tick() {
             g_app.layoutSatisfied = true;
         } else {
             // Each attempt escalates, because no one mechanism reaches every
-            // application. The last is repeated rather than adding a fourth,
-            // since a target that ignored all three will keep ignoring them.
-            static constexpr layout::Method kMethods[] = {
-                layout::Method::FocusWindow,
-                layout::Method::ThreadWindows,
-                layout::Method::TsfSession,
-                layout::Method::TsfSession,
-            };
+            // application. The order itself lives in layout::method_for_attempt so
+            // that "every target gets the whole sequence" is a testable claim
+            // rather than a comment; see the note there on how it was once broken.
             const int attempt = g_app.restoreAttempt > 0 ? g_app.restoreAttempt - 1 : 0;
-            const size_t index = static_cast<size_t>(attempt) < ARRAYSIZE(kMethods)
-                                     ? static_cast<size_t>(attempt)
-                                     : ARRAYSIZE(kMethods) - 1;
-
-            // v0.7.1 sent protected targets straight to TSF, on the reasoning that
-            // posting window messages into an anti-cheat process was contact worth
-            // avoiding. That assumed TSF was what reached such a target -- which was
-            // never verified, and the diagnostic log shows it does not: four TSF
-            // attempts in a row leave the layout untouched. What worked before that
-            // change must have been one of the window-message mechanisms, so the
-            // escalation is restored for every target.
-            g_app.layoutMethod = kMethods[index];
+            g_app.layoutMethod = layout::method_for_attempt(attempt);
             g_app.layoutRequested = true;
             g_app.layoutSatisfied = false;
 

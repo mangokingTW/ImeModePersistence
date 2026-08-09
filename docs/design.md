@@ -217,6 +217,22 @@ Everything this utility does happens to *other* processes and leaves nothing beh
 
 Separately, `write_once` removes the repetition at source. A context line describes a *situation*, and the same handful of applications are switched between all day, so it is written once per distinct line — with the whole formatted message as the key, so a line that differs in any detail is still recorded. Event lines (what was attempted, whether it worked, giving up, user actions) are never deduplicated. That turns thousands of lines a day into a few dozen while keeping every fact worth diagnosing, including the "rule none" line that shows a binding is not matching. A rotation clears the set, so the new file is not left without its context lines.
 
+## Tests
+
+`cmake -S . -B build && cmake --build build --config Release && ctest --test-dir build -C Release --output-on-failure`. Five suites, one CTest entry each; no external framework, because gtest would be more build machinery than this project has and vendoring it would mean the tests no longer compile with exactly the flags the shipped objects do. The shared sources are a static library, `ime_core`, that both the executable and the test binary link, so the code under test is the code that ships rather than a copy compiled differently -- `/utf-8` in particular is `PUBLIC` on that target, without which the test asserting the log holds UTF-8 Chinese would agree with the bug instead of catching it.
+
+**What no test here can reach.** The failure that matters is a call that succeeds while the target does not change, in a raw-input fullscreen game running elevated under anti-cheat. Nothing on a developer machine or a CI runner reproduces that target, and pretending otherwise is how the wrong conclusion got written down in the first place. The instrument for it is the diagnostic log, which is why each attempt records whether the call was *issued* or *refused*.
+
+**What is worth testing is the decision, not the mechanism.** v0.7.1 added a branch sending targets whose executable could not be read straight to TSF, on the inference that TSF was what reached them. The inference was wrong and the branch silently disabled layout binding for exactly the applications the feature exists for; it survived a release because nothing stated the invariant it broke. The escalation order now lives in `layout::method_for_attempt`, a pure function, and `tests/test_layout.cpp` asserts that attempt 0 is a window message and that nothing about the target changes where the sequence starts. That test would have failed the day the branch was added.
+
+The general lesson, and the reason this section exists: the bug was not a coding error but a claim recorded as a finding. A test is the cheapest place to write down a claim in a form that has to keep being true.
+
+**Testability cost paid in production code.** Two seams had to be added, both narrow and both documented where they are declared. `rules::set_storage_key` exists because proving the lookup precedence requires writing real rules, and against the default key that would destroy the rules of whoever ran the suite. `diag::Options` carries the log folder and the size limit so rotation can be exercised in a scratch directory without writing a megabyte. Neither is referenced by the application, which uses the defaults.
+
+**Skipped is not passed.** The two window suites need a real window and a real keyboard layout. `layout-switch` first checks whether the session can change a thread's layout at all using plain `ActivateKeyboardLayout`, before anything in `layout.cpp` is involved: without that baseline, a failure on a headless runner would be indistinguishable between "the mechanism is broken" and "there is no interactive desktop" -- the same ambiguity that let the real bug survive. When the environment cannot support a suite it exits 77, CTest's `SKIP_RETURN_CODE`, and the run reports it as skipped. A green run that tested nothing is worse than a red one.
+
+TSF is deliberately not exercised. It moves the input language for the whole session rather than one thread, so a test would change state outside the process -- and the field evidence is already that it is not the mechanism that matters.
+
 ## Security boundaries
 
 - No global `WH_CALLWNDPROC` DLL injection.

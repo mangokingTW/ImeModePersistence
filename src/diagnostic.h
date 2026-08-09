@@ -21,9 +21,18 @@
 // limit holds for a copy that runs for weeks without restarting.
 namespace diag {
 
+struct Options {
+    // Empty means %LocalAppData%\ImeModePersistence, which is what the utility
+    // uses. The tests point it at a scratch directory instead.
+    std::wstring folder;
+
+    // Overridable so the rotation can be exercised without writing a megabyte.
+    LONGLONG maxBytes{1024 * 1024};
+};
+
 // Rotates an oversized log and opens the file. Failure is not fatal: every write
 // then becomes a no-op and the utility carries on.
-bool initialise();
+bool initialise(const Options& options = {});
 
 void shutdown();
 

@@ -3,7 +3,7 @@
 namespace rules {
 namespace {
 
-constexpr wchar_t kRulesKey[] = L"Software\\ImeModePersistence\\Rules";
+std::wstring g_key = L"Software\\ImeModePersistence\\Rules";
 
 std::wstring lower(std::wstring text) {
     if (!text.empty()) {
@@ -17,7 +17,7 @@ std::wstring lower(std::wstring text) {
 LANGID read(const std::wstring& key) {
     DWORD value = 0;
     DWORD bytes = sizeof(value);
-    if (RegGetValueW(HKEY_CURRENT_USER, kRulesKey, key.c_str(),
+    if (RegGetValueW(HKEY_CURRENT_USER, g_key.c_str(), key.c_str(),
                      RRF_RT_REG_DWORD, nullptr, &value, &bytes) != ERROR_SUCCESS) {
         return 0;
     }
@@ -27,6 +27,16 @@ LANGID read(const std::wstring& key) {
 } // namespace
 
 const wchar_t* const kClassPrefix = L"class:";
+
+const std::wstring& storage_key() {
+    return g_key;
+}
+
+void set_storage_key(const std::wstring& subkey) {
+    if (!subkey.empty()) {
+        g_key = subkey;
+    }
+}
 
 std::wstring window_class_of(HWND hwnd) {
     wchar_t name[256]{};
@@ -43,7 +53,7 @@ std::vector<Rule> load() {
     std::vector<Rule> result;
 
     HKEY key{};
-    if (RegOpenKeyExW(HKEY_CURRENT_USER, kRulesKey, 0, KEY_READ, &key) != ERROR_SUCCESS) {
+    if (RegOpenKeyExW(HKEY_CURRENT_USER, g_key.c_str(), 0, KEY_READ, &key) != ERROR_SUCCESS) {
         return result;
     }
 
@@ -87,7 +97,7 @@ bool set(const std::wstring& executable, LANGID language) {
     }
 
     HKEY key{};
-    if (RegCreateKeyExW(HKEY_CURRENT_USER, kRulesKey, 0, nullptr, 0,
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, g_key.c_str(), 0, nullptr, 0,
                         KEY_SET_VALUE, nullptr, &key, nullptr) != ERROR_SUCCESS) {
         return false;
     }
@@ -106,7 +116,7 @@ bool clear(const std::wstring& executable) {
         return false;
     }
     const LSTATUS status =
-        RegDeleteKeyValueW(HKEY_CURRENT_USER, kRulesKey, lower(executable).c_str());
+        RegDeleteKeyValueW(HKEY_CURRENT_USER, g_key.c_str(), lower(executable).c_str());
     return status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND;
 }
 

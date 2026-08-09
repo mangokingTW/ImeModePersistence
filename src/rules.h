@@ -24,6 +24,13 @@ struct Rule {
     LANGID language{};
 };
 
+// Subkey of HKCU the rules are stored under, and a way to point it elsewhere.
+// The override exists for the tests: they have to write real rules to prove the
+// lookup precedence, and against the default key that would destroy the rules of
+// whoever ran them.
+const std::wstring& storage_key();
+void set_storage_key(const std::wstring& subkey);
+
 std::vector<Rule> load();
 
 bool set(const std::wstring& executable, LANGID language);
