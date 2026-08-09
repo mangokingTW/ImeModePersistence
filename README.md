@@ -14,6 +14,16 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 已在實機上與**微軟注音**確認可用。
 
+## 為什麼會需要它
+
+Windows 把輸入法狀態綁在**每個執行緒**上，不是全域的。這是設計而非缺陷，但造成的結果是：你剛按 Shift 切成英數，換個視窗又跳回中文。
+
+**先試 Windows 內建的設定**：設定 → 時間與語言 → 輸入 → 進階鍵盤設定 → 「允許我為每個應用程式視窗使用不同的輸入法」。關掉它會讓**輸入法本身**變成全域的。若這樣就解決了你的問題，你不需要這個工具。
+
+它沒有覆蓋到的是**中／英轉換模式** —— 依實測，那仍然是各視窗獨立記憶，切換視窗時不會跟著走。這個工具補的正是這一段。
+
+還有一種情況內建設定完全處理不了：**使用 raw input 的全螢幕遊戲**直接讀取鍵盤裝置，不參與輸入法的狀態管理，Windows 的任何設定對它們都無效 —— 那類程式只能從外部處理。
+
 ## 安裝
 
 到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載：
@@ -97,6 +107,16 @@ Step-by-step guides are in the **[wiki](https://github.com/mangokingTW/ImeModePe
 Type Chinese in window A → switch to B, Chinese is restored. Press Shift in B to go alphanumeric → switch to C, alphanumeric is restored. The global target follows your most recent deliberate change, and can be turned off from the tray menu.
 
 Confirmed working with **Microsoft Bopomofo** on real hardware.
+
+## Why you would want it
+
+Windows keeps IME state **per thread**, not globally. That is by design rather than a defect, but the result is that you press Shift to get alphanumeric, switch window, and you are back in Chinese.
+
+**Try the built-in setting first**: Settings → Time & language → Typing → Advanced keyboard settings → *Let me use a different input method for each app window*. Turning it off makes the **input method** global. If that solves your problem, you do not need this utility.
+
+What it does not cover is the **conversion mode** — native versus alphanumeric within an IME. In practice that stays per-window and does not follow you. This utility fills that gap.
+
+And one case no setting can reach: a **fullscreen game reading raw input** takes the keyboard directly and does not participate in IME state management at all, so no Windows setting affects it. Such programs can only be handled from outside.
 
 ## Install
 
