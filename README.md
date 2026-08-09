@@ -38,6 +38,8 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 | `...-x64.zip` / `-x86.zip` | 免安裝，解壓即用 |
 
 > **防毒軟體可能刪除安裝檔。** 未簽章的安裝檔常被啟發式誤判 —— 遇到時改用免安裝的 zip，功能完全相同。
+>
+> 本專案使用 [SignPath Foundation](https://signpath.org) 提供的免費程式碼簽章（審核中）；生效前釋出檔未簽章，見[簽章政策](docs/code-signing-policy.md)。
 
 安裝時有兩個勾選項。「開機時自動啟動」：管理員版建立**登入時以最高權限執行**的排程工作（不彈 UAC），免管理員版寫登錄項目 —— 登錄項目無法啟動提權的程式。手動啟動要提權時用托盤的**以管理員身分重新啟動**。「綁定 Helldivers 2 為英文輸入」：預設不勾，勾了會在第一次啟動時自動加上 `class:stingray_window` → 英文的規則（若你已有自己的規則就不覆蓋，日後刪掉也不會復活）。
 
@@ -133,6 +135,8 @@ From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 | `...-x64.zip` / `-x86.zip` | Portable; unzip and run |
 
 > **Antivirus may delete the installer.** Unsigned installers are frequently caught by heuristics — use the portable archive, which is functionally identical.
+>
+> This project uses [SignPath Foundation](https://signpath.org) for free code signing (application pending); until it is active, releases are unsigned — see the [code signing policy](docs/code-signing-policy.md).
 
 Setup has two options. *Start automatically at logon*: the administrator installer registers a scheduled task running at logon with highest privileges (no UAC prompt); the user installer writes a registry entry, since a registry entry cannot start an elevated program. To elevate a manual launch, use **Restart as administrator** in the tray menu. *Bind Helldivers 2 to English input* (off by default): on first run it adds a `class:stingray_window` → English rule for you — it never overwrites a rule you already have, and does not come back if you later remove it.
 
