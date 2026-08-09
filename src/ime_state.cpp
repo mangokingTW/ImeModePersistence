@@ -1,48 +1,71 @@
 #include "ime_state.h"
 
+#include "ime_interop.h"
+
 #include <imm.h>
 
-#pragma comment(lib, "imm32.lib")
-
 namespace ime {
+namespace {
 
-Mode query_mode(HWND hwnd) {
-    HIMC himc = ImmGetContext(hwnd);
-    if (!himc) {
-        return Mode::Unknown;
+Mode classify(const interop::Conversion& c) {
+    if (!c.open) {
+        return Mode::Alphanumeric;
     }
-
-    const BOOL open = ImmGetOpenStatus(himc);
-    ImmReleaseContext(hwnd, himc);
-
-    // IMM32's open flag is a reliable coarse signal, but it is not a complete
-    // representation of modern TSF conversion modes. Treat it as Native when
-    // open and Alphanumeric when closed; the main application can later replace
-    // this adapter with a TSF-specific implementation for a target IME.
-    return open ? Mode::Native : Mode::Alphanumeric;
+    // An open IME still distinguishes native from alphanumeric input through the
+    // conversion mode: Microsoft Bopomofo, for example, clears IME_CMODE_NATIVE
+    // on Shift while staying open. This is exactly the detail ImmGetOpenStatus
+    // alone could not express.
+    return (c.bits & IME_CMODE_NATIVE) ? Mode::Native : Mode::Alphanumeric;
 }
 
-bool set_mode(HWND hwnd, Mode mode) {
-    HIMC himc = ImmGetContext(hwnd);
-    if (!himc) {
+} // namespace
+
+State query_state(HWND hwnd) {
+    State state;
+
+    const interop::Conversion c = interop::read(hwnd);
+    if (!c.valid) {
+        return state;
+    }
+
+    state.valid = true;
+    state.open = c.open;
+    state.conversion = c.bits;
+    state.mode = classify(c);
+    return state;
+}
+
+bool set_mode(HWND hwnd, Mode desired) {
+    if (desired == Mode::Unknown) {
+        return true;
+    }
+
+    const State current = query_state(hwnd);
+    if (!current.valid) {
         return false;
     }
-
-    BOOL ok = FALSE;
-    switch (mode) {
-    case Mode::Native:
-        ok = ImmSetOpenStatus(himc, TRUE);
-        break;
-    case Mode::Alphanumeric:
-        ok = ImmSetOpenStatus(himc, FALSE);
-        break;
-    case Mode::Unknown:
-        ok = TRUE;
-        break;
+    if (current.mode == desired) {
+        return true;
     }
 
-    ImmReleaseContext(hwnd, himc);
-    return ok == TRUE;
+    DWORD bits = current.conversion;
+    if (desired == Mode::Native) {
+        bits |= IME_CMODE_NATIVE;
+        // A closed IME ignores the native flag, so reopen it first.
+        if (!current.open && !interop::write_open(hwnd, true)) {
+            return false;
+        }
+    } else {
+        // Clear the native flag but leave the IME open. Closing it entirely is a
+        // heavier change than the user asked for and loses their other flags.
+        bits &= ~static_cast<DWORD>(IME_CMODE_NATIVE);
+    }
+
+    return interop::write_conversion(hwnd, bits);
+}
+
+Mode query_mode(HWND hwnd) {
+    return query_state(hwnd).mode;
 }
 
 const wchar_t* mode_name(Mode mode) {

@@ -1,5 +1,5 @@
-#define WIN32_LEAN_AND_MEAN
-#define NOMINMAX
+// WIN32_LEAN_AND_MEAN, NOMINMAX and UNICODE come from the build definitions in
+// CMakeLists.txt, so every translation unit sees the same configuration.
 #include <windows.h>
 #include <shellapi.h>
 #include <strsafe.h>
@@ -14,20 +14,42 @@ constexpr UINT_PTR TIMER_OBSERVE = 2;
 constexpr UINT ID_TRAY_EXIT = 1001;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
+constexpr UINT kObserveIntervalMs = 50;
+
+// A foreground change fires before the new thread's IME is usable, so the first
+// restore attempt waits, and every attempt verifies its own result.
+constexpr UINT kRestoreDelaysMs[] = {60, 120, 250, 500};
+constexpr int kMaxRestoreAttempts = static_cast<int>(ARRAYSIZE(kRestoreDelaysMs));
+
+// After a successful restore the IME keeps settling for a moment. Anything
+// observed inside this window is our own change echoing back, not the user.
+constexpr ULONGLONG kPostRestoreSuppressMs = 250;
+
+// A mode change is only credited to the user once the input context has been
+// stable for this long, which excludes the churn of a focus transition.
+constexpr ULONGLONG kPromotionDwellMs = 150;
+
 struct AppState {
     HWND hwnd{};
     HWINEVENTHOOK foregroundHook{};
 
-    // The mode last observed while the user was interacting with the same
-    // foreground window. A focus transition must NOT overwrite this value,
-    // because the target window may be carrying an old/stale IME state.
-    ime::Mode lastUserMode{ime::Mode::Unknown};
+    // The mode the user last selected deliberately. A focus transition must NOT
+    // overwrite this value, because the window being switched to may be carrying
+    // a stale IME state that Windows saved for it earlier.
+    ime::Mode desiredMode{ime::Mode::Unknown};
 
-    HWND observedForeground{};
+    // IME conversion mode is per-thread and per-layout, not per-window: two
+    // windows of the same thread share one mode, so identity is the (thread,
+    // layout) pair rather than the HWND.
+    DWORD observedThread{};
+    HKL observedLayout{};
     ime::Mode observedMode{ime::Mode::Unknown};
-    HWND pendingForeground{};
+    ULONGLONG contextSince{};
 
-    bool restoring{false};
+    HWND pendingWindow{};
+    int restoreAttempt{};
+    ULONGLONG suppressPromotionUntil{};
+
     NOTIFYICONDATAW tray{};
 };
 
@@ -52,64 +74,161 @@ void set_tray_icon(bool add) {
     }
 }
 
-void schedule_restore(HWND hwnd) {
-    g_app.pendingForeground = hwnd;
+void cancel_restore() {
     KillTimer(g_app.hwnd, TIMER_RESTORE);
-    // Give Windows/TSF/IME a chance to finish activating the new context.
-    SetTimer(g_app.hwnd, TIMER_RESTORE, 50, nullptr);
+    g_app.pendingWindow = nullptr;
+    g_app.restoreAttempt = 0;
 }
 
-void restore_current_mode() {
-    const HWND hwnd = g_app.pendingForeground;
-    const ime::Mode desired = g_app.lastUserMode;
-    if (!IsWindow(hwnd) || desired == ime::Mode::Unknown) {
+void schedule_restore_attempt(HWND hwnd) {
+    if (g_app.restoreAttempt >= kMaxRestoreAttempts) {
+        // Out of attempts. Adopt whatever the target settled on so the next
+        // observation does not read the difference as a user decision.
+        g_app.observedMode = ime::query_state(hwnd).mode;
+        cancel_restore();
         return;
     }
 
-    g_app.restoring = true;
-    ime::set_mode(hwnd, desired);
-    g_app.restoring = false;
-
-    // Observe again after the restore. If the IME/TSF overwrites our change,
-    // the next observation gives us a chance to retry without changing the
-    // global desired mode.
-    g_app.observedForeground = hwnd;
-    g_app.observedMode = ime::query_mode(hwnd);
+    const UINT delay = kRestoreDelaysMs[g_app.restoreAttempt];
+    ++g_app.restoreAttempt;
+    g_app.pendingWindow = hwnd;
+    KillTimer(g_app.hwnd, TIMER_RESTORE);
+    SetTimer(g_app.hwnd, TIMER_RESTORE, delay, nullptr);
 }
 
-void observe_current_window() {
-    HWND hwnd = GetForegroundWindow();
+void accept_restored_state(HWND hwnd, const ime::State& state) {
+    g_app.observedThread = GetWindowThreadProcessId(hwnd, nullptr);
+    g_app.observedLayout = GetKeyboardLayout(g_app.observedThread);
+    g_app.observedMode = state.mode;
+    g_app.contextSince = GetTickCount64();
+    g_app.suppressPromotionUntil = g_app.contextSince + kPostRestoreSuppressMs;
+    cancel_restore();
+}
+
+// Records that the input context changed, without ever inferring a new desired
+// mode from the window being switched to.
+void note_context_switch(HWND hwnd) {
     if (!hwnd || hwnd == g_app.hwnd) {
         return;
     }
 
-    const ime::Mode current = ime::query_mode(hwnd);
-
-    if (hwnd != g_app.observedForeground) {
-        // This is a focus transition. Never infer a new global mode from the
-        // target window because its state may simply be the state Windows had
-        // stored for that window/thread.
-        g_app.observedForeground = hwnd;
-        g_app.observedMode = current;
-        schedule_restore(hwnd);
+    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
+    if (!thread) {
         return;
     }
 
-    if (g_app.restoring) {
-        g_app.observedMode = current;
+    g_app.observedThread = thread;
+    g_app.observedLayout = GetKeyboardLayout(thread);
+    g_app.contextSince = GetTickCount64();
+
+    const ime::State state = ime::query_state(hwnd);
+    g_app.observedMode = state.mode;
+
+    if (g_app.desiredMode == ime::Mode::Unknown) {
+        // Nothing to restore yet: seed the desired mode from the first context
+        // we can actually read.
+        g_app.desiredMode = state.mode;
+        cancel_restore();
         return;
     }
 
-    // Same foreground window + mode changed = the strongest signal available
-    // without injecting into every process: the user (or the IME UI) changed
-    // the mode while interacting with this window. Promote it to global state.
-    if (current != ime::Mode::Unknown &&
+    g_app.restoreAttempt = 0;
+    schedule_restore_attempt(hwnd);
+}
+
+void restore_tick() {
+    KillTimer(g_app.hwnd, TIMER_RESTORE);
+
+    const HWND hwnd = g_app.pendingWindow;
+    const ime::Mode desired = g_app.desiredMode;
+    if (!hwnd || !IsWindow(hwnd) || desired == ime::Mode::Unknown) {
+        cancel_restore();
+        return;
+    }
+    if (hwnd != GetForegroundWindow()) {
+        // Focus moved on while we were waiting; the switch to the new window
+        // schedules its own restore.
+        cancel_restore();
+        return;
+    }
+
+    const ime::State before = ime::query_state(hwnd);
+    if (!before.valid) {
+        // The IME/TSF context is not activated yet, or the active layout is not
+        // an IME at all. Either way there is nothing to write.
+        schedule_restore_attempt(hwnd);
+        return;
+    }
+    if (before.mode == desired) {
+        accept_restored_state(hwnd, before);
+        return;
+    }
+
+    ime::set_mode(hwnd, desired);
+
+    // Verify instead of trusting the write: an IME that is still activating can
+    // overwrite our change with the state Windows had saved for this thread.
+    const ime::State after = ime::query_state(hwnd);
+    if (after.valid && after.mode == desired) {
+        accept_restored_state(hwnd, after);
+        return;
+    }
+
+    schedule_restore_attempt(hwnd);
+}
+
+void observe_tick() {
+    const HWND hwnd = GetForegroundWindow();
+    if (!hwnd || hwnd == g_app.hwnd) {
+        return;
+    }
+
+    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
+    if (!thread) {
+        return;
+    }
+
+    if (thread != g_app.observedThread || GetKeyboardLayout(thread) != g_app.observedLayout) {
+        // Also covers a layout switch inside the same thread, which is a system
+        // event rather than the user picking a conversion mode.
+        note_context_switch(hwnd);
+        return;
+    }
+
+    const ime::State state = ime::query_state(hwnd);
+    if (!state.valid) {
+        g_app.observedMode = ime::Mode::Unknown;
+        return;
+    }
+
+    const ULONGLONG now = GetTickCount64();
+    const bool settling = now < g_app.suppressPromotionUntil ||
+                          now - g_app.contextSince < kPromotionDwellMs ||
+                          g_app.pendingWindow != nullptr;
+
+    if (!settling &&
+        g_app.observedMode == ime::Mode::Unknown &&
+        g_app.desiredMode != ime::Mode::Unknown &&
+        state.mode != g_app.desiredMode) {
+        // The context became readable only after the restore attempts ran out,
+        // so start a fresh round now that there is something to write to.
+        g_app.observedMode = state.mode;
+        g_app.restoreAttempt = 0;
+        schedule_restore_attempt(hwnd);
+        return;
+    }
+
+    // Same input context + a settled mode change is the strongest signal
+    // available without injecting into every process: the user changed the mode
+    // while working in this window, so it becomes the new global intent.
+    if (!settling &&
+        state.mode != ime::Mode::Unknown &&
         g_app.observedMode != ime::Mode::Unknown &&
-        current != g_app.observedMode) {
-        g_app.lastUserMode = current;
+        state.mode != g_app.observedMode) {
+        g_app.desiredMode = state.mode;
     }
 
-    g_app.observedMode = current;
+    g_app.observedMode = state.mode;
 }
 
 void CALLBACK win_event_proc(
@@ -120,27 +239,40 @@ void CALLBACK win_event_proc(
     LONG,
     DWORD,
     DWORD) {
-    if (event != EVENT_SYSTEM_FOREGROUND || !hwnd || hwnd == g_app.hwnd) {
+    if (event != EVENT_SYSTEM_FOREGROUND || !hwnd) {
         return;
     }
-    schedule_restore(hwnd);
+    note_context_switch(hwnd);
+}
+
+void show_status() {
+    const HWND foreground = GetForegroundWindow();
+    const ime::State state = ime::query_state(foreground);
+
+    wchar_t text[256]{};
+    StringCchPrintfW(
+        text,
+        ARRAYSIZE(text),
+        L"Desired mode: %s\nForeground mode: %s\nIME reachable: %s",
+        ime::mode_name(g_app.desiredMode),
+        ime::mode_name(state.mode),
+        state.valid ? L"yes" : L"no");
+    MessageBoxW(g_app.hwnd, text, L"IME Mode Persistence", MB_OK | MB_ICONINFORMATION);
 }
 
 LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_TIMER:
         if (wParam == TIMER_RESTORE) {
-            KillTimer(hwnd, TIMER_RESTORE);
-            restore_current_mode();
+            restore_tick();
         } else if (wParam == TIMER_OBSERVE) {
-            observe_current_window();
+            observe_tick();
         }
         return 0;
 
     case WMAPP_TRAY:
         if (lParam == WM_LBUTTONDBLCLK) {
-            const wchar_t* mode = ime::mode_name(g_app.lastUserMode);
-            MessageBoxW(hwnd, mode, L"Last IME mode", MB_OK | MB_ICONINFORMATION);
+            show_status();
         } else if (lParam == WM_RBUTTONUP) {
             HMENU menu = CreatePopupMenu();
             if (menu) {
@@ -194,13 +326,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         return 1;
     }
 
-    HWND foreground = GetForegroundWindow();
-    if (foreground && foreground != g_app.hwnd) {
-        g_app.observedForeground = foreground;
-        g_app.observedMode = ime::query_mode(foreground);
-        g_app.lastUserMode = g_app.observedMode;
-    }
-
     g_app.foregroundHook = SetWinEventHook(
         EVENT_SYSTEM_FOREGROUND,
         EVENT_SYSTEM_FOREGROUND,
@@ -216,9 +341,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         return 1;
     }
 
-    // Polling is intentional: it lets us distinguish a mode change while the
-    // same window remains focused from a mode change caused by focus switching.
-    SetTimer(g_app.hwnd, TIMER_OBSERVE, 50, nullptr);
+    note_context_switch(GetForegroundWindow());
+
+    // Polling is intentional: it is what lets us tell a mode change made while
+    // the same window stays focused apart from one caused by switching windows.
+    SetTimer(g_app.hwnd, TIMER_OBSERVE, kObserveIntervalMs, nullptr);
     set_tray_icon(true);
 
     MSG msg{};

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <windows.h>
-#include <string>
 
 namespace ime {
 
@@ -11,13 +10,25 @@ enum class Mode {
     Native,
 };
 
-// Best-effort IMM32 state reader. IMM32 exposes the open/closed state reliably;
-// the distinction between native/alphanumeric is IME-specific, so this module
-// intentionally keeps that limitation explicit rather than pretending it is
-// universally observable through one API.
-Mode query_mode(HWND hwnd);
+struct State {
+    bool valid{false};       // false when the target thread has no reachable IME
+    bool open{false};
+    DWORD conversion{0};     // IME_CMODE_* flags
+    Mode mode{Mode::Unknown};
+};
 
-bool set_mode(HWND hwnd, Mode mode);
+// Reads the conversion mode of hwnd's thread through the IMM32/TSF interop
+// layer, so TSF text services (Microsoft Bopomofo and friends) report their
+// real native/alphanumeric state rather than just an open/closed flag.
+State query_state(HWND hwnd);
+
+// Moves hwnd's thread to `desired`, preserving every conversion flag the target
+// already had (full/half shape, roman, and so on). Returns false when the write
+// could not even be attempted; callers must verify by reading the state back,
+// because an IME that is still activating can silently discard the change.
+bool set_mode(HWND hwnd, Mode desired);
+
+Mode query_mode(HWND hwnd);
 
 const wchar_t* mode_name(Mode mode);
 
