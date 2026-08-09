@@ -1,66 +1,82 @@
 # ImeModePersistence
 
-A Windows 11 C++ tray utility that experiments with keeping the user's last IME input state across foreground-window changes.
+Windows utility that attempts to keep the **last user-selected IME mode** when switching foreground windows.
 
-## Current implementation
+## Intended behavior
 
-- Win32 C++20
-- `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` instead of injecting a DLL into every process
-- IMM32 adapter for reading/writing the coarse IME open state
-- 30 ms deferred restore after foreground changes
-- x64/x86 can be built with the same CMake project
-- No administrator privileges are required for ordinary same-integrity applications
+Example:
+
+1. Window A is in Chinese/native input mode.
+2. Switch to Window B -> the utility restores Chinese/native mode.
+3. User intentionally switches B to English/alphanumeric mode.
+4. Switch to Window C -> the utility restores English/alphanumeric mode.
+5. The global desired mode therefore follows the user's most recent mode change.
+
+This is intentionally **not** a "force Chinese" or "force Japanese" tool.
+
+## Current architecture
+
+```text
+                 User changes mode
+                        |
+                 same foreground HWND
+                        |
+                        v
+                 lastUserMode = X
+
+Foreground window change
+          |
+          v
+ EVENT_SYSTEM_FOREGROUND
+          |
+          v
+   wait for IME/TSF activation
+          |
+          v
+   restore lastUserMode
+```
+
+The prototype uses `SetWinEventHook(EVENT_SYSTEM_FOREGROUND, ...)` rather than injecting a DLL into every process. A 50 ms observer distinguishes mode changes that happen while the same foreground window remains active from changes observed only after a focus transition.
 
 ## Important limitation
 
-The current adapter maps `ImmGetOpenStatus()` to `Native`/`Alphanumeric`. Modern Windows TSF IMEs can expose conversion modes that are more detailed than IMM32's open/closed flag. Therefore this first implementation is intentionally a foundation, not a claim of complete Microsoft Pinyin/Traditional Chinese TSF compatibility.
+`IMM32::ImmGetOpenStatus` and `ImmSetOpenStatus` expose the IME open/closed state, not every TSF conversion-mode detail. For many traditional Windows IMEs this is a useful approximation of native vs alphanumeric input, but it is **not sufficient to claim complete support for every modern TSF IME**.
 
-For robust Microsoft Bopomofo / Traditional Chinese support, the next implementation step is a TSF adapter that observes the active `ITfDocumentMgr` / `ITfContext` and the IME conversion mode, while preserving the distinction between user-initiated mode changes and focus-transition resets.
+The next implementation step is a TSF adapter for the target IME (especially Microsoft Traditional Chinese / Microsoft Bopomofo) and verification/retry after TSF focus activation.
 
 ## Build
-
-Use a Visual Studio Developer PowerShell or a shell with CMake and MSVC available:
 
 ```powershell
 cmake -S . -B build -A x64
 cmake --build build --config Release
 ```
 
-The executable will be under `build\\Release\\ImeModePersistence.exe`.
+Executable:
 
-For 32-bit:
+```text
+build\\Release\\ImeModePersistence.exe
+```
+
+For x86:
 
 ```powershell
 cmake -S . -B build-x86 -A Win32
 cmake --build build-x86 --config Release
 ```
 
-## Architecture
+## Scope and security
 
-```text
-Foreground window change
-        |
-        v
-SetWinEventHook(EVENT_SYSTEM_FOREGROUND)
-        |
-        v
-30 ms deferred callback
-        |
-        v
-Query target IME state
-        |
-        v
-Restore last known state
-```
-
-## Security / integrity notes
-
-`SetWinEventHook(..., WINEVENT_OUTOFCONTEXT, ...)` avoids the DLL-injection model of a global `WH_CALLWNDPROC` hook. UIPI still matters: a lower-integrity process cannot freely manipulate every higher-integrity target window. Run the utility at the same integrity level as the applications it needs to control. Do not run it elevated unless necessary.
+- No global `WH_CALLWNDPROC` DLL injection is required by the current prototype.
+- `SetWinEventHook(..., WINEVENT_OUTOFCONTEXT, ...)` observes foreground changes from the utility process.
+- Windows security boundaries (UIPI / elevated applications) can prevent changing IME state in another integrity level. Run at the same integrity level as the target application when required.
+- This project does not attempt to bypass Windows security boundaries.
 
 ## Roadmap
 
-1. Add a TSF-backed state adapter.
-2. Detect user-initiated mode changes reliably.
-3. Add retry/verification around TSF focus transitions.
-4. Add per-IME behavior and diagnostics.
-5. Add automated tests for same-integrity foreground transitions.
+- [ ] TSF mode adapter
+- [ ] Microsoft Bopomofo verification
+- [ ] Retry/verify after focus activation
+- [ ] Better distinction between user-initiated and system-initiated changes
+- [ ] Configuration UI
+- [ ] Start with Windows
+- [ ] Automated Windows CI
