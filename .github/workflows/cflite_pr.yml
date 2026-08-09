@@ -4,7 +4,17 @@ name: ClusterFuzzLite
 # or hang before it merges. This is also what OpenSSF Scorecard recognises as
 # fuzzing, unlike a bespoke libFuzzer workflow.
 on:
+  # Skip on changes that cannot affect the parser -- docs, assets, the installer
+  # script. The required build checks still run; only this ~3-minute fuzz job is
+  # skipped. Fuzzing's Scorecard credit is for having a setup, not per-run, so
+  # this costs no score.
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - 'assets/**'
+      - 'installer/**'
 
 permissions: read-all
 
