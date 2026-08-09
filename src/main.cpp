@@ -476,23 +476,26 @@ void restore_tick() {
                                      ? static_cast<size_t>(attempt)
                                      : ARRAYSIZE(kMethods) - 1;
 
-            // A target whose executable could not be read is a protected process,
-            // which in practice means anti-cheat. Posting window messages into one
-            // is contact it never has to tolerate, and it would repeat on every
-            // switch into that application -- while the framework route reaches it
-            // without touching it at all. So go straight there.
-            const bool protectedTarget = g_app.observedExecutable.empty();
-            g_app.layoutMethod =
-                protectedTarget ? layout::Method::TsfSession : kMethods[index];
+            // v0.7.1 sent protected targets straight to TSF, on the reasoning that
+            // posting window messages into an anti-cheat process was contact worth
+            // avoiding. That assumed TSF was what reached such a target -- which was
+            // never verified, and the diagnostic log shows it does not: four TSF
+            // attempts in a row leave the layout untouched. What worked before that
+            // change must have been one of the window-message mechanisms, so the
+            // escalation is restored for every target.
+            g_app.layoutMethod = kMethods[index];
             g_app.layoutRequested = true;
             g_app.layoutSatisfied = false;
-            diag::write(L"layout: want %s, have %s, attempt %d via %s%s",
+
+            // Whether the call itself succeeded, so a mechanism that reports success
+            // and changes nothing can be told from one that was refused outright.
+            const bool issued = layout::request(hwnd, required, g_app.layoutMethod);
+            diag::write(L"layout: want %s, have %s, attempt %d via %s (%s)",
                         layout::describe(g_app.ruleLanguage).c_str(),
                         layout::describe(layout::language_of(layout::current(hwnd))).c_str(),
                         attempt + 1,
                         layout::method_name(g_app.layoutMethod),
-                        protectedTarget ? L" (protected target)" : L"");
-            layout::request(hwnd, required, g_app.layoutMethod);
+                        issued ? L"issued" : L"refused");
 
             // Every mechanism is asynchronous or unverifiable, so come back and
             // read the layout rather than assuming anything.

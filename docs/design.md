@@ -102,9 +102,11 @@ Three mechanisms are now tried in escalating order, one per retry attempt, each 
 
    This replaced `AttachThreadInput` + `ActivateKeyboardLayout`, which was never shown to work and was the only technique here that anti-cheat is built to notice. Removing it lowers the risk to the user's account and loses nothing demonstrated.
 
-   **Confirmed to reach a raw-input fullscreen game protected by anti-cheat** (Helldivers 2, window class `stingray_window`). This was the central unknown: the documentation says session rather than thread scope, and whether that crossed into such a process could only be settled by trying it. It does.
+   **Not confirmed to reach a raw-input fullscreen game.** This was recorded as confirmed after the class-binding work made Helldivers 2 work, which was an inference: at that point the escalation still tried both window-message mechanisms first, so which of the three actually succeeded was never established. The diagnostic log later showed four consecutive TSF attempts leaving the layout untouched, so TSF alone does not reach such a target.
 
-**A protected target skips the window-message mechanisms entirely.** If the executable could not be read, the process refused to be opened — anti-cheat, in practice. Posting `WM_INPUTLANGCHANGEREQUEST` into such a process is contact it never has to tolerate, and it would repeat on every switch into that application, while the framework route reaches it without touching it at all. The escalation is skipped and TSF is used from the first attempt.
+**Every target gets the full escalation.** v0.7.1 sent protected targets straight to TSF, to avoid posting window messages into an anti-cheat process. That rested on TSF being what reached such a target — an assumption never tested, and the diagnostic log disproved it: four TSF attempts in a row left the layout unchanged. Whatever worked before that change was one of the window-message mechanisms, so skipping them silently broke the feature the whole thing exists for.
+
+The lesson is narrower than "do not optimise": the change was made on an inference presented as a finding, and there was no way to observe the difference until the log existed. Each attempt now also records whether the call was *issued* or *refused*, so a mechanism that reports success and changes nothing can be told from one that was rejected.
 
 Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is reported in two places.
 
