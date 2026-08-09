@@ -8,6 +8,7 @@ add_executable(ime_tests
     check.cpp
     check.h
     test_layout.cpp
+    test_schedule.cpp
     test_rules.cpp
     test_diagnostic.cpp
     test_windows.cpp
@@ -23,6 +24,7 @@ endif()
 # fails immediately with a usage message rather than silently testing nothing.
 set(IME_TEST_SUITES
     layout
+    schedule
     rules
     diagnostic
     window-identity

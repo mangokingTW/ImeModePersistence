@@ -17,6 +17,7 @@
 #include "rules.h"
 #include "settings.h"
 #include "strings.h"
+#include "schedule.h"
 #include "theme.h"
 #include "tsf.h"
 
@@ -25,6 +26,7 @@ namespace {
 constexpr UINT WMAPP_TRAY = WM_APP + 1;
 constexpr UINT_PTR TIMER_RESTORE = 1;
 constexpr UINT_PTR TIMER_OBSERVE = 2;
+constexpr UINT_PTR TIMER_LAYOUT = 3;
 constexpr UINT ID_TRAY_EXIT = 1001;
 constexpr UINT ID_TRAY_AUTOSTART = 1002;
 constexpr UINT ID_TRAY_RULES = 1003;
@@ -37,12 +39,17 @@ constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 // two instances would fight over restoring each other's writes.
 constexpr wchar_t kSingleInstanceMutex[] = L"Local\\ImeModePersistence.SingleInstance";
 
+// Reading the conversion mode is a cross-process SendMessage, and this tick does
+// one every time. That cost is what sets this interval: polling the mode several
+// times faster would mean several times as many messages into whatever is in
+// front, which for an anti-cheat-protected game is traffic worth not generating.
 constexpr UINT kObserveIntervalMs = 50;
 
-// A foreground change fires before the new thread's IME is usable, so the first
-// restore attempt waits, and every attempt verifies its own result.
-constexpr UINT kRestoreDelaysMs[] = {60, 120, 250, 500};
-constexpr int kMaxRestoreAttempts = static_cast<int>(ARRAYSIZE(kRestoreDelaysMs));
+// The layout, by contrast, is a local read -- GetKeyboardLayout asks the window
+// manager about a thread and sends nothing to it. So the layout a rule binds can
+// be checked far more often than the mode, and this is what decides how long an
+// unwanted switch survives before it is put back.
+constexpr UINT kLayoutPollIntervalMs = 15;
 
 // After a successful restore the IME keeps settling for a moment. Anything
 // observed inside this window is our own change echoing back, not the user.
@@ -75,6 +82,20 @@ struct AppState {
     HWND pendingWindow{};
     int restoreAttempt{};
     ULONGLONG suppressPromotionUntil{};
+
+    // What began the current round, which decides how long its waits are.
+    schedule::Trigger trigger{schedule::Trigger::FocusChange};
+
+    // The layout the active rule wants and the window it was resolved for,
+    // both settled once when the rule is looked up. The fast poll compares
+    // against these instead of re-deriving them, which is what keeps it cheap
+    // enough to run every 15 ms.
+    HKL requiredLayout{};
+    HWND ruleWindow{};
+
+    // Set when a round gave up, so a target that refuses is left alone rather
+    // than asked again on the very next poll.
+    ULONGLONG layoutCooldownUntil{};
 
     // Executable of the current foreground application, and the language its rule
     // binds it to (zero when it has no rule). Kept so the rules dialog can offer
@@ -338,17 +359,29 @@ void cancel_restore() {
 }
 
 void schedule_restore_attempt(HWND hwnd) {
-    if (g_app.restoreAttempt >= kMaxRestoreAttempts) {
+    if (g_app.restoreAttempt >= schedule::max_attempts()) {
         // Out of attempts. Adopt whatever the target settled on so the next
         // observation does not read the difference as a user decision.
         diag::write(L"gave up after %d attempts; adopting the target's own state",
-                    kMaxRestoreAttempts);
+                    schedule::max_attempts());
+
+        if (g_app.ruleLanguage != 0) {
+            // The cooldown belongs to the faster poll rather than to this budget.
+            // Without it, an application that insists on its own layout would be
+            // sent a fresh round every 15 ms for as long as it stayed in front:
+            // the argument is already lost, and continuing it only floods a
+            // target that may well be an anti-cheat-protected game.
+            g_app.layoutCooldownUntil = GetTickCount64() + schedule::cooldown_ms();
+            diag::write(L"layout: leaving this target alone for %u ms",
+                        schedule::cooldown_ms());
+        }
+
         g_app.observedMode = ime::query_state(hwnd).mode;
         cancel_restore();
         return;
     }
 
-    const UINT delay = kRestoreDelaysMs[g_app.restoreAttempt];
+    const UINT delay = schedule::delay_for(g_app.restoreAttempt, g_app.trigger);
     ++g_app.restoreAttempt;
     g_app.pendingWindow = hwnd;
     KillTimer(g_app.hwnd, TIMER_RESTORE);
@@ -384,6 +417,19 @@ void note_context_switch(HWND hwnd) {
     g_app.observedExecutable = rules::executable_of(hwnd);
     g_app.ruleLanguage =
         rules::lookup(g_app.observedExecutable, rules::window_class_of(hwnd));
+
+    // Resolved here rather than on every attempt: this is the one place the rule
+    // itself can change, and the fast poll needs an answer it can compare against
+    // without going back to the registry or enumerating layouts.
+    g_app.requiredLayout =
+        g_app.ruleLanguage != 0 ? layout::find_by_language(g_app.ruleLanguage) : nullptr;
+    g_app.ruleWindow = g_app.requiredLayout ? hwnd : nullptr;
+
+    // A genuine context change clears a cooldown: whatever was fighting belonged
+    // to the application being left, and switching away and back is the documented
+    // way to get the binding to try again.
+    g_app.layoutCooldownUntil = 0;
+    g_app.trigger = schedule::Trigger::FocusChange;
 
     // Reset per-application, so the status box describes the application in
     // front rather than whatever was tried last.
@@ -448,7 +494,7 @@ void restore_tick() {
     // active, so restoring the mode before the bound layout is in place would
     // write it to the layout on its way out.
     if (g_app.ruleLanguage != 0) {
-        HKL required = layout::find_by_language(g_app.ruleLanguage);
+        HKL required = g_app.requiredLayout;
         if (!required) {
             // The rule names a layout that is no longer installed. Nothing to
             // enforce, and retrying cannot help.
@@ -461,6 +507,10 @@ void restore_tick() {
                             layout::method_name(g_app.layoutMethod));
             }
             g_app.layoutSatisfied = true;
+
+            // Adopted as the observed layout, so the next observe_tick does not
+            // read our own successful switch as a layout change and start over.
+            g_app.observedLayout = required;
         } else {
             // Each attempt escalates, because no one mechanism reaches every
             // application. The order itself lives in layout::method_for_attempt so
@@ -518,6 +568,56 @@ void restore_tick() {
         return;
     }
 
+    schedule_restore_attempt(hwnd);
+}
+
+// The layout half of the observation, run far more often than the rest.
+//
+// It exists because the two things being watched cost different amounts. Reading
+// the conversion mode means a cross-process SendMessage; reading the layout does
+// not. So this checks only the layout, only for the window a rule was already
+// resolved for, and deliberately re-derives nothing -- no process identity, no
+// registry lookup, no window vetting, all of which observe_tick and the foreground
+// hook have already done for this window. That is what makes 15 ms affordable.
+//
+// The effect is on how long an unwanted switch lasts: pressing Win+Space in a
+// bound application used to survive the 50 ms observer plus a 60 ms first attempt,
+// and now survives this poll plus a 10 ms one.
+void layout_tick() {
+    if (g_app.ruleLanguage == 0 || !g_app.requiredLayout || !g_app.ruleWindow) {
+        return;
+    }
+
+    // A round is already in flight. It has its own timer, its own escalation and
+    // its own budget, and starting a second would reset all three.
+    if (g_app.pendingWindow) {
+        return;
+    }
+
+    if (GetTickCount64() < g_app.layoutCooldownUntil) {
+        return;
+    }
+
+    // Only the window the rule was resolved for. Anything else is a context
+    // change, which the foreground hook and observe_tick own.
+    const HWND hwnd = GetForegroundWindow();
+    if (hwnd != g_app.ruleWindow) {
+        return;
+    }
+
+    const HKL actual = layout::current(hwnd);
+    if (actual == g_app.requiredLayout) {
+        return;
+    }
+
+    // An event rather than a situation, so not deduplicated: how often a binding
+    // has to be reasserted is exactly what a report needs to show.
+    diag::write(L"layout: drifted to %s, reasserting %s",
+                layout::describe(layout::language_of(actual)).c_str(),
+                layout::describe(g_app.ruleLanguage).c_str());
+
+    g_app.trigger = schedule::Trigger::LayoutDrift;
+    g_app.restoreAttempt = 0;
     schedule_restore_attempt(hwnd);
 }
 
@@ -677,6 +777,8 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             restore_tick();
         } else if (wParam == TIMER_OBSERVE) {
             observe_tick();
+        } else if (wParam == TIMER_LAYOUT) {
+            layout_tick();
         }
         return 0;
 
@@ -774,6 +876,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_DESTROY:
         KillTimer(hwnd, TIMER_RESTORE);
         KillTimer(hwnd, TIMER_OBSERVE);
+        KillTimer(hwnd, TIMER_LAYOUT);
         if (g_app.foregroundHook) {
             UnhookWinEvent(g_app.foregroundHook);
             g_app.foregroundHook = nullptr;
@@ -796,11 +899,13 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     g_app.persistMode = settings::persist_mode();
 
     diag::initialise();
-    diag::write(L"---- started, version %hs, %s, autostart %s, persist mode %s",
+    diag::write(L"---- started, version %hs, %s, autostart %s, persist mode %s, "
+                L"layout poll %u ms",
                 APP_VERSION_STRING,
                 autostart::elevated() ? L"elevated" : L"not elevated",
                 autostart_label(),
-                g_app.persistMode ? L"on" : L"off");
+                g_app.persistMode ? L"on" : L"off",
+                kLayoutPollIntervalMs);
 
     if (!tsf::initialise()) {
         // Not fatal, but it removes the one mechanism that reaches a protected
@@ -866,6 +971,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // Polling is intentional: it is what lets us tell a mode change made while
     // the same window stays focused apart from one caused by switching windows.
     SetTimer(g_app.hwnd, TIMER_OBSERVE, kObserveIntervalMs, nullptr);
+
+    // Separate from the observer because it is cheap enough to run far more often:
+    // it reads a layout and nothing else. See layout_tick.
+    SetTimer(g_app.hwnd, TIMER_LAYOUT, kLayoutPollIntervalMs, nullptr);
     set_tray_icon(true);
 
     MSG msg{};
