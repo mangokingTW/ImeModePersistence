@@ -1,5 +1,7 @@
 # ImeModePersistence
 
+[![Windows build](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/windows-build.yml/badge.svg)](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/windows-build.yml)
+
 Windows utility that attempts to keep the **last user-selected IME mode** when switching foreground windows.
 
 ## Intended behavior
@@ -19,10 +21,12 @@ This is intentionally **not** a "force Chinese" or "force Japanese" tool.
 ```text
                  User changes mode
                         |
-                 same foreground HWND
+             same (thread, layout) context
+                        |
+                 settled for 150 ms
                         |
                         v
-                 lastUserMode = X
+                 desiredMode = X
 
 Foreground window change
           |
@@ -33,16 +37,37 @@ Foreground window change
    wait for IME/TSF activation
           |
           v
-   restore lastUserMode
+   write desiredMode
+          |
+          v
+   read it back to verify  --mismatch--> retry (60/120/250/500 ms)
+          |
+        match
+          |
+          v
+   suppress observation for 250 ms
 ```
 
-The prototype uses `SetWinEventHook(EVENT_SYSTEM_FOREGROUND, ...)` rather than injecting a DLL into every process. A 50 ms observer distinguishes mode changes that happen while the same foreground window remains active from changes observed only after a focus transition.
+The prototype uses `SetWinEventHook(EVENT_SYSTEM_FOREGROUND, ...)` rather than injecting a DLL into every process. A 50 ms observer distinguishes mode changes that happen while the same input context remains active from changes observed only after a focus transition.
 
-## Important limitation
+Conversion mode belongs to a *thread and keyboard layout*, not to a window: two windows of the same thread share one mode. The observer therefore keys its state on the `(thread, HKL)` pair, which also means switching to a non-IME layout such as US English is treated as a system event rather than as the user turning native mode off.
 
-`IMM32::ImmGetOpenStatus` and `ImmSetOpenStatus` expose the IME open/closed state, not every TSF conversion-mode detail. For many traditional Windows IMEs this is a useful approximation of native vs alphanumeric input, but it is **not sufficient to claim complete support for every modern TSF IME**.
+## Reading another process's conversion mode
 
-The next implementation step is a TSF adapter for the target IME (especially Microsoft Traditional Chinese / Microsoft Bopomofo) and verification/retry after TSF focus activation.
+Two obvious approaches do not work for an out-of-process utility:
+
+- **`ITfThreadMgr` and `GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION`.** TSF compartments are per-thread and live inside the owning process. A utility cannot activate a thread manager on a foreign thread, so the TSF interfaces only ever describe its own thread.
+- **`ImmGetContext` / `ImmSetOpenStatus`** (used by the first prototype). An `HIMC` is process-local, so `ImmGetContext` returns `nullptr` for a window owned by another process. That prototype silently reported `Unknown` for every foreground window except its own.
+
+What does work is the IMM32 &harr; TSF interop layer (CUAS). `WM_IME_CONTROL` is handled by the target thread's default IME window (`ImmGetDefaultIMEWnd`), which marshals the request into that thread and reports the real `IME_CMODE_*` conversion mode &mdash; including for TSF text services such as Microsoft Bopomofo. `src/ime_interop.cpp` implements that path with `SendMessageTimeout`, so a hung foreground application cannot stall the message pump.
+
+This is what makes native vs alphanumeric detection meaningful: Microsoft Bopomofo clears `IME_CMODE_NATIVE` on Shift while the IME stays *open*, a distinction `ImmGetOpenStatus` alone cannot express. Restores preserve the target's other conversion flags (full/half shape, roman) and only change the native bit.
+
+## Remaining limitation
+
+Every write is best-effort and verified by reading the state back, because an IME that is still activating can discard the change. After four attempts (~930 ms) the utility gives up on that window and adopts whatever mode the target settled on, rather than fighting it.
+
+Behaviour has been validated by compilation in CI for x64 and x86. Runtime behaviour with **Microsoft Bopomofo** on real hardware is still unverified &mdash; see the roadmap.
 
 ## Build
 
@@ -54,7 +79,7 @@ cmake --build build --config Release
 Executable:
 
 ```text
-build\\Release\\ImeModePersistence.exe
+build\Release\ImeModePersistence.exe
 ```
 
 For x86:
@@ -73,10 +98,10 @@ cmake --build build-x86 --config Release
 
 ## Roadmap
 
-- [ ] TSF mode adapter
-- [ ] Microsoft Bopomofo verification
-- [ ] Retry/verify after focus activation
-- [ ] Better distinction between user-initiated and system-initiated changes
+- [x] TSF-aware conversion-mode adapter (via the IMM32/TSF interop layer, since TSF interfaces are per-thread and in-process only)
+- [ ] Microsoft Bopomofo verification on real hardware
+- [x] Retry/verify after focus activation
+- [x] Better distinction between user-initiated and system-initiated changes
 - [ ] Configuration UI
 - [ ] Start with Windows
-- [ ] Automated Windows CI
+- [x] Automated Windows CI
