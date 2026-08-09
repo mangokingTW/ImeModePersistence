@@ -3,6 +3,7 @@
 [![Windows build](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/windows-build.yml/badge.svg)](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/windows-build.yml)
 [![CodeQL](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/codeql.yml/badge.svg)](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/mangokingTW/ImeModePersistence/badge)](https://scorecard.dev/viewer/?uri=github.com/mangokingTW/ImeModePersistence)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14007/badge)](https://www.bestpractices.dev/projects/14007)
 
 **繁體中文** · [English](#english)
 
