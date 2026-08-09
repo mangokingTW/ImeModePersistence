@@ -30,15 +30,21 @@ AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
 VersionInfoVersion={#AppVersion}
 
-PrivilegesRequired=lowest
-DefaultDirName={localappdata}\Programs\{#AppName}
+; Administrator, because the utility's main use needs to run elevated: Windows
+; does not let a lower-privileged program read the windows of a higher-privileged
+; one, and anti-cheat protected games are elevated. Setup needs the same rights to
+; register the scheduled task that starts it elevated at logon -- and, usefully,
+; only an elevated Setup can close an elevated copy when updating.
+PrivilegesRequired=admin
+DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExeName}
 
 ; Last-resort guard against overwriting a running executable. [Code] closes the
 ; utility itself before Setup gets this far, so the prompt this would otherwise
-; raise only appears when that graceful close fails.
+; raise only appears when that graceful close fails. Setup is elevated too, so it
+; can close an elevated copy -- which an unelevated Setup could not.
 AppMutex={#AppMutexName}
 CloseApplications=yes
 
@@ -54,7 +60,20 @@ SetupIconFile=..\assets\ImeModePersistence.ico
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Tasks]
-Name: "startup"; Description: "Start with Windows"; GroupDescription: "Additional options:"
+; A scheduled task is the only way to start elevated at logon without a UAC
+; prompt every time, so it is the default. The registry entry cannot start an
+; elevated program at all, which is why it is offered as the alternative rather
+; than the main route.
+Name: "logontask"; Description: "{cm:TaskLogonElevated}"; \
+    GroupDescription: "{cm:TaskGroup}"
+Name: "logonreg"; Description: "{cm:TaskLogonPlain}"; \
+    GroupDescription: "{cm:TaskGroup}"; Flags: unchecked
+
+[CustomMessages]
+TaskGroup=Start automatically:
+TaskLogonElevated=At logon, as administrator (recommended)
+TaskLogonPlain=At logon, with normal privileges (cannot control elevated programs)
+TaskCreating=Registering the logon task...
 
 [Files]
 Source: "..\build-x64\Release\{#AppExeName}"; DestDir: "{app}"; DestName: "{#AppExeName}"; \
@@ -73,7 +92,7 @@ Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 ; whether autostart is on.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"""; \
-    Tasks: startup; Flags: uninsdeletevalue
+    Tasks: logonreg; Flags: uninsdeletevalue
 
 ; Always clean up on uninstall, including an entry the user enabled from the tray
 ; menu rather than through this installer. ValueType none plus dontcreatekey
@@ -83,12 +102,24 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     Flags: dontcreatekey uninsdeletevalue
 
 [Run]
+; /RL HIGHEST is what makes it elevated, /IT keeps it interactive so the tray icon
+; appears, and /RU ties it to the installing user rather than every account.
+; Quoted twice: schtasks parses /TR as a command line of its own.
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""{#AppName}"" /SC ONLOGON /RL HIGHEST /IT /RU ""{code:CurrentUser}"" /TR ""\""{app}\{#AppExeName}\"""""; Flags: runhidden; Tasks: logontask; StatusMsg: "{cm:TaskCreating}"
+
 ; It was running when Setup started, so put it back without asking.
 Filename: "{app}\{#AppExeName}"; Flags: nowait; Check: WasRunning
 
 ; Nothing was running, so offer the usual launch checkbox instead.
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
     Flags: nowait postinstall skipifsilent; Check: not WasRunning
+
+[UninstallRun]
+; Removed whether or not this install created it, so a task left behind by an
+; earlier install does not survive. Failure is ignored: having nothing to delete
+; is the normal case.
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /F /TN ""{#AppName}"""; \
+    Flags: runhidden; RunOnceId: "DeleteLogonTask"
 
 [Code]
 { Inno Setup has no maintenance mode: re-running Setup reinstalls over the
@@ -150,6 +181,13 @@ begin
 
   Result := not CheckForMutexes('{#AppMutexName}');
   ClosedRunningInstance := Result;
+end;
+
+{ schtasks wants a user name for /RU, and Setup runs elevated so its own user is
+  not necessarily the one logging in. The original user is the right target. }
+function CurrentUser(Param: String): String;
+begin
+  Result := ExpandConstant('{username}');
 end;
 
 function InstalledCopy(var Command, Version: String): Boolean;

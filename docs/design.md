@@ -128,7 +128,11 @@ A single-instance mutex is required once autostart is on, because two copies ove
 
 ## Installer
 
-Per-user into `%LocalAppData%\Programs`, matching the autostart reasoning above: no admin, no UAC, same integrity level as the targets.
+**Administrator, installing to Program Files.** This reverses the original per-user design, and the reason is that reading a window belonging to an elevated process requires equal privileges — anti-cheat protected games are elevated, so an unelevated utility cannot even see which application is in front. Elevation is therefore the default rather than the exception it was assumed to be.
+
+Setup needs the same rights to register the logon task, and gets one thing for free: only an elevated Setup can close an elevated copy of the utility, so updating no longer asks the user to close it by hand.
+
+Elevated autostart is a scheduled task with highest privileges, because the Run key cannot start an elevated program at all and a task is the only way to do it without a UAC prompt at every logon. The Run key remains as the unelevated alternative, offered unchecked.
 
 Inno Setup has no maintenance mode, so `InitializeSetup` reads `DisplayVersion` from the uninstall key and branches: an older installed copy is upgraded in place with no prompt, the same version offers repair or removal, and a newer one warns before downgrading. An unparseable version compares as equal, so a corrupted registry value lands on the prompt rather than silently upgrading or downgrading.
 

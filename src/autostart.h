@@ -9,11 +9,11 @@
 // WM_IME_CONTROL never reaches their threads. This utility has to live in the
 // interactive session.
 //
-// Why HKCU rather than HKLM or a scheduled task: HKCU needs no administrator
-// rights and no UAC prompt, and it starts the utility at the same integrity
-// level as the ordinary applications whose IME state it adjusts. Only a
-// scheduled task with highest privileges could also reach elevated windows, at
-// the cost of keeping an elevated process resident.
+// This is the unelevated route, and the Run key can only ever start an unelevated
+// copy. Elevated autostart is a scheduled task registered by the installer: a task
+// with highest privileges is the only way to start elevated at logon without a UAC
+// prompt every time, and creating one needs administrator rights that the utility
+// itself does not ask for.
 namespace autostart {
 
 // True when the Run key entry exists *and* points at this executable. A stale
@@ -22,5 +22,11 @@ namespace autostart {
 bool is_enabled();
 
 bool set_enabled(bool enable);
+
+// Whether this process is running elevated. Everything about what the utility can
+// reach depends on it: Windows does not let a lower-privileged program read the
+// windows of a higher-privileged one, so an unelevated copy cannot see an
+// anti-cheat protected game at all.
+bool elevated();
 
 } // namespace autostart

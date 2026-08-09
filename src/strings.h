@@ -28,6 +28,8 @@ struct Strings {
     const wchar_t* no;
     const wchar_t* unknownApplication;
     const wchar_t* noRule;
+    const wchar_t* elevatedYes;
+    const wchar_t* elevatedNo;
     const wchar_t* switchOk;
     const wchar_t* switchFailed;
     const wchar_t* switchNotAttempted;

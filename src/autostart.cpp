@@ -62,6 +62,20 @@ std::wstring read_value() {
 
 } // namespace
 
+bool elevated() {
+    HANDLE token{};
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) {
+        return false;
+    }
+
+    TOKEN_ELEVATION elevation{};
+    DWORD size = sizeof(elevation);
+    const BOOL ok = GetTokenInformation(token, TokenElevation, &elevation, size, &size);
+    CloseHandle(token);
+
+    return ok && elevation.TokenIsElevated != 0;
+}
+
 bool is_enabled() {
     const std::wstring expected = launch_command();
     if (expected.empty()) {

@@ -591,7 +591,8 @@ void show_status() {
         g_app.snapshotRule == 0 ? t.noRule : layout::describe(g_app.snapshotRule).c_str(),
         g_app.snapshotLayout == 0 ? t.unknownApplication
                                   : layout::describe(g_app.snapshotLayout).c_str(),
-        attempt);
+        attempt,
+        autostart::elevated() ? t.elevatedYes : t.elevatedNo);
     show_message(t.statusTitle, body, false);
 }
 
