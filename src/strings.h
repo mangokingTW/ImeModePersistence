@@ -15,6 +15,7 @@ struct Strings {
 
     const wchar_t* menuPersist;
     const wchar_t* menuAutostart;
+    const wchar_t* menuElevate;
     const wchar_t* menuRules;
     const wchar_t* menuExit;
 
@@ -28,6 +29,8 @@ struct Strings {
     const wchar_t* no;
     const wchar_t* unknownApplication;
     const wchar_t* noRule;
+    const wchar_t* elevatedYes;
+    const wchar_t* elevatedNo;
     const wchar_t* switchOk;
     const wchar_t* switchFailed;
     const wchar_t* switchNotAttempted;

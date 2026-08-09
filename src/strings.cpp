@@ -8,7 +8,8 @@ const Strings kEnglish{
     .tooltipFormat = L"App: %s\nBound language: %s\nActive language: %s\n%s",
 
     .menuPersist = L"Keep mode across windows",
-    .menuAutostart = L"Start with Windows",
+    .menuAutostart = L"Start with Windows (normal privileges)",
+    .menuElevate = L"Restart as administrator",
     .menuRules = L"App language bindings...",
     .menuExit = L"Exit",
 
@@ -19,7 +20,8 @@ const Strings kEnglish{
                     L"Current app: %s\n"
                     L"Bound language: %s\n"
                     L"Active language: %s\n"
-                    L"Last switch attempt: %s",
+                    L"Last switch attempt: %s\n"
+                    L"Running as administrator: %s",
     .modeNative = L"Native",
     .modeAlphanumeric = L"Alphanumeric",
     .modeUnknown = L"Unknown",
@@ -27,6 +29,8 @@ const Strings kEnglish{
     .no = L"no",
     .unknownApplication = L"(unknown)",
     .noRule = L"(no rule)",
+    .elevatedYes = L"yes",
+    .elevatedNo = L"no - cannot control elevated programs",
     .switchOk = L"%s - took effect",
     .switchFailed = L"%s - ignored by the application",
     .switchNotAttempted = L"none needed",
@@ -76,7 +80,8 @@ const Strings kTraditionalChinese{
     .tooltipFormat = L"當前程式：%s\n綁定語言：%s\n實際語言：%s\n%s",
 
     .menuPersist = L"跨程式維持輸入模式",
-    .menuAutostart = L"開機時自動啟動",
+    .menuAutostart = L"開機時自動啟動（一般權限）",
+    .menuElevate = L"以管理員身分重新啟動",
     .menuRules = L"程式綁定輸入語言...",
     .menuExit = L"結束",
 
@@ -87,7 +92,8 @@ const Strings kTraditionalChinese{
                     L"當前程式：%s\n"
                     L"綁定語言：%s\n"
                     L"實際語言：%s\n"
-                    L"上次切換嘗試：%s",
+                    L"上次切換嘗試：%s\n"
+                    L"以管理員身分執行：%s",
     .modeNative = L"中文",
     .modeAlphanumeric = L"英數",
     .modeUnknown = L"未知",
@@ -95,6 +101,8 @@ const Strings kTraditionalChinese{
     .no = L"否",
     .unknownApplication = L"（未知）",
     .noRule = L"（無規則）",
+    .elevatedYes = L"是",
+    .elevatedNo = L"否 － 無法控制提權的程式",
     .switchOk = L"%s － 已生效",
     .switchFailed = L"%s － 該程式未理會",
     .switchNotAttempted = L"不需切換",

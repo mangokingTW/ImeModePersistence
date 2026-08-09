@@ -14,12 +14,16 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 ## 安裝
 
-到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載 **`...-setup.exe`**（裝在 `%LocalAppData%\Programs`，不需管理員權限）或 **`...-x64.zip`** / **`-x86.zip`**（解壓即用）。
+到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載 **`...-setup.exe`** 或 **`...-x64.zip`** / **`-x86.zip`**（解壓即用）。
+
+安裝時可以選擇**為所有使用者安裝**（提權）或**只為我安裝**（完全不提權）。建議前者：Windows 不讓權限較低的程式讀取權限較高的程式的視窗，而有反作弊的遊戲都是提權執行 —— 不提權就完全看不到它們。
+
+勾選「開機時自動啟動」後，提權安裝會建立**登入時以最高權限執行**的排程工作（不會每次彈 UAC），一般安裝則寫一般權限的登錄項目。之後想改主意，可以從托盤選單**以管理員身分重新啟動**。
 
 兩者都**未經簽章**，首次執行會有 SmartScreen 警告，選「更多資訊 → 仍要執行」，或先用 `SHA256SUMS.txt` 核對。
 
-- **更新** — 執行新版安裝檔即可，會就地升級。執行中的程式會自動關閉並重啟，不需手動處理。
-- **卸除** — 設定 → 應用程式，或開始功能表的 Uninstall 捷徑。安裝目錄與登錄項目都會清掉。
+- **更新** — 執行新版安裝檔即可，會就地升級。執行中的程式會自動關閉並重啟；提權的安裝檔才有能力關閉提權的常駐程式，所以不需手動處理。
+- **卸除** — 設定 → 應用程式，或開始功能表的 Uninstall 捷徑。安裝目錄、登錄項目與排程工作都會清掉。
 
 ## 使用
 
@@ -50,7 +54,7 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 - UIPI 會阻止修改**更高完整性等級**程式的輸入法狀態，例如以管理員身分開啟的終端機
 - 介面依 Windows 顯示語言自動選繁體中文或英文；沒有簡體版本，安裝程式精靈仍是英文
 - 深色模式只作用於**標題列**，控制項仍是淺色
-- **不要以管理員身分執行。** 提權不會讓受保護的 process 變得可讀，卻會讓每次登入都要過 UAC、`HKCU\Run` 開機啟動失效，而且非提權的安裝檔無法自動關閉提權的程式（UIPI 擋住 `WM_CLOSE`），安裝時會要求你手動關閉
+- 提權執行是預設，因為讀取提權程式的視窗需要同等權限。代價是托盤的「開機時自動啟動（一般權限）」對提權的副本沒有意義 —— 提權的自動啟動由安裝檔建立的排程工作負責
 - 不會為了切換輸入語言而注入或附加到其他程式。有反作弊的遊戲用視窗類別綁定即可，切換走 TSF 的工作階段層級 API，完全不接觸該程式；若仍無法生效，本工具會安靜放棄而不是加大力道
 
 ## 開發
@@ -103,16 +107,20 @@ Confirmed working with **Microsoft Bopomofo** on real hardware. This is not a "f
 
 ## Install
 
-From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases), take **`...-setup.exe`** (per-user into `%LocalAppData%\Programs`, no administrator rights) or **`...-x64.zip`** / **`-x86.zip`** (unzip and run).
+From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases), take **`...-setup.exe`** or **`...-x64.zip`** / **`-x86.zip`** (unzip and run).
+
+Setup asks whether to install **for all users** (elevated) or **for me only** (no elevation anywhere). The first is recommended: Windows does not let a lower-privileged program read a higher-privileged one's windows, and anti-cheat protected games are elevated — without it they cannot be seen at all.
+
+With autostart ticked, an elevated install registers a scheduled task running **at logon with highest privileges** (no UAC prompt each time); an unelevated install writes a normal-privilege registry entry instead. To change your mind later, use **Restart as administrator** in the tray menu.
 
 Both are **unsigned**, so SmartScreen warns on first run — choose *More info → Run anyway*, or verify against `SHA256SUMS.txt`.
 
 - **Updating** — run the newer installer; it upgrades in place. A running copy is closed and restarted for you.
-- **Uninstalling** — Settings → Apps, or the Start menu shortcut. The install directory and registry entries both go.
+- **Uninstalling** — Settings → Apps, or the Start menu shortcut. The install directory, registry entries and the scheduled task all go.
 
 ## Using it
 
-It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start with Windows**, **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
+It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start with Windows (normal privileges)**, **Restart as administrator** (shown only when not elevated), **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
 
 #### Turning off global persistence
 
@@ -139,7 +147,7 @@ What gets bound is a **language** (Chinese / English / Japanese...). Where one l
 - UIPI prevents changing the IME state of a **higher integrity level** process, such as an elevated terminal
 - The interface follows Windows' display language, choosing Traditional Chinese or English. No Simplified translation; the installer wizard is still English
 - Dark mode applies to the **title bar** only; controls stay light
-- **Do not run it as administrator.** Elevation does not make a protected process readable, and it costs a UAC prompt at every logon, `HKCU\Run` autostart no longer working, and an installer that cannot close the running copy for you — UIPI blocks `WM_CLOSE` from the unelevated installer, so setup asks you to close it by hand
+- Running elevated is the default, because reading an elevated program's windows requires equal privileges. The cost is that the tray's **Start with Windows (normal privileges)** is meaningless for an elevated copy — elevated autostart is the scheduled task registered by setup
 - Nothing is injected into or attached to another process to switch its language. An anti-cheat protected game is bound by window class and switched through TSF's session-level API, which touches nothing belonging to it; where that still fails the utility gives up quietly rather than trying harder
 
 ## Development
