@@ -10,6 +10,10 @@ on:
     branches: [main]
   schedule:
     - cron: "18 5 * * 2"
+  # Manual refresh: the score is otherwise only re-evaluated on a push to main or
+  # the weekly cron, so a release (a tag push) does not update Signed-Releases on
+  # its own.
+  workflow_dispatch:
 
 permissions: read-all
 
