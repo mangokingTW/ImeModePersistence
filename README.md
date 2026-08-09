@@ -23,7 +23,7 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 
 ## 使用
 
-常駐在通知區域，右鍵選單三項：**開機時自動啟動**、**程式綁定輸入語言…**、**結束**。左鍵雙擊顯示目前狀態。每個登入工作階段只會有一份執行中。
+常駐在通知區域，右鍵選單三項：**開機時自動啟動**、**程式綁定輸入語言…**、**結束**。把滑鼠停在圖示上會顯示綁定與目前的輸入語言；左鍵雙擊顯示完整狀態。每個登入工作階段只會有一份執行中。
 
 ### 程式綁定輸入語言
 
@@ -100,7 +100,7 @@ Both are **unsigned**, so SmartScreen warns on first run — choose *More info �
 
 ## Using it
 
-It lives in the notification area. Right-click for **Start with Windows**, **App language bindings...** and **Exit**; double-click for current status. One instance runs per logon session.
+It lives in the notification area. Right-click for **Start with Windows**, **App language bindings...** and **Exit**; hover for the bound and current input language; double-click for full status. One instance runs per logon session.
 
 ### App language bindings
 

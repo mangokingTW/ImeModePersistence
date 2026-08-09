@@ -85,7 +85,9 @@ Three mechanisms are now tried in escalating order, one per retry attempt, each 
 2. **Every top-level window of the thread**, via `EnumThreadWindows`. Some applications keep a separate message-handling window that honours the request when the visible one ignores it.
 3. **`AttachThreadInput` then `ActivateKeyboardLayout`.** Attaching shares the target's input queue and with it the active layout. Last resort because it briefly couples our message queue to another process, so a hung target stalls us until the detach.
 
-Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is shown in the status box. Without that, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.
+Which mechanism was last tried, and whether the layout ended up where the rule wanted it, is reported in two places.
+
+**The tray tooltip is the primary one, because hovering does not change the foreground window.** The status box originally read the live foreground and so reported `explorer.exe` every single time it was opened: clicking the tray icon is what hands the foreground to the shell, so the act of asking destroyed the answer. It now reports a snapshot of the last application that was neither this process nor the shell — identified by comparing process ids against `GetShellWindow`, not by matching an executable name. Without those, an ignored request is indistinguishable from a rule that never matched — and rules can fail to match for an unrelated reason: the executable a user browses to is sometimes a launcher stub whose process image path differs, which is common for Store applications under `WindowsApps`.
 
 A rule naming an uninstalled layout is dropped rather than retried, since retrying cannot help.
 

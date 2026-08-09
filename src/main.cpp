@@ -82,6 +82,21 @@ struct AppState {
     bool layoutRequested{false};
     bool layoutSatisfied{false};
 
+    // Clicking the tray icon hands the foreground to the shell, so a status box
+    // that reported the live foreground reported explorer.exe every single time.
+    // It reports this snapshot of the last real application instead.
+    std::wstring snapshotApp;
+    ime::Mode snapshotMode{ime::Mode::Unknown};
+    bool snapshotReachable{false};
+    LANGID snapshotRule{};
+    LANGID snapshotLayout{};
+    layout::Method snapshotMethod{layout::Method::FocusWindow};
+    bool snapshotRequested{false};
+    bool snapshotSatisfied{false};
+
+    // Recomposing the tooltip is only worth doing when something in it changed.
+    std::wstring tooltip;
+
     HICON trayIcon{};
     NOTIFYICONDATAW tray{};
 };
@@ -132,6 +147,22 @@ bool own_window(HWND hwnd) {
     return pid == GetCurrentProcessId();
 }
 
+// The taskbar and the desktop are the same process, and clicking either is
+// exactly what happens on the way to the tray icon. Compared by process id
+// rather than by executable name so a renamed or replaced shell still counts.
+bool shell_window(HWND hwnd) {
+    HWND shell = GetShellWindow();
+    if (!shell) {
+        return false;
+    }
+
+    DWORD shellPid = 0;
+    DWORD pid = 0;
+    GetWindowThreadProcessId(shell, &shellPid);
+    GetWindowThreadProcessId(hwnd, &pid);
+    return shellPid != 0 && shellPid == pid;
+}
+
 // LoadImageW picks the image of the requested size out of the .ico rather than
 // scaling one, which is what keeps the notification area crisp at any DPI.
 HICON load_app_icon(HINSTANCE instance, int cx, int cy) {
@@ -159,6 +190,71 @@ void set_tray_icon(bool add) {
     }
 }
 
+void record_snapshot(HWND hwnd) {
+    if (!hwnd || own_window(hwnd) || shell_window(hwnd)) {
+        return;
+    }
+
+    const HKL current = layout::current(hwnd);
+
+    const ime::State state = ime::query_state(hwnd);
+
+    g_app.snapshotApp = g_app.observedExecutable;
+    g_app.snapshotMode = state.mode;
+    g_app.snapshotReachable = state.valid;
+    g_app.snapshotRule = g_app.ruleLanguage;
+    g_app.snapshotLayout = current ? layout::language_of(current) : 0;
+    g_app.snapshotMethod = g_app.layoutMethod;
+    g_app.snapshotRequested = g_app.layoutRequested;
+    g_app.snapshotSatisfied = g_app.layoutSatisfied;
+}
+
+// Hovering the tray icon does not change the foreground window, which is what
+// makes the tooltip the one place a diagnostic can be read without disturbing
+// the thing being diagnosed.
+void update_tooltip(HWND hwnd) {
+    const text::Strings& t = text::s();
+
+    const HKL current = hwnd ? layout::current(hwnd) : nullptr;
+
+    wchar_t attempt[128]{};
+    if (!g_app.layoutRequested) {
+        StringCchCopyW(attempt, ARRAYSIZE(attempt), t.switchNotAttempted);
+    } else {
+        StringCchPrintfW(attempt, ARRAYSIZE(attempt),
+                         g_app.layoutSatisfied ? t.switchOk : t.switchFailed,
+                         layout::method_name(g_app.layoutMethod));
+    }
+
+    wchar_t composed[ARRAYSIZE(g_app.tray.szTip)]{};
+    StringCchPrintfW(
+        composed,
+        ARRAYSIZE(composed),
+        t.tooltipFormat,
+        g_app.observedExecutable.empty()
+            ? t.unknownApplication
+            : rules::file_name_of(g_app.observedExecutable).c_str(),
+        g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str(),
+        current ? layout::describe(layout::language_of(current)).c_str() : t.unknownApplication,
+        attempt);
+
+    if (g_app.tooltip == composed) {
+        return;
+    }
+    g_app.tooltip = composed;
+
+    if (!g_app.hwnd) {
+        return;
+    }
+    NOTIFYICONDATAW update{};
+    update.cbSize = sizeof(update);
+    update.hWnd = g_app.hwnd;
+    update.uID = 1;
+    update.uFlags = NIF_TIP;
+    StringCchCopyW(update.szTip, ARRAYSIZE(update.szTip), composed);
+    Shell_NotifyIconW(NIM_MODIFY, &update);
+}
+
 void cancel_restore() {
     KillTimer(g_app.hwnd, TIMER_RESTORE);
     g_app.pendingWindow = nullptr;
@@ -182,6 +278,7 @@ void schedule_restore_attempt(HWND hwnd) {
 }
 
 void accept_restored_state(HWND hwnd, const ime::State& state) {
+    record_snapshot(hwnd);
     g_app.observedThread = GetWindowThreadProcessId(hwnd, nullptr);
     g_app.observedLayout = GetKeyboardLayout(g_app.observedThread);
     g_app.observedMode = state.mode;
@@ -349,6 +446,9 @@ void observe_tick() {
         return;
     }
 
+    record_snapshot(hwnd);
+    update_tooltip(hwnd);
+
     const ULONGLONG now = GetTickCount64();
     const bool settling = now < g_app.suppressPromotionUntil ||
                           now - g_app.contextSince < kPromotionDwellMs ||
@@ -394,21 +494,18 @@ void CALLBACK win_event_proc(
 }
 
 void show_status() {
-    const HWND foreground = GetForegroundWindow();
-    const ime::State state = ime::query_state(foreground);
-
+    // Every line comes from the snapshot. Reading the live foreground here would
+    // describe the shell, because opening this box is what put it in front.
     const text::Strings& t = text::s();
 
     wchar_t attempt[256]{};
-    if (!g_app.layoutRequested) {
+    if (!g_app.snapshotRequested) {
         StringCchCopyW(attempt, ARRAYSIZE(attempt), t.switchNotAttempted);
     } else {
         StringCchPrintfW(attempt, ARRAYSIZE(attempt),
-                         g_app.layoutSatisfied ? t.switchOk : t.switchFailed,
-                         layout::method_name(g_app.layoutMethod));
+                         g_app.snapshotSatisfied ? t.switchOk : t.switchFailed,
+                         layout::method_name(g_app.snapshotMethod));
     }
-
-    const HKL currentLayout = layout::current(foreground);
 
     wchar_t body[1280]{};
     StringCchPrintfW(
@@ -416,13 +513,12 @@ void show_status() {
         ARRAYSIZE(body),
         t.statusFormat,
         mode_label(g_app.desiredMode),
-        mode_label(state.mode),
-        state.valid ? t.yes : t.no,
-        g_app.observedExecutable.empty() ? t.unknownApplication
-                                         : g_app.observedExecutable.c_str(),
-        g_app.ruleLanguage == 0 ? t.noRule : layout::describe(g_app.ruleLanguage).c_str(),
-        currentLayout ? layout::describe(layout::language_of(currentLayout)).c_str()
-                      : t.unknownApplication,
+        mode_label(g_app.snapshotMode),
+        g_app.snapshotReachable ? t.yes : t.no,
+        g_app.snapshotApp.empty() ? t.unknownApplication : g_app.snapshotApp.c_str(),
+        g_app.snapshotRule == 0 ? t.noRule : layout::describe(g_app.snapshotRule).c_str(),
+        g_app.snapshotLayout == 0 ? t.unknownApplication
+                                  : layout::describe(g_app.snapshotLayout).c_str(),
         attempt);
     show_message(t.statusTitle, body, false);
 }
