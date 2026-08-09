@@ -128,7 +128,7 @@ cmake --build build-x86 --config Release
 The installer needs both architectures present, then [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer:
 
 ```powershell
-iscc /DAppVersion=1.0.0 installer\ImeModePersistence.iss
+iscc /DAppVersion=0.2.1 installer\ImeModePersistence.iss
 ```
 
 ## Icon
@@ -152,8 +152,8 @@ The artwork's three elements inside a double border stop being readable below ab
 Push a tag matching the version already declared in `CMakeLists.txt`, and the `Release` workflow builds both architectures, compiles the installer, and publishes a GitHub release with the installer, both portable archives, and `SHA256SUMS.txt`:
 
 ```powershell
-git tag v0.2.0
-git push origin v0.2.0
+git tag v0.2.1
+git push origin v0.2.1
 ```
 
 The tag must be `vMAJOR.MINOR.PATCH`, because Inno Setup's `VersionInfoVersion` accepts nothing else. The workflow refuses to publish a tag that disagrees with `CMakeLists.txt`, so a release can never ship a binary whose reported version contradicts it. The workflow can also be dispatched manually with a tag name.
