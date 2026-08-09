@@ -11,9 +11,6 @@ constexpr wchar_t kValueName[] = L"ImeModePersistence";
 // Same name the installer registers, so the two manage one task rather than each
 // leaving the other's behind.
 constexpr wchar_t kTaskName[] = L"ImeModePersistence";
-    // Non-zero also covers "no such task", which is the desired end state anyway.
-    return true;
-}
 
 // GetModuleFileNameW truncates instead of failing when the buffer is too small,
 // so grow until the path fits rather than assuming MAX_PATH.
@@ -42,7 +39,8 @@ std::wstring launch_command() {
     if (path.empty()) {
         return {};
     }
-
+    return L'"' + path + L'"';
+}
 
 // schtasks.exe rather than the Task Scheduler COM API: one documented command line
 // against several interfaces and a great deal of boilerplate, for a task this
@@ -103,11 +101,10 @@ bool create_task() {
 }
 
 bool delete_task() {
+    // The exit code is deliberately ignored: schtasks fails when there is no such
+    // task, which is already the state this is trying to reach.
     DWORD exitCode = 1;
-    if (!run_schtasks(std::wstring(L"/Delete /F /TN \"") + kTaskName + L"\"", exitCode)) {
-        return false;
-    }
-    return L'"' + path + L'"';
+    return run_schtasks(std::wstring(L"/Delete /F /TN \"") + kTaskName + L"\"", exitCode);
 }
 
 std::wstring read_value() {
