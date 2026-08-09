@@ -1,4 +1,0 @@
-#include "resource.h"
-#include <windows.h>
-
-1 ICON "app.ico"
