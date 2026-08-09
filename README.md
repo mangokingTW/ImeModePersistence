@@ -20,7 +20,7 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 | 檔案 | 說明 |
 |---|---|
-| `...-setup.exe` | 需要管理員權限，裝在 Program Files。**有防作弊的遊戲需要這個版本** |
+| `...-setup-admin.exe` | 需要管理員權限，裝在 Program Files。**有防作弊的遊戲需要這個版本** |
 | `...-setup-user.exe` | 不需要管理員權限，裝在使用者目錄。無法控制提權的程式 |
 | `...-x64.zip` / `-x86.zip` | 免安裝，解壓即用 |
 
@@ -102,7 +102,7 @@ From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 
 | File | What it is |
 |---|---|
-| `...-setup.exe` | Needs administrator rights, installs to Program Files. **Required for anti-cheat protected games** |
+| `...-setup-admin.exe` | Needs administrator rights, installs to Program Files. **Required for anti-cheat protected games** |
 | `...-setup-user.exe` | No administrator rights, installs into your user directory. Cannot control elevated programs |
 | `...-x64.zip` / `-x86.zip` | Portable; unzip and run |
 

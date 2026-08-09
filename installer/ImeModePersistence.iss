@@ -11,12 +11,12 @@
   #define AppVersion "0.0.0"
 #endif
 
-; Compiled twice from this one file: once plain for the administrator installer,
-; once with /DUserInstall for the one that needs no administrator rights.
+; Compiled twice from this one file, and both outputs say which they are: an
+; unqualified "-setup" would leave the reader to guess which variant they have.
 #ifdef UserInstall
   #define SetupSuffix "-user"
 #else
-  #define SetupSuffix ""
+  #define SetupSuffix "-admin"
 #endif
 
 #define AppName "ImeModePersistence"
