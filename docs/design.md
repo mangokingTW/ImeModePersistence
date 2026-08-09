@@ -134,7 +134,11 @@ A single-instance mutex is required once autostart is on, because two copies ove
 
 Setup needs the same rights to register the logon task, and gets one thing for free: only an elevated Setup can close an elevated copy of the utility, so updating no longer asks the user to close it by hand.
 
-Setup always elevates. An earlier attempt used `PrivilegesRequiredOverridesAllowed=dialog` and read "install for all users or just me" as the elevation question, which conflates install *scope* with whether the *utility* runs elevated — not the same choice, and only the second one is what a user cares about here. Setup being elevated is also what lets it register the logon task and close a running elevated copy when updating. Anyone without administrator rights has the portable archive.
+**Two installers, compiled twice from one script.** `/DUserInstall` switches the privileges, the install directory, the output name, and which autostart mechanisms exist. Shipping both is what removes the trade-off: whoever has no administrator rights, or does not want elevation anywhere, gets an installer that asks for neither. CI compiles both variants, because a syntax error inside a `#ifdef` branch is invisible unless that branch is compiled.
+
+**Reading the uninstall entry from both hives.** An elevated install records itself in `HKLM`, an unelevated one in `HKCU`. The version comparison originally read only `HKCU`, so from the moment Setup became elevated in v0.7.0 an administrator install was invisible to it: re-running Setup neither recognised an upgrade nor offered removal. That shipped.
+
+Setup always elevates in the administrator variant. An earlier attempt used `PrivilegesRequiredOverridesAllowed=dialog` and read "install for all users or just me" as the elevation question, which conflates install *scope* with whether the *utility* runs elevated — not the same choice, and only the second one is what a user cares about here. Setup being elevated is also what lets it register the logon task and close a running elevated copy when updating. Anyone without administrator rights has the portable archive.
 
 Elevation is therefore a task checkbox, ticked by default, and autostart is a second independent one. Elevation decides the autostart mechanism: a scheduled task with highest privileges when elevated, a Run entry when not, because the Run key cannot launch an elevated program at all and a task is the only way to do it without a UAC prompt at every logon.
 

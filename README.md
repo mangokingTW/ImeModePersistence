@@ -14,14 +14,20 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 ## 安裝
 
-到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載 **`...-setup.exe`** 或 **`...-x64.zip`** / **`-x86.zip`**（解壓即用）。
+到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載其中一個：
 
-安裝檔需要管理員權限（沒有的話請用免安裝的 zip），安裝時有兩個獨立的勾選項：
+| 檔案 | 說明 |
+|---|---|
+| **`...-setup.exe`** | 需要管理員權限。裝在 Program Files，可讓程式以管理員身分執行 —— **有防作弊的遊戲需要這個版本** |
+| **`...-setup-user.exe`** | 不需要管理員權限。裝在使用者目錄，無法控制提權的程式 |
+| **`...-x64.zip`** / **`-x86.zip`** | 免安裝，解壓即用 |
+
+需要管理員權限的版本有兩個獨立的勾選項：
 
 - **以管理員身分執行** —— 預設勾選。Windows 不讓權限較低的程式讀取權限較高的程式的視窗，而有防作弊的遊戲都是提權執行，不勾就完全看不到它們。勾選後**每一次啟動**都是管理員身分，不只自動啟動那一次。
 - **開機時自動啟動** —— 勾了「以管理員身分執行」時建立**登入時以最高權限執行**的排程工作（那一次不彈 UAC）；沒勾則寫一般權限的登錄項目，因為登錄項目無法啟動提權的程式。
 
-沒勾提權而之後想臨時提權，用托盤選單的**以管理員身分重新啟動**。要確認目前是哪一種：把滑鼠停在托盤圖示上，未提權時最後一行會寫「一般權限 － 看不到提權的程式」。
+免管理員版本只有「開機時自動啟動」一項，寫一般權限的登錄項目。任何版本都可以用托盤選單的**以管理員身分重新啟動**臨時提權。要確認目前是哪一種：把滑鼠停在托盤圖示上，未提權時最後一行會寫「一般權限 － 看不到提權的程式」。
 
 兩者都**未經簽章**，首次執行會有 SmartScreen 警告，選「更多資訊 → 仍要執行」，或先用 `SHA256SUMS.txt` 核對。
 
@@ -112,12 +118,20 @@ Confirmed working with **Microsoft Bopomofo** on real hardware. This is not a "f
 
 From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases), take **`...-setup.exe`** or **`...-x64.zip`** / **`-x86.zip`** (unzip and run).
 
-Setup needs administrator rights (use the portable archive if you do not have them) and offers two independent choices:
+Two installers, plus a portable archive:
+
+| File | What it is |
+|---|---|
+| **`...-setup.exe`** | Needs administrator rights. Installs to Program Files and can run the utility elevated — **required for anti-cheat protected games** |
+| **`...-setup-user.exe`** | No administrator rights needed. Installs into your user directory; cannot control elevated programs |
+| **`...-x64.zip`** / **`-x86.zip`** | Portable; unzip and run |
+
+The administrator installer offers two independent choices:
 
 - **Run as administrator** — ticked by default. Windows does not let a lower-privileged program read a higher-privileged one's windows, and anti-cheat protected games are elevated, so without this they cannot be seen at all. With it, **every** launch is elevated, not only the automatic one.
 - **Start automatically at logon** — with elevation, a scheduled task running at logon with highest privileges (no UAC prompt for that start); without it, a normal-privilege registry entry, since a registry entry cannot launch an elevated program.
 
-If you did not tick elevation, **Restart as administrator** in the tray menu elevates on demand. To tell which you have, hover the tray icon: when unelevated the last line reads *Normal privileges - elevated programs are invisible*.
+The user installer has only the autostart option, writing a normal-privilege registry entry. Either way, **Restart as administrator** in the tray menu elevates on demand. To tell which you have, hover the tray icon: when unelevated the last line reads *Normal privileges - elevated programs are invisible*.
 
 Both are **unsigned**, so SmartScreen warns on first run — choose *More info → Run anyway*, or verify against `SHA256SUMS.txt`.
 
