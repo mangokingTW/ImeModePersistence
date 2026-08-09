@@ -16,6 +16,7 @@ namespace {
 
 struct State {
     std::wstring lastApplication;
+    std::wstring lastWindowClass;
     std::vector<layout::Installed> layouts;
     std::vector<rules::Rule> rules;   // parallel to the list box items
 };
@@ -55,6 +56,7 @@ void apply_language(HWND dialog) {
     SetWindowTextW(dialog, t.rulesCaption);
     SetDlgItemTextW(dialog, IDC_BROWSE, t.buttonBrowse);
     SetDlgItemTextW(dialog, IDC_USE_LAST, t.buttonUseLast);
+    SetDlgItemTextW(dialog, IDC_USE_CLASS, t.buttonUseClass);
     SetDlgItemTextW(dialog, IDC_ADD, t.buttonAdd);
     SetDlgItemTextW(dialog, IDC_REMOVE, t.buttonRemove);
     SetDlgItemTextW(dialog, IDOK, t.buttonClose);
@@ -258,6 +260,19 @@ void on_use_last(HWND dialog, const State& state) {
     set_hint(dialog, text::s().hintPickLayout);
 }
 
+void on_use_class(HWND dialog, const State& state) {
+    if (state.lastWindowClass.empty()) {
+        set_hint(dialog, text::s().hintNoLastClass);
+        return;
+    }
+
+    // The stored key carries the prefix, so what goes in the field is what gets
+    // written -- no hidden transformation between the two.
+    const std::wstring key = rules::kClassPrefix + state.lastWindowClass;
+    SetDlgItemTextW(dialog, IDC_EXECUTABLE, key.c_str());
+    set_hint(dialog, text::s().hintClassRule);
+}
+
 void on_init(HWND dialog, State& state) {
     apply_language(dialog);
     apply_icon(dialog);
@@ -319,6 +334,9 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
         case IDC_USE_LAST:
             on_use_last(dialog, *state);
             return TRUE;
+        case IDC_USE_CLASS:
+            on_use_class(dialog, *state);
+            return TRUE;
         case IDOK:
         case IDCANCEL:
             EndDialog(dialog, LOWORD(wParam));
@@ -338,7 +356,10 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
 
 } // namespace
 
-void show_rules(HINSTANCE instance, HWND owner, const std::wstring& lastApplication) {
+void show_rules(HINSTANCE instance,
+                HWND owner,
+                const std::wstring& lastApplication,
+                const std::wstring& lastWindowClass) {
     if (g_open) {
         if (IsIconic(g_open)) {
             ShowWindow(g_open, SW_RESTORE);
@@ -349,6 +370,7 @@ void show_rules(HINSTANCE instance, HWND owner, const std::wstring& lastApplicat
 
     State state;
     state.lastApplication = lastApplication;
+    state.lastWindowClass = lastWindowClass;
 
     DialogBoxParamW(
         instance,

@@ -16,6 +16,7 @@
 #include "rules.h"
 #include "strings.h"
 #include "theme.h"
+#include "tsf.h"
 
 namespace {
 
@@ -86,6 +87,7 @@ struct AppState {
     // that reported the live foreground reported explorer.exe every single time.
     // It reports this snapshot of the last real application instead.
     std::wstring snapshotApp;
+    std::wstring snapshotClass;
     ime::Mode snapshotMode{ime::Mode::Unknown};
     bool snapshotReachable{false};
     LANGID snapshotRule{};
@@ -241,6 +243,7 @@ void record_snapshot(HWND hwnd) {
     const ime::State state = ime::query_state(hwnd);
 
     g_app.snapshotApp = g_app.observedExecutable;
+    g_app.snapshotClass = rules::window_class_of(hwnd);
     g_app.snapshotMode = state.mode;
     g_app.snapshotReachable = state.valid;
     g_app.snapshotRule = g_app.ruleLanguage;
@@ -345,7 +348,8 @@ void note_context_switch(HWND hwnd) {
     g_app.contextSince = GetTickCount64();
 
     g_app.observedExecutable = rules::executable_of(hwnd);
-    g_app.ruleLanguage = rules::lookup(g_app.observedExecutable);
+    g_app.ruleLanguage =
+        rules::lookup(g_app.observedExecutable, rules::window_class_of(hwnd));
 
     // Reset per-application, so the status box describes the application in
     // front rather than whatever was tried last.
@@ -408,8 +412,8 @@ void restore_tick() {
             static constexpr layout::Method kMethods[] = {
                 layout::Method::FocusWindow,
                 layout::Method::ThreadWindows,
-                layout::Method::AttachInput,
-                layout::Method::AttachInput,
+                layout::Method::TsfSession,
+                layout::Method::TsfSession,
             };
             const int attempt = g_app.restoreAttempt > 0 ? g_app.restoreAttempt - 1 : 0;
             const size_t index = static_cast<size_t>(attempt) < ARRAYSIZE(kMethods)
@@ -611,7 +615,8 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 hwnd,
                 // snapshotApp, not the live context: opening this dialog goes
                 // through the tray icon, so the live context is the shell.
-                g_app.snapshotApp);
+                g_app.snapshotApp,
+                g_app.snapshotClass);
 
             // Rules may have changed, so re-evaluate the application that is in
             // the foreground once the dialog closes.
@@ -641,6 +646,10 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     // The manifest activates ComCtl32 version 6; this loads it and registers the
     // classes. Per-Monitor V2 awareness comes from the manifest too, so there is
     // no DPI call to make here.
+    // Before any window exists, because the framework wants COM on this thread.
+    // A failure is not fatal: the other switching mechanisms still work.
+    tsf::initialise();
+
     INITCOMMONCONTROLSEX controls{};
     controls.dwSize = sizeof(controls);
     controls.dwICC = ICC_STANDARD_CLASSES;
@@ -707,5 +716,6 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
         DispatchMessageW(&msg);
     }
 
+    tsf::shutdown();
     return static_cast<int>(msg.wParam);
 }

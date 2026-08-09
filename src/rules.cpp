@@ -26,6 +26,14 @@ LANGID read(const std::wstring& key) {
 
 } // namespace
 
+const wchar_t* const kClassPrefix = L"class:";
+
+std::wstring window_class_of(HWND hwnd) {
+    wchar_t name[256]{};
+    const int written = GetClassNameW(hwnd, name, ARRAYSIZE(name));
+    return written > 0 ? lower(std::wstring(name, static_cast<size_t>(written))) : std::wstring{};
+}
+
 std::wstring file_name_of(const std::wstring& path) {
     const size_t slash = path.find_last_of(L"\\/");
     return slash == std::wstring::npos ? path : path.substr(slash + 1);
@@ -102,21 +110,28 @@ bool clear(const std::wstring& executable) {
     return status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND;
 }
 
-LANGID lookup(const std::wstring& path) {
-    if (path.empty()) {
-        return 0;
+LANGID lookup(const std::wstring& path, const std::wstring& windowClass) {
+    // Most specific first, so a rule naming one particular copy of an application
+    // wins over one naming its file name, which in turn wins over a class rule
+    // that could match several unrelated windows.
+    if (!path.empty()) {
+        const std::wstring key = lower(path);
+        if (const LANGID byPath = read(key); byPath != 0) {
+            return byPath;
+        }
+
+        const std::wstring name = file_name_of(key);
+        if (name != key) {
+            if (const LANGID byName = read(name); byName != 0) {
+                return byName;
+            }
+        }
     }
 
-    const std::wstring key = lower(path);
-
-    // Path first: it is the more specific of the two, so a rule naming one
-    // particular copy of an application wins over a rule for the file name.
-    if (const LANGID byPath = read(key); byPath != 0) {
-        return byPath;
+    if (!windowClass.empty()) {
+        return read(kClassPrefix + lower(windowClass));
     }
-
-    const std::wstring name = file_name_of(key);
-    return name == key ? 0 : read(name);
+    return 0;
 }
 
 std::wstring executable_of(HWND hwnd) {

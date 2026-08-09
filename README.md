@@ -32,6 +32,9 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 - **瀏覽** 選執行檔，規則就是那個**完整路徑**，所以兩個同名的執行檔可以分開設定
 - 也可以只填**檔名**（`notepad.exe`），這樣不管程式裝在哪都套用。查詢時先比對完整路徑，找不到才比對檔名
 - **用剛才的程式** 會填入你開這個視窗之前那個程式，不必自己找
+- **用視窗類別** 填入 `class:視窗類別名` —— 有反作弊的遊戲讀不到執行檔路徑（連管理員也讀不到），視窗類別是唯一不需要碰該程式就能識別它的方式
+
+比對順序由精確到寬鬆：完整路徑 → 檔名 → 視窗類別。
 
 綁定的是**語言**（中文／英文／日文…）。同一語言裝了多個輸入法（注音與倉頡都是 zh-TW）時，會用第一個已安裝的。
 
@@ -41,6 +44,7 @@ Windows 小工具，切換視窗時保留你**最後一次選擇的輸入模式*
 - UIPI 會阻止修改**更高完整性等級**程式的輸入法狀態，例如以管理員身分開啟的終端機
 - 介面依 Windows 顯示語言自動選繁體中文或英文；沒有簡體版本，安裝程式精靈仍是英文
 - 深色模式只作用於**標題列**，控制項仍是淺色
+- 不會為了切換輸入語言而注入或附加到其他程式。有反作弊的遊戲請用視窗類別綁定；若連 TSF 都無法生效，本工具會安靜放棄而不是加大力道
 
 ## 開發
 
@@ -76,6 +80,7 @@ iscc /DAppVersion=0.4.4 installer\ImeModePersistence.iss
 - [x] 設定介面
 - [x] 程式綁定輸入語言
 - [ ] 同語言多輸入法的細分（注音 vs 倉頡）
+- [x] 視窗類別綁定（供讀不到執行檔的程式使用）
 
 ---
 
@@ -109,6 +114,9 @@ Bind an application to an input language — a terminal to English, Word to Chin
 - **Browse** picks an executable and the rule is that **full path**, so two executables sharing a name can be configured separately
 - A bare **file name** (`notepad.exe`) also works and applies wherever the application is installed. Lookup tries the path first, then the name
 - **Use last app** fills in the application you were in before opening the dialog
+- **Use window class** fills in `class:<name>` — anti-cheat protected games refuse to have their executable path read, even by an administrator, and a window class is the only way to identify one without touching the process
+
+Lookup goes from most specific to least: full path, then file name, then window class.
 
 What gets bound is a **language** (Chinese / English / Japanese...). Where one language has several IMEs installed — Bopomofo and Cangjie are both zh-TW — the first is used.
 
@@ -118,6 +126,7 @@ What gets bound is a **language** (Chinese / English / Japanese...). Where one l
 - UIPI prevents changing the IME state of a **higher integrity level** process, such as an elevated terminal
 - The interface follows Windows' display language, choosing Traditional Chinese or English. No Simplified translation; the installer wizard is still English
 - Dark mode applies to the **title bar** only; controls stay light
+- Nothing is injected into or attached to another process to switch its language. For an anti-cheat protected game, bind by window class; if even TSF cannot reach it the utility gives up quietly rather than trying harder
 
 ## Development
 

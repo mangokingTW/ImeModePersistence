@@ -13,6 +13,9 @@ namespace config {
 // shell and then to this process, so by the time the dialog exists the system can
 // no longer say which application the user meant. The caller keeps a snapshot
 // that excludes both.
-void show_rules(HINSTANCE instance, HWND owner, const std::wstring& lastApplication);
+void show_rules(HINSTANCE instance,
+                HWND owner,
+                const std::wstring& lastApplication,
+                const std::wstring& lastWindowClass);
 
 } // namespace config

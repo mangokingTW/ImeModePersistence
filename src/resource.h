@@ -16,3 +16,4 @@
 #define IDC_USE_LAST 1006
 #define IDC_HINT 1007
 #define IDC_BROWSE 1008
+#define IDC_USE_CLASS 1009

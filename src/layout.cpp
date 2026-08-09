@@ -5,6 +5,8 @@
 
 #include <algorithm>
 
+#include "tsf.h"
+
 namespace layout {
 
 std::vector<Installed> installed() {
@@ -126,7 +128,7 @@ const wchar_t* method_name(Method method) {
     switch (method) {
     case Method::FocusWindow: return L"focus window";
     case Method::ThreadWindows: return L"thread windows";
-    case Method::AttachInput: return L"attached input";
+    case Method::TsfSession: return L"TSF session";
     }
     return L"unknown";
 }
@@ -155,20 +157,12 @@ bool request(HWND hwnd, HKL hkl, Method method) {
         return state.posted;
     }
 
-    case Method::AttachInput: {
-        // Attaching shares the target's input queue, and with it the active
-        // keyboard layout, so activating here can move the layout there. Last
-        // resort: it briefly couples our message queue to another process, so a
-        // hung target would stall us until the detach.
-        const DWORD self = GetCurrentThreadId();
-        if (thread == self || !AttachThreadInput(self, thread, TRUE)) {
-            return false;
-        }
-
-        const HKL previous = ActivateKeyboardLayout(hkl, 0);
-        AttachThreadInput(self, thread, FALSE);
-        return previous != nullptr;
-    }
+    case Method::TsfSession:
+        // Nothing about the target is read, opened or attached to: the framework
+        // is asked to move the session's input language and the target follows.
+        // This replaced AttachThreadInput, which was never shown to work and was
+        // the one technique here that anti-cheat is built to notice.
+        return tsf::activate_language(language_of(hkl));
     }
 
     return false;
