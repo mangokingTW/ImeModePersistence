@@ -217,13 +217,17 @@ begin
 end;
 
 #ifndef UserInstall
-{ schtasks wants a user name for /RU. Setup runs elevated, so {username} is the
-  account that passed the UAC prompt -- with over-the-shoulder elevation (a
-  standard user typing an administrator's credentials) that is the administrator,
-  and a logon task registered for it never fires for the user actually logging
-  in. LogonUI records who is signed in at the console, which is the account the
-  task is for; {username} remains as the fallback for contexts with no console
-  logon recorded. }
+{ schtasks wants a user name for /RU. Setup runs elevated, so Inno's username
+  constant is the account that passed the UAC prompt -- with over-the-shoulder
+  elevation (a standard user typing an administrator's credentials) that is the
+  administrator, and a logon task registered for it never fires for the user
+  actually logging in. LogonUI records who is signed in at the console, which is
+  the account the task is for; the constant remains as the fallback for contexts
+  with no console logon recorded.
+
+  NB: never write an Inno constant in braces inside this kind of comment. Curly
+  comments do not nest, so its closing brace ends the comment and the rest is
+  compiled -- which is exactly how v0.9.4 shipped without an admin installer. }
 function CurrentUser(Param: String): String;
 var
   User: String;

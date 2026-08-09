@@ -75,8 +75,14 @@ jobs:
           choco install innosetup --no-progress -y
           # Quoted for the same reason the cmake arguments are: PowerShell leaves
           # $env: unexpanded inside a bareword that starts with a single dash.
+          #
+          # Each call is checked individually: PowerShell only propagates the
+          # LAST command's exit code, and v0.9.4 released without its admin
+          # installer because the first compile failed behind a green step.
           iscc "/DAppVersion=$env:VERSION" installer\ImeModePersistence.iss
+          if ($LASTEXITCODE -ne 0) { throw "admin installer failed to compile" }
           iscc "/DAppVersion=$env:VERSION" /DUserInstall installer\ImeModePersistence.iss
+          if ($LASTEXITCODE -ne 0) { throw "user installer failed to compile" }
 
       - name: Package portable archives
         shell: pwsh
@@ -108,6 +114,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Belt to the braces above: name every artifact a release must carry
+          # and refuse to publish a partial set. Whatever future failure slips
+          # past a step's exit code, an incomplete release is the one outcome
+          # this job must never produce.
+          $expected = @(
+            "ImeModePersistence-$env:VERSION-setup-admin.exe",
+            "ImeModePersistence-$env:VERSION-setup-user.exe",
+            "ImeModePersistence-$env:VERSION-x64.zip",
+            "ImeModePersistence-$env:VERSION-x86.zip",
+            'SHA256SUMS.txt'
+          )
+          $missing = $expected | Where-Object { -not (Test-Path "dist/$_") }
+          if ($missing) { throw "release is missing: $($missing -join ', ')" }
+
           # --generate-notes derives the changelog from the commits since the
           # previous tag, so a release needs no hand-written body.
           $assets = Get-ChildItem dist -File | ForEach-Object { $_.FullName }
