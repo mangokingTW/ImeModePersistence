@@ -62,10 +62,17 @@ jobs:
       - name: Checksums
         shell: pwsh
         run: |
-          Get-FileHash dist/*.zip, dist/*.exe -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
-            Set-Content -Encoding ascii dist/SHA256SUMS.txt
-          Get-Content dist/SHA256SUMS.txt
+          $lines = Get-FileHash dist/*.zip, dist/*.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" }
+
+          # Written with LF, not the CRLF that Set-Content would produce: coreutils
+          # sha256sum -c and BSD shasum -c read the carriage return as part of the
+          # file name and fail to open it.
+          $path = Join-Path $PWD 'dist/SHA256SUMS.txt'
+          [System.IO.File]::WriteAllText($path, ($lines -join "`n") + "`n")
+
+          Get-Content $path
+          if ((Get-Content $path -Raw) -match "`r") { throw 'SHA256SUMS.txt contains CR' }
 
       - name: Create release
         shell: pwsh
