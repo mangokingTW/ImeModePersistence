@@ -6,6 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Read-only by default; neither job writes anything back to the repository, and
+# an unnecessarily broad GITHUB_TOKEN is what supply-chain review flags first.
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: windows-latest

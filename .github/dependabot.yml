@@ -1,0 +1,12 @@
+version: 2
+updates:
+  # Keep the GitHub Actions the workflows depend on current, so a pinned action
+  # that gains a security fix is surfaced as a PR rather than drifting. The only
+  # dependency ecosystem this project has: the app itself links nothing but the
+  # Windows SDK.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci

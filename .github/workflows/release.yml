@@ -9,18 +9,23 @@ on:
         description: "Tag to release (created at the current commit if it does not exist)"
         required: true
 
+# Read-only at the top; the release job elevates to exactly what it needs, which
+# is the minimal-permissions shape supply-chain review expects.
 permissions:
-  contents: write
-  # For build provenance: attest signs a statement that these exact artifacts
-  # came from this commit and this workflow run, which anyone can check with
-  # `gh attestation verify`. id-token mints the signing token; attestations
-  # records the statement.
-  id-token: write
-  attestations: write
+  contents: read
 
 jobs:
   release:
     runs-on: windows-latest
+    permissions:
+      # Create the release and upload assets.
+      contents: write
+      # Build provenance: attest signs a statement that these exact artifacts
+      # came from this commit and this workflow run, checkable with
+      # `gh attestation verify`. id-token mints the signing token; attestations
+      # records the statement.
+      id-token: write
+      attestations: write
 
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
@@ -116,6 +121,7 @@ jobs:
           if ((Get-Content $path -Raw) -match "`r") { throw 'SHA256SUMS.txt contains CR' }
 
       - name: Attest build provenance
+        id: attest
         # Signs a provenance statement for every published artifact, tying each
         # to this commit and workflow run. `gh attestation verify <file> --repo
         # mangokingTW/ImeModePersistence` then proves a download was built here
@@ -127,6 +133,15 @@ jobs:
             dist/*.exe
             dist/*.zip
             dist/SHA256SUMS.txt
+
+      - name: Attach provenance to the release
+        shell: pwsh
+        run: |
+          # The attestation also lives in GitHub's attestations API, but that is
+          # not visible to tools that inspect release assets -- OpenSSF Scorecard's
+          # Signed-Releases check among them. Publishing the bundle under the name
+          # SLSA tooling expects lets those verify the release without the API.
+          Copy-Item "${{ steps.attest.outputs.bundle-path }}" dist/multiple.intoto.jsonl
 
       - name: Create release
         shell: pwsh
