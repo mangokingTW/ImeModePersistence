@@ -1,6 +1,7 @@
 #include "autostart.h"
 
-#include <wtsapi32.h>
+#include <comdef.h>
+#include <taskschd.h>
 
 #include <string>
 
@@ -10,8 +11,8 @@ namespace {
 constexpr wchar_t kRunKey[] = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
 constexpr wchar_t kValueName[] = L"ImeModePersistence";
 
-// Same name the installer registers, so the two manage one task rather than each
-// leaving the other's behind.
+// The name older versions gave the elevated logon task. Kept only so that task
+// can be found and removed; this version never creates one.
 constexpr wchar_t kTaskName[] = L"ImeModePersistence";
 
 // Quoted so a path containing spaces survives the shell's command-line parsing.
@@ -23,100 +24,67 @@ std::wstring launch_command() {
     return L'"' + path + L'"';
 }
 
-// schtasks.exe rather than the Task Scheduler COM API: one documented command line
-// against several interfaces and a great deal of boilerplate, for a task this
-// simple. CREATE_NO_WINDOW because it would otherwise flash a console.
-bool run_schtasks(std::wstring arguments, DWORD& exitCode) {
-    std::wstring command = L"schtasks.exe " + arguments;
+// Task Scheduler is reached through the COM API rather than by spawning
+// schtasks.exe. This version only ever *reads and deletes* a task (to clean up
+// the elevated logon task older versions created), never creates one -- but even
+// for that, an unsigned process launching schtasks.exe is a signal worth not
+// sending, and the COM interfaces are managed with _com_ptr_t smart pointers.
+_COM_SMARTPTR_TYPEDEF(ITaskService, __uuidof(ITaskService));
+_COM_SMARTPTR_TYPEDEF(ITaskFolder, __uuidof(ITaskFolder));
+_COM_SMARTPTR_TYPEDEF(IRegisteredTask, __uuidof(IRegisteredTask));
 
-    STARTUPINFOW startup{};
-    startup.cb = sizeof(startup);
-    PROCESS_INFORMATION process{};
-
-    if (!CreateProcessW(nullptr, command.data(), nullptr, nullptr, FALSE,
-                        CREATE_NO_WINDOW, nullptr, nullptr, &startup, &process)) {
-        return false;
+// COM initialised per operation: these run rarely (startup, and the tray
+// toggle), and autostart::current() can run before the TSF path brings COM up.
+// Balanced, so it composes with a thread that already has COM initialised.
+struct ComScope {
+    bool owned;
+    ComScope() { owned = SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED)); }
+    ~ComScope() {
+        if (owned) {
+            CoUninitialize();
+        }
     }
+    ComScope(const ComScope&) = delete;
+    ComScope& operator=(const ComScope&) = delete;
+};
 
-    // Bounded: this runs on the UI thread, and a wedged schtasks must not take the
-    // tray menu with it.
-    const bool finished = WaitForSingleObject(process.hProcess, 10000) == WAIT_OBJECT_0;
-    const bool read = finished && GetExitCodeProcess(process.hProcess, &exitCode) != FALSE;
-
-    CloseHandle(process.hThread);
-    CloseHandle(process.hProcess);
-    return read;
+// Connects to the local Task Scheduler and returns its root folder, or nullptr.
+ITaskFolderPtr task_root() {
+    ITaskServicePtr service;
+    if (FAILED(service.CreateInstance(__uuidof(TaskScheduler)))) {
+        return nullptr;
+    }
+    if (FAILED(service->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t()))) {
+        return nullptr;
+    }
+    ITaskFolderPtr folder;
+    if (FAILED(service->GetFolder(_bstr_t(L"\\"), &folder))) {
+        return nullptr;
+    }
+    return folder;
 }
 
-// One string of session information, freed before returning.
-std::wstring session_string(WTS_INFO_CLASS what) {
-    LPWSTR buffer = nullptr;
-    DWORD bytes = 0;
-    if (!WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION,
-                                     what, &buffer, &bytes) ||
-        !buffer) {
-        return {};
-    }
-
-    std::wstring result(buffer);
-    WTSFreeMemory(buffer);
-    return result;
-}
-
-// The user of the interactive session, not of this process's token. The two
-// differ exactly when it matters: elevation approved with another account's
-// credentials leaves this process running as that account, and a logon task
-// registered under it would never fire for the user who actually logs in.
-// Elevation stays inside the session, so the session's user is always the one
-// the task is for.
-std::wstring current_user() {
-    const std::wstring user = session_string(WTSUserName);
-    if (!user.empty()) {
-        // Domain-qualified so schtasks resolves the same account on a
-        // domain-joined machine. For a local account the domain is the machine
-        // name, which schtasks accepts just as well.
-        const std::wstring domain = session_string(WTSDomainName);
-        return domain.empty() ? user : domain + L"\\" + user;
-    }
-
-    // No session information (a service-like context); the token is all there is.
-    wchar_t name[256]{};
-    DWORD chars = ARRAYSIZE(name);
-    return GetUserNameW(name, &chars) ? std::wstring(name, chars - 1) : std::wstring{};
-}
-
+// Whether an older version's elevated logon task is still registered.
 bool task_exists() {
-    DWORD exitCode = 1;
-    return run_schtasks(std::wstring(L"/Query /TN \"") + kTaskName + L"\"", exitCode) &&
-           exitCode == 0;
-}
-
-bool create_task() {
-    const std::wstring path = module_path();
-    const std::wstring user = current_user();
-    if (path.empty() || user.empty()) {
+    ComScope com;
+    ITaskFolderPtr folder = task_root();
+    if (!folder) {
         return false;
     }
-
-    // /RL HIGHEST is what makes it elevated, /IT keeps it interactive so the tray
-    // icon appears, and /TR is a command line of its own, hence the inner quotes.
-    std::wstring arguments = L"/Create /F /TN \"";
-    arguments += kTaskName;
-    arguments += L"\" /SC ONLOGON /RL HIGHEST /IT /RU \"";
-    arguments += user;
-    arguments += L"\" /TR \"\\\"";
-    arguments += path;
-    arguments += L"\\\"\"";
-
-    DWORD exitCode = 1;
-    return run_schtasks(arguments, exitCode) && exitCode == 0;
+    IRegisteredTaskPtr task;
+    return SUCCEEDED(folder->GetTask(_bstr_t(kTaskName), &task)) && task != nullptr;
 }
 
+// Removes the legacy logon task if present. "Not found" is the state this wants,
+// so it counts as success.
 bool delete_task() {
-    // The exit code is deliberately ignored: schtasks fails when there is no such
-    // task, which is already the state this is trying to reach.
-    DWORD exitCode = 1;
-    return run_schtasks(std::wstring(L"/Delete /F /TN \"") + kTaskName + L"\"", exitCode);
+    ComScope com;
+    ITaskFolderPtr folder = task_root();
+    if (!folder) {
+        return false;
+    }
+    const HRESULT hr = folder->DeleteTask(_bstr_t(kTaskName), 0);
+    return SUCCEEDED(hr) || hr == HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND);
 }
 
 std::wstring read_value() {
@@ -183,8 +151,9 @@ bool elevated() {
 }
 
 Kind current() {
-    // Task first: it is the mechanism an elevated copy uses, and if both somehow
-    // exist the task is the one that actually starts elevated.
+    // A leftover elevated task from an older version still counts as "on", so the
+    // status box shows it and toggling autostart off removes it. New installs
+    // only ever use the Run entry below.
     if (task_exists()) {
         return Kind::ScheduledTask;
     }
@@ -201,22 +170,17 @@ Kind current() {
 }
 
 bool set_enabled(bool enable) {
-    if (!enable) {
-        // Both mechanisms, because leaving the other one behind would keep starting
-        // the utility after the user turned autostart off.
-        const bool removedTask = delete_task();
-        const LSTATUS status = RegDeleteKeyValueW(HKEY_CURRENT_USER, kRunKey, kValueName);
-        return removedTask && (status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND);
-    }
-
-    if (elevated()) {
-        // A Run entry cannot start an elevated copy, so it is not merely redundant
-        // here -- it would start a second, unelevated one.
-        RegDeleteKeyValueW(HKEY_CURRENT_USER, kRunKey, kValueName);
-        return create_task();
-    }
-
+    // Autostart is always the unelevated Run entry. The utility no longer creates
+    // an elevated logon task: a silent elevated task started at logon is exactly
+    // the persistence pattern Defender's behaviour ML flags, and it is not worth
+    // it when the tray's "Restart as administrator" covers the occasional
+    // elevated session. Any task left by an older version is removed here.
     delete_task();
+
+    if (!enable) {
+        const LSTATUS status = RegDeleteKeyValueW(HKEY_CURRENT_USER, kRunKey, kValueName);
+        return status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND;
+    }
 
     const std::wstring command = launch_command();
     if (command.empty()) {

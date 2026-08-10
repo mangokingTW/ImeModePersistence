@@ -38,11 +38,11 @@ AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
 VersionInfoVersion={#AppVersion}
 
-; Administrator, because the utility's main use needs to run elevated: Windows
-; does not let a lower-privileged program read the windows of a higher-privileged
-; one, and anti-cheat protected games are elevated. Setup needs the same rights to
-; register the scheduled task that starts it elevated at logon -- and, usefully,
-; only an elevated Setup can close an elevated copy when updating.
+; Administrator, because this variant installs into Program Files and, usefully,
+; only an elevated Setup can close a running elevated copy when updating. The
+; utility itself starts unelevated at logon (a normal Run entry); controlling an
+; elevated anti-cheat game is done on demand via the tray's "Restart as
+; administrator", not by a silent elevated logon task.
 #ifdef UserInstall
 ; No administrator rights anywhere. Cannot run the utility elevated, so it cannot
 ; reach anti-cheat protected games -- fine for someone who only wants the ordinary
@@ -50,9 +50,9 @@ VersionInfoVersion={#AppVersion}
 PrivilegesRequired=lowest
 DefaultDirName={localappdata}\Programs\{#AppName}
 #else
-; Setup elevates, which is what lets it register the logon task and close a running
-; elevated copy when updating. Whether the *utility* runs elevated is a separate
-; question, asked as a task below.
+; Setup elevates so it can install into Program Files and close a running elevated
+; copy when updating. The utility still starts unelevated at logon; elevation is
+; on demand via the tray.
 PrivilegesRequired=admin
 DefaultDirName={autopf}\{#AppName}
 #endif
@@ -79,12 +79,10 @@ SetupIconFile=..\assets\ImeModePersistence.ico
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Tasks]
-; One choice. There used to be a separate "run as administrator" option, but its
-; only effects were the RUNASADMIN compatibility layer -- removed, because it is the
-; most malware-like of the things this installer did and antivirus was deleting the
-; installer over it -- and picking the autostart mechanism. Without the layer,
-; ticking it while leaving autostart off did nothing at all, which is not a state to
-; offer. Each installer variant now offers the autostart its privileges support.
+; Autostart is a normal, unelevated Run entry for both variants. There is no
+; "run as administrator at logon" option: a silent elevated logon task is the
+; persistence pattern antivirus flags, so elevation is left to the tray's
+; "Restart as administrator" when the user actually needs it.
 Name: "logon"; Description: "{cm:TaskLogon}"
 ; Unchecked: most installs are not for this game. When ticked, presets.txt is
 ; installed (below) and the utility seeds the rule on its next start -- the
@@ -93,12 +91,7 @@ Name: "logon"; Description: "{cm:TaskLogon}"
 Name: "helldivers"; Description: "{cm:TaskHelldivers}"; Flags: unchecked
 
 [CustomMessages]
-#ifdef UserInstall
 TaskLogon=Start automatically at logon
-#else
-TaskLogon=Start automatically at logon, as administrator
-#endif
-TaskCreating=Registering the logon task...
 TaskHelldivers=Bind Helldivers 2 to English input (adds a rule on first run)
 
 [Files]
@@ -119,15 +112,14 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 
 [Registry]
-#ifdef UserInstall
-; Only this variant: a Run entry can only start an unelevated copy, and the
-; administrator variant starts an elevated one through the logon task instead.
-; Written in exactly the form the tray toggle writes, so the two agree about
-; whether autostart is on.
+; Both variants: autostart is an unelevated HKCU Run entry, in exactly the form the
+; tray toggle writes, so the two agree about whether autostart is on. (For the
+; admin installer this lands in the elevating account's hive; on the usual
+; single-user machine that is the same account, and the tray toggle fixes the rare
+; over-the-shoulder case.)
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"""; \
     Tasks: logon; Flags: uninsdeletevalue
-#endif
 
 ; Always clean up on uninstall, including an entry the user enabled from the tray
 ; menu rather than through this installer. ValueType none plus dontcreatekey
@@ -137,15 +129,6 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     Flags: dontcreatekey uninsdeletevalue
 
 [Run]
-#ifndef UserInstall
-; Only in an elevated install: the Run key cannot start an elevated program at all,
-; and a task with highest privileges is the only way to do it without a UAC prompt
-; every logon. /IT keeps it interactive so the tray icon appears, and /RU ties it to
-; the installing user rather than every account.
-; Quoted twice: schtasks parses /TR as a command line of its own.
-Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""{#AppName}"" /SC ONLOGON /RL HIGHEST /IT /RU ""{code:CurrentUser}"" /TR ""\""{app}\{#AppExeName}\"""""; Flags: runhidden; Tasks: logon; StatusMsg: "{cm:TaskCreating}"
-#endif
-
 ; shellexec rather than the default CreateProcess. It was required while this
 ; installer set the RUNASADMIN compatibility layer -- CreateProcess refuses to start
 ; such a program at all, failing with 740 -- and is kept now the layer is gone
@@ -226,36 +209,6 @@ begin
   Result := not CheckForMutexes('{#AppMutexName}');
   ClosedRunningInstance := Result;
 end;
-
-#ifndef UserInstall
-{ schtasks wants a user name for /RU. Setup runs elevated, so Inno's username
-  constant is the account that passed the UAC prompt -- with over-the-shoulder
-  elevation (a standard user typing an administrator's credentials) that is the
-  administrator, and a logon task registered for it never fires for the user
-  actually logging in. LogonUI records who is signed in at the console, which is
-  the account the task is for; the constant remains as the fallback for contexts
-  with no console logon recorded.
-
-  NB: never write an Inno constant in braces inside this kind of comment. Curly
-  comments do not nest, so its closing brace ends the comment and the rest is
-  compiled -- which is exactly how v0.9.4 shipped without an admin installer. }
-function CurrentUser(Param: String): String;
-var
-  User: String;
-begin
-  if RegQueryStringValue(HKLM,
-      'SOFTWARE\Microsoft\Windows\CurrentVersion\Authentication\LogonUI',
-      'LastLoggedOnUser', User) and (User <> '') then
-  begin
-    { A local account is recorded as ".\name"; schtasks wants the name alone. }
-    if Copy(User, 1, 2) = '.\' then
-      User := Copy(User, 3, Length(User));
-    Result := User;
-  end
-  else
-    Result := ExpandConstant('{username}');
-end;
-#endif
 
 { Both hives, because where the uninstall entry lands depends on how the copy that
   wrote it was installed: an elevated install records itself in HKLM, an
