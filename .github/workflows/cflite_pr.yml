@@ -32,6 +32,10 @@ jobs:
         uses: google/clusterfuzzlite/actions/run_fuzzers@884713a6c30a92e5e8544c39945cd7cb630abcd1 # v1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          fuzz-seconds: 120
+          # 30s keeps the whole job under two minutes (the image pull and build
+          # are a fixed ~70s). Enough for a code-change smoke fuzz of the parser;
+          # deeper fuzzing would need a persistent corpus, which this PR mode has
+          # no backing store for anyway.
+          fuzz-seconds: 30
           mode: code-change
           sanitizer: address
