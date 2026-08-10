@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 # Single source of truth for the version. The release workflow reads it and
 # refuses to publish a tag that disagrees, so the number stamped into the
 # executable always matches the release it shipped in.
-project(ImeModePersistence VERSION 0.9.19 LANGUAGES CXX)
+project(ImeModePersistence VERSION 0.9.20 LANGUAGES CXX)
 
 set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable")
 
@@ -73,7 +73,7 @@ target_link_libraries(ime_core PUBLIC
     comctl32
     dwmapi
     ole32
-    wtsapi32
+    taskschd
 )
 
 if(MSVC)

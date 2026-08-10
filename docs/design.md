@@ -168,13 +168,15 @@ Seeding is once per user and never destructive: a per-key flag under `HKCU\Softw
 
 Not a Windows service: a service runs in session 0 with no interactive desktop, so `GetForegroundWindow` would never see the user's windows and `WM_IME_CONTROL` would never reach their threads. This has to live in the interactive session.
 
-Two mechanisms, because the Run key can only ever start an **unelevated** copy. An elevated utility needs a scheduled task with highest privileges instead, which is also the only way to start elevated without a UAC prompt at every logon.
+**Autostart is an unelevated HKCU Run entry, and nothing more.** The utility starts at logon at the user's normal integrity level; elevation, when it is needed to reach an anti-cheat game, is a deliberate act -- the tray's *Restart as administrator* -- not something that happens silently at every logon.
 
-This section originally argued for the Run key alone, on the grounds that the utility should sit at the same integrity level as ordinary applications. That reasoning was overturned by evidence: reading the windows of an elevated process requires equal privileges, and the games this exists for are elevated.
+This reverses an earlier decision. For a while autostart created a scheduled task with highest privileges, because that is the only way to start *elevated* at logon without a UAC prompt, and the games this exists for are elevated. But "an unsigned program that installs a task to run elevated at every logon" is precisely the persistence pattern Defender's behaviour ML flags (`Behavior:Win32/Persistence.A!ml`) -- and it got the installer deleted. Weighed against being installable at all, silent elevated autostart loses: the common use (mode persistence, binding ordinary apps) needs no elevation, and the anti-cheat use is a deliberate gaming session where one *Restart as administrator* (one UAC prompt) is acceptable. So the elevated logon task is gone.
+
+The scheduled-task code that remains only **finds and deletes** a task left by an older version, so upgrading cleans it up. Even that goes through the Task Scheduler COM API rather than spawning `schtasks.exe`: an unsigned process launching `schtasks.exe` is itself a signal worth not sending.
 
 A single-instance mutex is required once autostart is on, because two copies overwrite each other's restores in a loop.
 
-The account the task is registered for is the **interactive session's user**, not the process token's. The two differ under over-the-shoulder elevation -- a standard user typing an administrator's credentials leaves the elevated copy (and elevated Setup) running as the administrator, and a task registered with `/RU` that account never fires for the user who actually logs in. The utility reads the session user from WTS; the installer reads LogonUI's record of who is signed in at the console, with `{username}` as the fallback.
+The installer writes the Run entry to `HKCU` for both variants. Under over-the-shoulder elevation the admin installer's `HKCU` is the elevating account's, not the logon user's -- but that is now just a Run entry in the wrong hive on a rare setup, fixable from the tray, rather than the `/RU` account correctness a scheduled task demanded.
 
 ## Installer
 
