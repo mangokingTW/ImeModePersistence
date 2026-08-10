@@ -36,23 +36,28 @@ jobs:
       - name: Derive version
         shell: pwsh
         run: |
-          # Inno Setup's VersionInfoVersion needs a bare numeric version, so the
-          # leading "v" of the tag is stripped.
-          $version = $env:TAG -replace '^v', ''
-          if ($version -notmatch '^\d+\.\d+\.\d+$') {
-            throw "Tag '$env:TAG' is not MAJOR.MINOR.PATCH like v1.2.3"
+          # The tag may carry a pre-release suffix (v0.9.20-beta.1). The full
+          # string names the release and its artifacts; the numeric part is what
+          # the exe VERSIONINFO and Inno's VersionInfoVersion require.
+          $full = $env:TAG -replace '^v', ''
+          if ($full -notmatch '^\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$') {
+            throw "Tag '$env:TAG' is not MAJOR.MINOR.PATCH, optionally -beta.N / -alpha.N / -rc.N"
           }
+          $version = $full -replace '-.*$', ''
+          $prerelease = if ($full -ne $version) { 'true' } else { 'false' }
 
-          # CMakeLists.txt owns the version that gets stamped into the
-          # executable. Publishing a tag that disagrees would ship a binary
-          # whose reported version contradicts its release, so refuse instead.
+          # CMakeLists.txt owns the numeric version stamped into the executable.
+          # Publishing a tag that disagrees would ship a binary whose reported
+          # version contradicts its release, so refuse instead.
           $declared = (Select-String -Path CMakeLists.txt `
             -Pattern 'project\(ImeModePersistence VERSION ([0-9]+\.[0-9]+\.[0-9]+)').Matches[0].Groups[1].Value
           if ($declared -ne $version) {
             throw "Tag says $version but CMakeLists.txt declares $declared - bump one of them"
           }
 
-          "VERSION=$version" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "VERSION=$version"       | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "FILEVER=$full"          | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          "PRERELEASE=$prerelease" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
       - name: Build x64
         run: |
@@ -90,9 +95,9 @@ jobs:
           # Each call is checked individually: PowerShell only propagates the
           # LAST command's exit code, and v0.9.4 released without its admin
           # installer because the first compile failed behind a green step.
-          iscc "/DAppVersion=$env:VERSION" installer\ImeModePersistence.iss
+          iscc "/DAppVersion=$env:VERSION" "/DAppVersionFull=$env:FILEVER" installer\ImeModePersistence.iss
           if ($LASTEXITCODE -ne 0) { throw "admin installer failed to compile" }
-          iscc "/DAppVersion=$env:VERSION" /DUserInstall installer\ImeModePersistence.iss
+          iscc "/DAppVersion=$env:VERSION" "/DAppVersionFull=$env:FILEVER" /DUserInstall installer\ImeModePersistence.iss
           if ($LASTEXITCODE -ne 0) { throw "user installer failed to compile" }
 
       - name: Package portable archives
@@ -102,7 +107,7 @@ jobs:
           foreach ($arch in 'x64', 'x86') {
             Compress-Archive `
               -Path "build-$arch/Release/ImeModePersistence.exe", 'README.md', 'LICENSE' `
-              -DestinationPath "dist/ImeModePersistence-$env:VERSION-$arch.zip"
+              -DestinationPath "dist/ImeModePersistence-$env:FILEVER-$arch.zip"
           }
 
       - name: Checksums
@@ -153,10 +158,10 @@ jobs:
           # past a step's exit code, an incomplete release is the one outcome
           # this job must never produce.
           $expected = @(
-            "ImeModePersistence-$env:VERSION-setup-admin.exe",
-            "ImeModePersistence-$env:VERSION-setup-user.exe",
-            "ImeModePersistence-$env:VERSION-x64.zip",
-            "ImeModePersistence-$env:VERSION-x86.zip",
+            "ImeModePersistence-$env:FILEVER-setup-admin.exe",
+            "ImeModePersistence-$env:FILEVER-setup-user.exe",
+            "ImeModePersistence-$env:FILEVER-x64.zip",
+            "ImeModePersistence-$env:FILEVER-x86.zip",
             'SHA256SUMS.txt'
           )
           $missing = $expected | Where-Object { -not (Test-Path "dist/$_") }
@@ -165,8 +170,10 @@ jobs:
           # --generate-notes derives the changelog from the commits since the
           # previous tag, so a release needs no hand-written body.
           $assets = Get-ChildItem dist -File | ForEach-Object { $_.FullName }
-          gh release create $env:TAG `
-            --target $env:GITHUB_SHA `
-            --title $env:TAG `
-            --generate-notes `
-            $assets
+          # A pre-release tag (v0.9.20-beta.1) is published as a GitHub
+          # pre-release, so it never becomes "Latest" and stable users are
+          # unaffected; only someone who opens Releases gets the beta.
+          $ghArgs = @($env:TAG, '--target', $env:GITHUB_SHA, '--title', $env:TAG, '--generate-notes')
+          if ($env:PRERELEASE -eq 'true') { $ghArgs += '--prerelease' }
+          $ghArgs += $assets
+          gh release create @ghArgs
