@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 # Single source of truth for the version. The release workflow reads it and
 # refuses to publish a tag that disagrees, so the number stamped into the
 # executable always matches the release it shipped in.
-project(ImeModePersistence VERSION 0.9.22 LANGUAGES CXX)
+project(ImeModePersistence VERSION 0.9.23 LANGUAGES CXX)
 
 set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable")
 
@@ -19,6 +19,16 @@ configure_file(src/resources.rc.in "${CMAKE_CURRENT_BINARY_DIR}/resources.rc" @O
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+
+# Link the C/C++ runtime statically (/MT) so the executable is self-contained.
+# The default (/MD) makes it depend on VCRUNTIME140.dll and MSVCP140.dll, which
+# ship only with the VC++ Redistributable and are absent on a clean Windows
+# install -- so the exe fails to launch there with a missing-DLL error. That is
+# what winget's validation sandbox hit (Validation-Executable-Error), and it
+# would equally bite anyone running the portable zip on a fresh machine. Set
+# before any target is created so every target -- library, exe and tests -- uses
+# the same runtime and does not mix /MT with /MD. (CMP0091 is NEW at 3.21.)
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 # Everything except the entry point and the dialog, so the tests can link the
 # same objects the shipped executable is built from rather than a copy compiled
