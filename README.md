@@ -86,7 +86,7 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 
 安裝檔需要 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3+，圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7（`./tools/make_icon.sh`）。
 
-`CMakeLists.txt` 的 `project(... VERSION ...)` 是版本的唯一來源，會寫進 `VERSIONINFO`。**每個 PR 都必須 bump**，CI 會擋。發佈時推一個與它相符的 `vMAJOR.MINOR.PATCH` tag。
+`CMakeLists.txt` 的 `project(... VERSION ...)` 是版本的唯一來源，會寫進 `VERSIONINFO`。發版時把它 bump 到新版、推一個相符的 `vMAJOR.MINOR.PATCH` tag（CI 只擋版號倒退，平常的 PR 不必 bump）。測試版推 `vMAJOR.MINOR.PATCH-beta.N`（或 `-rc.N`）—— 會發成 GitHub pre-release、不會變成 Latest；`scoop install mango/ImeModePersistence-beta` 可追測試版。
 
 ## 授權
 
@@ -183,7 +183,7 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 
 The installers need [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer; regenerating the icon needs [ImageMagick](https://imagemagick.org) 7 (`./tools/make_icon.sh`).
 
-`project(... VERSION ...)` in `CMakeLists.txt` is the single source of truth and is stamped into `VERSIONINFO`. **Every PR must bump it** — CI fails one that does not. To release, push a `vMAJOR.MINOR.PATCH` tag matching it.
+`project(... VERSION ...)` in `CMakeLists.txt` is the single source of truth, stamped into `VERSIONINFO`. Bump it when releasing and push a matching `vMAJOR.MINOR.PATCH` tag (CI only rejects a version that moves backward; ordinary PRs need no bump). For a test build push `vMAJOR.MINOR.PATCH-beta.N` (or `-rc.N`): it publishes as a GitHub pre-release, never becomes "Latest", and `scoop install mango/ImeModePersistence-beta` tracks it.
 
 ## License
 

@@ -11,6 +11,14 @@
   #define AppVersion "0.0.0"
 #endif
 
+; The full version string for the output filename and release name, which may
+; carry a pre-release suffix (e.g. 0.9.20-beta.1). AppVersion itself must stay a
+; bare numeric MAJOR.MINOR.PATCH, because VersionInfoVersion and the upgrade
+; comparison in [Code] both require that.
+#ifndef AppVersionFull
+  #define AppVersionFull AppVersion
+#endif
+
 ; Compiled twice from this one file, and both outputs say which they are: an
 ; unqualified "-setup" would leave the reader to guess which variant they have.
 #ifdef UserInstall
@@ -68,7 +76,7 @@ AppMutex={#AppMutexName}
 CloseApplications=yes
 
 OutputDir=..\dist
-OutputBaseFilename={#AppName}-{#AppVersion}-setup{#SetupSuffix}
+OutputBaseFilename={#AppName}-{#AppVersionFull}-setup{#SetupSuffix}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
