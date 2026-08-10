@@ -137,17 +137,21 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     Flags: dontcreatekey uninsdeletevalue
 
 [Run]
-; shellexec rather than the default CreateProcess. It was required while this
-; installer set the RUNASADMIN compatibility layer -- CreateProcess refuses to start
-; such a program at all, failing with 740 -- and is kept now the layer is gone
-; because launching through the shell is what a user does, and it costs nothing.
+; runasoriginaluser: launch as the non-elevated user who started Setup. The admin
+; installer runs elevated, and without this the app would inherit that elevation
+; -- so the just-installed tray would already be elevated and hide "Restart as
+; administrator", not matching the unelevated state it has after a reboot (and
+; leaving a player who follows the wiki unable to find the option). For the user
+; installer, which is not elevated, the flag is a no-op. (shellexec, used here
+; while the removed RUNASADMIN layer made CreateProcess fail with 740, is gone
+; with the layer.)
 ;
 ; It was running when Setup started, so put it back without asking.
-Filename: "{app}\{#AppExeName}"; Flags: nowait shellexec; Check: WasRunning
+Filename: "{app}\{#AppExeName}"; Flags: nowait runasoriginaluser; Check: WasRunning
 
 ; Nothing was running, so offer the usual launch checkbox instead.
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
-    Flags: nowait postinstall skipifsilent shellexec; Check: not WasRunning
+    Flags: nowait postinstall skipifsilent runasoriginaluser; Check: not WasRunning
 
 [UninstallRun]
 ; Removed whether or not this install created it, so a task left behind by an
