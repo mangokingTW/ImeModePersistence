@@ -29,10 +29,6 @@ jobs:
 
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
-      # Empty unless the VT_API_KEY secret is set. Kept in an env var so the
-      # scan step below can gate on it with `if:` -- the secrets context is not
-      # available in step conditions, but env is.
-      VT_API_KEY: ${{ secrets.VT_API_KEY }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -181,36 +177,3 @@ jobs:
           if ($env:PRERELEASE -eq 'true') { $ghArgs += '--prerelease' }
           $ghArgs += $assets
           gh release create @ghArgs
-
-      # Multi-engine scan of the published artifacts, in the same spirit as the
-      # provenance attestation: an impartial second opinion, not evasion. Runs
-      # only when the VT_API_KEY secret is present, never blocks the release
-      # (continue-on-error), and -- by request -- does NOT touch the release body
-      # (update_release_body: false). The permalinks land in the run summary so
-      # they can be reviewed and, if the scan is clean, shared by hand. An
-      # unsigned installer that sets up autostart may draw a heuristic flag or
-      # two; surfacing that here beats hearing it from a user first.
-      - name: Scan artifacts on VirusTotal
-        id: vt
-        if: ${{ env.VT_API_KEY != '' }}
-        continue-on-error: true
-        uses: crazy-max/ghaction-virustotal@936d8c5c00afe97d3d9a1af26d017cfdf26800a2 # v5.0.0
-        with:
-          vt_api_key: ${{ env.VT_API_KEY }}
-          update_release_body: false
-          # Free public API allows 4 requests/minute; stay under it.
-          request_rate: 4
-          files: |
-            dist/*.exe
-            dist/*.zip
-
-      - name: Record VirusTotal links
-        if: ${{ env.VT_API_KEY != '' && steps.vt.outputs.analysis != '' }}
-        continue-on-error: true
-        shell: pwsh
-        run: |
-          "## VirusTotal scan" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
-          foreach ($pair in "${{ steps.vt.outputs.analysis }}" -split ',') {
-            $name, $url = $pair -split '=', 2
-            "- [$name]($url)" | Out-File -Append -Encoding utf8 $env:GITHUB_STEP_SUMMARY
-          }
