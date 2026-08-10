@@ -1,0 +1,104 @@
+# On-demand multi-engine scan of a release's artifacts. Kept out of the release
+# job on purpose: an unsigned installer that sets up autostart reliably draws a
+# handful of heuristic/ML false positives (Wacatac.B!ml and friends), so a
+# non-zero count is expected and should be reviewed by hand rather than shown on
+# every release. Trigger it from the Actions tab with the tag to scan.
+name: VirusTotal
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to scan (e.g. v0.9.22)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    env:
+      VT_API_KEY: ${{ secrets.VT_API_KEY }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - name: Require the VT_API_KEY secret
+        run: |
+          if [ -z "$VT_API_KEY" ]; then
+            echo "::error::VT_API_KEY secret is not set - add it in Settings > Secrets > Actions"
+            exit 1
+          fi
+
+      - name: Download release artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern '*.exe' --pattern '*.zip'
+          ls -l dist
+
+      - name: Upload to VirusTotal
+        id: vt
+        uses: crazy-max/ghaction-virustotal@936d8c5c00afe97d3d9a1af26d017cfdf26800a2 # v5.0.0
+        with:
+          vt_api_key: ${{ env.VT_API_KEY }}
+          update_release_body: false
+          # Free public API allows 4 requests/minute; stay under it.
+          request_rate: 4
+          files: |
+            dist/*.exe
+            dist/*.zip
+
+      - name: Report detection stats
+        run: |
+          python3 - "$TAG" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import os, sys, json, time, hashlib, urllib.request, glob
+          tag = sys.argv[1]
+          key = os.environ["VT_API_KEY"]
+          print(f"## VirusTotal scan - {tag}\n")
+          print("| file | malicious | suspicious | / engines | flagged |")
+          print("|---|---|---|---|---|")
+
+          def sha256(path):
+              h = hashlib.sha256()
+              with open(path, "rb") as f:
+                  for chunk in iter(lambda: f.read(1 << 20), b""):
+                      h.update(chunk)
+              return h.hexdigest()
+
+          def report(sha):
+              # Freshly uploaded files may not have a finished report yet; poll a
+              # few times before giving up.
+              url = f"https://www.virustotal.com/api/v3/files/{sha}"
+              for _ in range(6):
+                  req = urllib.request.Request(url, headers={"x-apikey": key})
+                  try:
+                      with urllib.request.urlopen(req) as r:
+                          d = json.load(r)
+                      a = d["data"]["attributes"]
+                      if a.get("last_analysis_results"):
+                          return a
+                  except urllib.error.HTTPError as e:
+                      if e.code != 404:
+                          return {"_error": f"HTTP {e.code}"}
+                  time.sleep(20)
+              return None
+
+          for path in sorted(glob.glob("dist/*")):
+              name = os.path.basename(path)
+              a = report(sha256(path))
+              if a is None:
+                  print(f"| {name} | ? | ? | ? | analysis still pending |")
+                  continue
+              if "_error" in a:
+                  print(f"| {name} | - | - | - | {a['_error']} |")
+                  continue
+              s = a["last_analysis_stats"]
+              total = sum(s.values())
+              flagged = [f"{eng} ({v.get('result') or v['category']})"
+                         for eng, v in a["last_analysis_results"].items()
+                         if v["category"] in ("malicious", "suspicious")]
+              print(f"| {name} | {s.get('malicious',0)} | {s.get('suspicious',0)} "
+                    f"| {total} | {', '.join(flagged) or 'none'} |")
+          PY

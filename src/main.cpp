@@ -1119,7 +1119,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 } // namespace
 
-int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
+int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ int) {
     // The manifest activates ComCtl32 version 6; this loads it and registers the
     // classes. Per-Monitor V2 awareness comes from the manifest too, so there is
     // no DPI call to make here.
