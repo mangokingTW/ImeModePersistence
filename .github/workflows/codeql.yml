@@ -38,8 +38,11 @@ jobs:
 
       - name: Build
         run: |
+          # Debug, not Release: CodeQL only needs the code compiled to build its
+          # database, so skipping optimisation shaves build time and changes no
+          # findings.
           cmake -S . -B build -A x64 -DBUILD_TESTING=OFF
-          cmake --build build --config Release
+          cmake --build build --config Debug
 
       - name: Analyze
         uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4
