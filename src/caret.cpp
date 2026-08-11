@@ -61,12 +61,41 @@ bool rect_from_range(IUIAutomationTextRange* range, RECT& out) {
     return false;
 }
 
+// Whether the focused element actually accepts typed input, so the badge is not
+// shown over a read-only page or a selectable label that merely happens to expose
+// a caret. An explicit read-only state is trusted when present; otherwise only an
+// edit-like control type counts.
+bool is_editable(IUIAutomationElement* element) {
+    CONTROLTYPEID controlType = 0;
+    element->get_CurrentControlType(&controlType);
+
+    VARIANT readOnly;
+    VariantInit(&readOnly);
+    if (SUCCEEDED(element->GetCurrentPropertyValue(UIA_ValueIsReadOnlyPropertyId, &readOnly))) {
+        const bool hasState = readOnly.vt == VT_BOOL;
+        const bool isReadOnly = hasState && readOnly.boolVal != VARIANT_FALSE;
+        VariantClear(&readOnly);
+        if (hasState) {
+            return !isReadOnly; // a document or field that reports its state
+        }
+    }
+
+    // No read-only information: trust an edit-like control type, and treat
+    // everything else (documents, panes, the desktop) as non-input.
+    return controlType == UIA_EditControlTypeId ||
+           controlType == UIA_ComboBoxControlTypeId;
+}
+
 bool uia_caret(IUIAutomation* automation, RECT& out) {
     if (!automation) {
         return false;
     }
     IUIAutomationElement* element = nullptr;
     if (FAILED(automation->GetFocusedElement(&element)) || !element) {
+        return false;
+    }
+    if (!is_editable(element)) {
+        element->Release();
         return false;
     }
     bool found = false;
