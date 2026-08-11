@@ -14,9 +14,11 @@ namespace overlay {
 // owner. Returns false if the window could not be created.
 bool init(HINSTANCE instance, HWND owner);
 
-// Positions the badge next to caretScreen (a caret rectangle in screen pixels),
-// sets its text and shows it without taking focus.
-void show(const RECT& caretScreen, const std::wstring& text);
+// Positions the badge at caretScreen (a caret rectangle in screen pixels), sets
+// its text and shows it without taking focus. When placeAbove is set the badge
+// sits above the line rather than beside the caret -- used where the caret
+// position is unreliable (a browser address bar), so it does not cover the text.
+void show(const RECT& caretScreen, const std::wstring& text, bool placeAbove);
 
 // Hides the badge without destroying it.
 void hide();

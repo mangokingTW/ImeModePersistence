@@ -1,7 +1,5 @@
 #include "overlay.h"
 
-#include "diagnostic.h"
-
 #include <algorithm>
 
 namespace overlay {
@@ -26,6 +24,7 @@ int g_fontHeight = 0;
 // Last shown state, so a steady stream of identical positions -- the common case
 // while the caret sits still -- does not repaint 10 times a second.
 bool g_shown = false;
+bool g_lastAbove = false;
 RECT g_lastCaret{};
 
 // A font sized to the caret so the badge tracks the target's text size and DPI.
@@ -106,19 +105,20 @@ bool init(HINSTANCE instance, HWND owner) {
     return true;
 }
 
-void show(const RECT& caretScreen, const std::wstring& text) {
+void show(const RECT& caretScreen, const std::wstring& text, bool placeAbove) {
     if (!g_hwnd) {
         return;
     }
 
-    // Nothing moved and the text is the same and it is already up: skip the
-    // reposition and repaint entirely.
-    if (g_shown && text == g_text &&
+    // Nothing moved and the text and placement are the same and it is already up:
+    // skip the reposition and repaint entirely.
+    if (g_shown && text == g_text && placeAbove == g_lastAbove &&
         EqualRect(&caretScreen, &g_lastCaret)) {
         return;
     }
     g_text = text;
     g_lastCaret = caretScreen;
+    g_lastAbove = placeAbove;
 
     const int caretHeight = caretScreen.bottom - caretScreen.top;
     const int basis = caretHeight > 0 ? caretHeight : 18;
@@ -135,36 +135,41 @@ void show(const RECT& caretScreen, const std::wstring& text) {
     const int width = size.cx + kPadX * 2;
     const int height = size.cy + kPadY * 2;
 
-    // Directly to the right of the caret, vertically centred on it and nudged up
-    // a little so it reads as sitting beside the insertion point rather than
-    // hanging off a corner.
-    const int caretMid = (caretScreen.top + caretScreen.bottom) / 2;
-    int x = caretScreen.right + kGap;
-    int y = caretMid - height / 2 - basis / 5;
+    int x;
+    int y;
+    if (placeAbove) {
+        // Above the line, aligned to the caret's left edge, so it does not cover
+        // the text in a field whose caret position cannot be tracked.
+        x = caretScreen.left;
+        y = caretScreen.top - kGap - height;
+    } else {
+        // Directly to the right of the caret, vertically centred on it and nudged
+        // up a little so it reads as sitting beside the insertion point.
+        const int caretMid = (caretScreen.top + caretScreen.bottom) / 2;
+        x = caretScreen.right + kGap;
+        y = caretMid - height / 2 - basis / 5;
+    }
 
-    // Keep the badge on the monitor the caret is on: flip to the left of the
-    // caret when there is no room on the right, and clamp vertically.
+    // Keep the badge on the monitor the caret is on, flipping to the other side
+    // when there is no room.
     MONITORINFO mi{};
     mi.cbSize = sizeof(mi);
     if (GetMonitorInfoW(MonitorFromRect(&caretScreen, MONITOR_DEFAULTTONEAREST), &mi)) {
         if (x + width > mi.rcWork.right) {
-            x = caretScreen.left - kGap - width;
+            x = placeAbove ? (mi.rcWork.right - width) : (caretScreen.left - kGap - width);
         }
         if (x < mi.rcWork.left) {
             x = mi.rcWork.left;
         }
+        if (y < mi.rcWork.top) {
+            // No room above: drop below the line instead of off the screen.
+            y = caretScreen.bottom + kGap;
+        }
         if (y + height > mi.rcWork.bottom) {
             y = mi.rcWork.bottom - height;
         }
-        if (y < mi.rcWork.top) {
-            y = mi.rcWork.top;
-        }
     }
 
-    diag::write_once(L"overlay: place (%d,%d) %dx%d for caret (%ld,%ld)-(%ld,%ld) work=(%ld,%ld)-(%ld,%ld)",
-                     x, y, width, height, caretScreen.left, caretScreen.top,
-                     caretScreen.right, caretScreen.bottom, mi.rcWork.left,
-                     mi.rcWork.top, mi.rcWork.right, mi.rcWork.bottom);
     SetWindowPos(g_hwnd, HWND_TOPMOST, x, y, width, height,
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
     InvalidateRect(g_hwnd, nullptr, TRUE);
