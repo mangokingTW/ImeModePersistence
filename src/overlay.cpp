@@ -8,9 +8,13 @@ namespace {
 constexpr wchar_t kClass[] = L"ImeModePersistenceIndicator";
 
 // Padding around the text and the gap between the caret and the badge.
-constexpr int kPadX = 5;
+constexpr int kPadX = 4;
 constexpr int kPadY = 2;
 constexpr int kGap = 3;
+
+// Layered-window opacity, out of 255. A little below fully opaque so the badge
+// reads as an overlay rather than covering what is under it.
+constexpr BYTE kAlpha = 200;
 
 HWND g_hwnd = nullptr;
 std::wstring g_text;
@@ -94,7 +98,7 @@ bool init(HINSTANCE instance, HWND owner) {
     if (!g_hwnd) {
         return false;
     }
-    SetLayeredWindowAttributes(g_hwnd, 0, 225, LWA_ALPHA);
+    SetLayeredWindowAttributes(g_hwnd, 0, kAlpha, LWA_ALPHA);
     return true;
 }
 
@@ -114,9 +118,8 @@ void show(const RECT& caretScreen, const std::wstring& text) {
 
     const int caretHeight = caretScreen.bottom - caretScreen.top;
     const int basis = caretHeight > 0 ? caretHeight : 18;
-    // ~80% of the caret height, so the badge reads as a little smaller than the
-    // text it sits beside.
-    ensure_font(std::clamp(basis * 4 / 5, 12, 30));
+    // ~60% of the caret height, so the badge sits unobtrusively beside the text.
+    ensure_font(std::clamp(basis * 3 / 5, 10, 24));
 
     HDC screen = GetDC(nullptr);
     HGDIOBJ previous = SelectObject(screen, g_font);
