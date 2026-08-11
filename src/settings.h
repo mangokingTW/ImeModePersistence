@@ -12,4 +12,10 @@ namespace settings {
 bool persist_mode();
 bool set_persist_mode(bool enabled);
 
+// Whether a small badge showing the current input language and mode is drawn next
+// to the text caret. Off by default: it is a heavier, always-on overlay that not
+// everyone wants, so it is opt-in from the tray menu.
+bool indicator_enabled();
+bool set_indicator_enabled(bool enabled);
+
 } // namespace settings

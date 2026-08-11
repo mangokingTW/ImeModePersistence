@@ -17,6 +17,8 @@
 #include "rules.h"
 #include "settings.h"
 #include "strings.h"
+#include "caret.h"
+#include "overlay.h"
 #include "presets.h"
 #include "schedule.h"
 #include "theme.h"
@@ -25,6 +27,7 @@
 namespace {
 
 constexpr UINT WMAPP_TRAY = WM_APP + 1;
+constexpr UINT WMAPP_CARET = WM_APP + 2;
 constexpr UINT_PTR TIMER_RESTORE = 1;
 constexpr UINT_PTR TIMER_OBSERVE = 2;
 constexpr UINT_PTR TIMER_LAYOUT = 3;
@@ -34,6 +37,7 @@ constexpr UINT ID_TRAY_RULES = 1003;
 constexpr UINT ID_TRAY_PERSIST = 1004;
 constexpr UINT ID_TRAY_ELEVATE = 1005;
 constexpr UINT ID_TRAY_LOG = 1006;
+constexpr UINT ID_TRAY_INDICATOR = 1007;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Session-local: one instance per interactive logon session is what we want, and
@@ -71,6 +75,10 @@ struct AppState {
 
     // When off, only per-application bindings act; the global carry-over stops.
     bool persistMode{true};
+
+    // When on, a badge showing the current input language and mode is drawn next
+    // to the caret. Off by default; the caret worker only runs while it is on.
+    bool indicatorEnabled{false};
 
     // IME conversion mode is per-thread and per-layout, not per-window: two
     // windows of the same thread share one mode, so identity is the (thread,
@@ -795,17 +803,68 @@ void layout_tick() {
     schedule_restore_attempt(hwnd);
 }
 
+// A one-token badge for the caret indicator: the glyph you will actually type --
+// the native-input glyph for a CJK layout, "A" when that layout is in
+// alphanumeric mode, or the ISO language code for a non-IME layout.
+std::wstring indicator_badge(HKL layout, ime::Mode mode) {
+    const LANGID language = layout::language_of(layout);
+    const WORD primary = PRIMARYLANGID(language);
+    const bool ime =
+        primary == LANG_CHINESE || primary == LANG_JAPANESE || primary == LANG_KOREAN;
+
+    if (ime) {
+        if (mode == ime::Mode::Alphanumeric) {
+            return L"A";
+        }
+        switch (primary) {
+        case LANG_CHINESE:
+            return L"中"; // 中
+        case LANG_JAPANESE:
+            return L"あ"; // あ
+        case LANG_KOREAN:
+            return L"가"; // 가
+        default:
+            break;
+        }
+    }
+
+    wchar_t iso[16]{};
+    if (GetLocaleInfoW(MAKELCID(language, SORT_DEFAULT), LOCALE_SISO639LANGNAME,
+                       iso, ARRAYSIZE(iso)) > 0) {
+        CharUpperW(iso);
+        return iso;
+    }
+    return L"?";
+}
+
 void observe_tick() {
     const HWND hwnd = GetForegroundWindow();
     if (!hwnd || own_window(hwnd) || ghost_window(hwnd)) {
         // Leaves the last real application's context in place, so neither our own
         // dialogs nor a dismissed Start menu looks like a context switch.
+        if (g_app.indicatorEnabled) {
+            overlay::hide();
+        }
         return;
     }
 
     const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
     if (!thread) {
         return;
+    }
+
+    if (g_app.indicatorEnabled) {
+        // Ask the worker for the caret position; the badge text is derived from
+        // the layout now and the last observed conversion mode. The result comes
+        // back as WMAPP_CARET, off the UI thread's critical path. Throttled to
+        // ~100 ms so the UI-Automation path does not run 20 times a second.
+        static ULONGLONG lastRequest = 0;
+        const ULONGLONG now = GetTickCount64();
+        if (now - lastRequest >= 100) {
+            lastRequest = now;
+            caret::request(thread,
+                           indicator_badge(GetKeyboardLayout(thread), g_app.observedMode));
+        }
     }
 
     if (thread != g_app.observedThread) {
@@ -995,6 +1054,21 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
 
+    case WMAPP_CARET: {
+        // The caret worker resolved a position (or could not). Take ownership of
+        // the result and either place the badge or hide it.
+        auto* result = reinterpret_cast<caret::Result*>(lParam);
+        if (result) {
+            if (g_app.indicatorEnabled && result->found) {
+                overlay::show(result->rect, result->text);
+            } else {
+                overlay::hide();
+            }
+            delete result;
+        }
+        return 0;
+    }
+
     case WMAPP_TRAY:
         if (lParam == WM_LBUTTONDBLCLK) {
             show_status();
@@ -1016,6 +1090,11 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     MF_STRING | (g_app.persistMode ? MF_CHECKED : MF_UNCHECKED),
                     ID_TRAY_PERSIST,
                     text::s().menuPersist);
+                AppendMenuW(
+                    menu,
+                    MF_STRING | (g_app.indicatorEnabled ? MF_CHECKED : MF_UNCHECKED),
+                    ID_TRAY_INDICATOR,
+                    text::s().menuIndicator);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
                 if (!autostart::elevated()) {
                     // Hidden rather than greyed when already elevated: a disabled
@@ -1073,6 +1152,19 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             cancel_restore();
             return 0;
         }
+        if (LOWORD(wParam) == ID_TRAY_INDICATOR) {
+            g_app.indicatorEnabled = !g_app.indicatorEnabled;
+            settings::set_indicator_enabled(g_app.indicatorEnabled);
+            diag::write(L"user: caret indicator -> %s",
+                        g_app.indicatorEnabled ? L"on" : L"off");
+            if (g_app.indicatorEnabled) {
+                caret::start(g_app.hwnd, WMAPP_CARET);
+            } else {
+                caret::stop();
+                overlay::hide();
+            }
+            return 0;
+        }
         if (LOWORD(wParam) == ID_TRAY_LOG) {
             const std::wstring file = diag::path();
             if (!file.empty()) {
@@ -1110,6 +1202,8 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             UnhookWinEvent(g_app.foregroundHook);
             g_app.foregroundHook = nullptr;
         }
+        caret::stop();
+        overlay::destroy();
         set_tray_icon(false);
         PostQuitMessage(0);
         return 0;
@@ -1213,6 +1307,14 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     }
 
     note_context_switch(GetForegroundWindow());
+
+    // The caret indicator: create its (hidden) overlay window always, but only
+    // spin up the UI-Automation worker when the feature is actually on.
+    g_app.indicatorEnabled = settings::indicator_enabled();
+    overlay::init(instance, g_app.hwnd);
+    if (g_app.indicatorEnabled) {
+        caret::start(g_app.hwnd, WMAPP_CARET);
+    }
 
     // Polling is intentional: it is what lets us tell a mode change made while
     // the same window stays focused apart from one caused by switching windows.
