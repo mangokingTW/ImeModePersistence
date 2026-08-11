@@ -174,11 +174,15 @@ bool classic_caret(DWORD thread, RECT& out) {
     return true;
 }
 
-bool resolve(IUIAutomation* automation, DWORD thread, RECT& out) {
+// Returns which tier resolved the caret: 0 none, 1 classic, 2 UI Automation.
+int resolve(IUIAutomation* automation, DWORD thread, RECT& out) {
     if (classic_caret(thread, out)) {
-        return true;
+        return 1;
     }
-    return uia_caret(automation, out);
+    if (uia_caret(automation, out)) {
+        return 2;
+    }
+    return 0;
 }
 
 void worker_main() {
@@ -211,9 +215,9 @@ void worker_main() {
         }
 
         RECT rect{};
-        const bool found = resolve(automation, thread, rect);
+        const int tier = resolve(automation, thread, rect);
 
-        Result* result = new Result{rect, std::move(text), found};
+        Result* result = new Result{rect, std::move(text), tier != 0, tier};
         if (!PostMessageW(g_uiWindow, g_resultMessage, 0,
                           reinterpret_cast<LPARAM>(result))) {
             delete result;
