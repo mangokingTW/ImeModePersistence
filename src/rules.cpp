@@ -27,6 +27,66 @@ LANGID read(const std::wstring& key) {
 } // namespace
 
 const wchar_t* const kClassPrefix = L"class:";
+const wchar_t* const kGlobPrefix = L"glob:";
+const wchar_t* const kClassGlobPrefix = L"class-glob:";
+
+bool matches_glob(const std::wstring& pattern, const std::wstring& text) {
+    // Iterative wildcard match with backtracking on '*'. Linear in practice and,
+    // unlike std::regex, has no catastrophic-backtracking failure mode, so a
+    // hand-written or pasted pattern can never hang the focus-change path.
+    const wchar_t* p = pattern.c_str();
+    const wchar_t* s = text.c_str();
+    const wchar_t* star = nullptr;   // last '*' in the pattern, for backtracking
+    const wchar_t* resume = nullptr; // where in the text to resume after it
+    while (*s) {
+        if (*p == L'?' || *p == *s) {
+            ++p;
+            ++s;
+        } else if (*p == L'*') {
+            star = p++;
+            resume = s;
+        } else if (star) {
+            // The run matched by '*' was too short; let it swallow one more.
+            p = star + 1;
+            s = ++resume;
+        } else {
+            return false;
+        }
+    }
+    while (*p == L'*') {
+        ++p;
+    }
+    return *p == L'\0';
+}
+
+// First matching glob under the given prefix, most specific (longest pattern)
+// first. Ties break by ordinal comparison so the answer never depends on the
+// order the registry happens to enumerate values in.
+LANGID best_glob(const std::vector<Rule>& all, const std::wstring& prefix,
+                 const std::wstring& subject) {
+    if (subject.empty()) {
+        return 0;
+    }
+    const size_t plen = prefix.size();
+    LANGID result = 0;
+    std::wstring bestPattern;
+    for (const Rule& rule : all) {
+        if (rule.executable.size() <= plen ||
+            rule.executable.compare(0, plen, prefix) != 0) {
+            continue;
+        }
+        const std::wstring pattern = rule.executable.substr(plen);
+        if (!matches_glob(pattern, subject)) {
+            continue;
+        }
+        if (result == 0 || pattern.size() > bestPattern.size() ||
+            (pattern.size() == bestPattern.size() && pattern < bestPattern)) {
+            bestPattern = pattern;
+            result = rule.language;
+        }
+    }
+    return result;
+}
 
 const std::wstring& storage_key() {
     return g_key;
@@ -121,27 +181,43 @@ bool clear(const std::wstring& executable) {
 }
 
 LANGID lookup(const std::wstring& path, const std::wstring& windowClass) {
+    const std::wstring loweredPath = lower(path);
+    const std::wstring loweredClass = lower(windowClass);
+
     // Most specific first, so a rule naming one particular copy of an application
     // wins over one naming its file name, which in turn wins over a class rule
     // that could match several unrelated windows.
-    if (!path.empty()) {
-        const std::wstring key = lower(path);
-        if (const LANGID byPath = read(key); byPath != 0) {
+    if (!loweredPath.empty()) {
+        if (const LANGID byPath = read(loweredPath); byPath != 0) {
             return byPath;
         }
 
-        const std::wstring name = file_name_of(key);
-        if (name != key) {
+        const std::wstring name = file_name_of(loweredPath);
+        if (name != loweredPath) {
             if (const LANGID byName = read(name); byName != 0) {
                 return byName;
             }
         }
     }
 
-    if (!windowClass.empty()) {
-        return read(kClassPrefix + lower(windowClass));
+    if (!loweredClass.empty()) {
+        if (const LANGID byClass = read(kClassPrefix + loweredClass); byClass != 0) {
+            return byClass;
+        }
     }
-    return 0;
+
+    // No literal rule matched. Wildcard rules are the fallback: they need the
+    // whole set loaded and scanned, which is affordable only because lookup runs
+    // on a focus change, never on the fast tooltip poll. Path globs are more
+    // specific than class globs, so try them first.
+    if (loweredPath.empty() && loweredClass.empty()) {
+        return 0;
+    }
+    const std::vector<Rule> all = load();
+    if (const LANGID byPathGlob = best_glob(all, kGlobPrefix, loweredPath); byPathGlob != 0) {
+        return byPathGlob;
+    }
+    return best_glob(all, kClassGlobPrefix, loweredClass);
 }
 
 std::wstring executable_of(HWND hwnd) {
