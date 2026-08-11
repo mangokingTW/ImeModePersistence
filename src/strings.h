@@ -16,6 +16,7 @@ struct Strings {
     const wchar_t* tooltipUnelevated;
 
     const wchar_t* menuPersist;
+    const wchar_t* menuIndicator;
     const wchar_t* menuAutostart;
     const wchar_t* menuElevate;
     const wchar_t* menuRules;

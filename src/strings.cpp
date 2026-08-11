@@ -9,6 +9,7 @@ const Strings kEnglish{
     .tooltipUnelevated = L"\nNormal privileges - elevated programs are invisible",
 
     .menuPersist = L"Keep mode across windows",
+    .menuIndicator = L"Show input indicator at the cursor",
     .menuAutostart = L"Start automatically at logon",
     .menuElevate = L"Restart as administrator",
     .menuRules = L"App language bindings...",
@@ -87,6 +88,7 @@ const Strings kTraditionalChinese{
     .tooltipUnelevated = L"\n一般權限 － 看不到提權的程式",
 
     .menuPersist = L"跨程式維持輸入模式",
+    .menuIndicator = L"在游標旁顯示輸入指示",
     .menuAutostart = L"開機時自動啟動",
     .menuElevate = L"以管理員身分重新啟動",
     .menuRules = L"程式綁定輸入語言...",
