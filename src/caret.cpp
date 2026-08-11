@@ -94,19 +94,21 @@ bool is_editable(IUIAutomationElement* element) {
            controlType == UIA_ComboBoxControlTypeId;
 }
 
-bool uia_caret(IUIAutomation* automation, RECT& out) {
+// Returns 0 if no caret, 2 if resolved from the caret range, 3 if from the
+// selection fallback -- the distinction is logged to tell the two apart.
+int uia_caret(IUIAutomation* automation, RECT& out) {
     if (!automation) {
-        return false;
+        return 0;
     }
     IUIAutomationElement* element = nullptr;
     if (FAILED(automation->GetFocusedElement(&element)) || !element) {
-        return false;
+        return 0;
     }
     if (!is_editable(element)) {
         element->Release();
-        return false;
+        return 0;
     }
-    bool found = false;
+    int source = 0;
 
     IUnknown* unknown = nullptr;
     if (SUCCEEDED(element->GetCurrentPattern(UIA_TextPattern2Id, &unknown)) && unknown) {
@@ -117,7 +119,9 @@ bool uia_caret(IUIAutomation* automation, RECT& out) {
             BOOL active = FALSE;
             IUIAutomationTextRange* range = nullptr;
             if (SUCCEEDED(pattern->GetCaretRange(&active, &range)) && range) {
-                found = rect_from_range(range, out);
+                if (rect_from_range(range, out)) {
+                    source = 2;
+                }
                 range->Release();
             }
             pattern->Release();
@@ -125,7 +129,7 @@ bool uia_caret(IUIAutomation* automation, RECT& out) {
         unknown->Release();
     }
 
-    if (!found) {
+    if (source == 0) {
         // Where TextPattern2 is unavailable, the selection's start is the caret
         // when nothing is selected.
         IUnknown* textUnknown = nullptr;
@@ -142,7 +146,9 @@ bool uia_caret(IUIAutomation* automation, RECT& out) {
                     if (length > 0) {
                         IUIAutomationTextRange* range = nullptr;
                         if (SUCCEEDED(selection->GetElement(0, &range)) && range) {
-                            found = rect_from_range(range, out);
+                            if (rect_from_range(range, out)) {
+                                source = 3;
+                            }
                             range->Release();
                         }
                     }
@@ -155,7 +161,7 @@ bool uia_caret(IUIAutomation* automation, RECT& out) {
     }
 
     element->Release();
-    return found;
+    return source;
 }
 
 // Tier 1: the classic OS caret, read without attaching to the target thread.
@@ -174,15 +180,13 @@ bool classic_caret(DWORD thread, RECT& out) {
     return true;
 }
 
-// Returns which tier resolved the caret: 0 none, 1 classic, 2 UI Automation.
+// Which path resolved the caret: 0 none, 1 classic caret, 2 UIA caret range,
+// 3 UIA selection fallback.
 int resolve(IUIAutomation* automation, DWORD thread, RECT& out) {
     if (classic_caret(thread, out)) {
         return 1;
     }
-    if (uia_caret(automation, out)) {
-        return 2;
-    }
-    return 0;
+    return uia_caret(automation, out);
 }
 
 void worker_main() {
