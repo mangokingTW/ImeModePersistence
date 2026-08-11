@@ -60,7 +60,8 @@ const Strings kEnglish{
     .hintIntro = L"An application bound to a language switches to it when you "
                  L"activate that application. Where one language has several IMEs "
                  L"installed, the first is used.",
-    .hintNeedExecutable = L"Enter a path, an executable name such as notepad.exe, or a class: key.",
+    .hintNeedExecutable = L"Enter a path, an executable name such as notepad.exe, or a class: key. "
+                          L"Wildcards: glob:*\\game.exe (path) or class-glob:name_* (class); * and ?.",
     .hintNeedLayout = L"No input language is selected.",
     .hintWriteFailed = L"Could not write the rule to the registry.",
     .hintBoundFormat = L"%s is now bound to %s.",
@@ -135,7 +136,8 @@ const Strings kTraditionalChinese{
     .buttonClose = L"關閉",
 
     .hintIntro = L"綁定後，切到該程式就會自動切換到綁定的輸入語言。同一語言裝了多個輸入法（例如注音與倉頡）時，會使用第一個已安裝的。",
-    .hintNeedExecutable = L"請輸入路徑、執行檔名稱（例如 notepad.exe），或 class: 開頭的類別鍵值。",
+    .hintNeedExecutable = L"請輸入路徑、執行檔名稱（例如 notepad.exe），或 class: 開頭的類別鍵值。"
+                          L"萬用字元：glob:*\\game.exe（路徑）或 class-glob:name_*（類別），支援 * 與 ?。",
     .hintNeedLayout = L"尚未選擇輸入語言。",
     .hintWriteFailed = L"無法將規則寫入登錄。",
     .hintBoundFormat = L"%s 已綁定到 %s。",
