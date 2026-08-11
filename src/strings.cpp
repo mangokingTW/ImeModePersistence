@@ -45,6 +45,9 @@ const Strings kEnglish{
     .errorTitle = L"ImeModePersistence",
     .errorAutostart = L"Could not update the Run registry entry.",
     .errorHook = L"SetWinEventHook failed.",
+    .notifyElevateTitle = L"IME Mode Persistence",
+    .notifyElevateText = L"This program needs administrator access to switch its input. "
+                         L"Use \"Restart as administrator\" in the tray menu.",
 
     .rulesCaption = L"ImeModePersistence - app language bindings",
     .rulesHeader = L"Applications bound to an input language:",
@@ -124,6 +127,9 @@ const Strings kTraditionalChinese{
     .errorTitle = L"輸入法模式延續",
     .errorAutostart = L"無法更新開機啟動的登錄項目。",
     .errorHook = L"SetWinEventHook 失敗。",
+    .notifyElevateTitle = L"輸入法模式延續",
+    .notifyElevateText = L"需要以管理員身分才能切換這個程式的輸入法。"
+                         L"請用托盤選單的「以管理員身分重新啟動」。",
 
     .rulesCaption = L"輸入法模式延續 － 程式綁定輸入語言",
     .rulesHeader = L"已綁定輸入語言的程式：",

@@ -80,6 +80,12 @@ struct AppState {
     // to the caret. Off by default; the caret worker only runs while it is on.
     bool indicatorEnabled{false};
 
+    // Set once a "needs administrator" notification has been shown, so a bound
+    // layout that keeps being refused against a protected target (an anti-cheat
+    // game, while this process is unelevated) prompts the user a single time
+    // rather than on every lost round.
+    bool elevationHintShown{false};
+
     // IME conversion mode is per-thread and per-layout, not per-window: two
     // windows of the same thread share one mode, so identity is the (thread,
     // layout) pair rather than the HWND.
@@ -197,6 +203,18 @@ void show_message(const wchar_t* title, const wchar_t* body, bool error) {
 
 void show_error(const wchar_t* body) {
     show_message(text::s().errorTitle, body, true);
+}
+
+// A tray balloon / toast, reusing the live icon's window and id. Used sparingly:
+// once, to point the user at "Restart as administrator" when a bound layout
+// cannot be applied to a protected target.
+void show_notification(const wchar_t* title, const wchar_t* body) {
+    NOTIFYICONDATAW data = g_app.tray;
+    data.uFlags = NIF_INFO;
+    data.dwInfoFlags = NIIF_INFO;
+    StringCchCopyW(data.szInfoTitle, ARRAYSIZE(data.szInfoTitle), title);
+    StringCchCopyW(data.szInfo, ARRAYSIZE(data.szInfo), body);
+    Shell_NotifyIconW(NIM_MODIFY, &data);
 }
 
 // ime::mode_name stays in English so the adapter has no opinion on presentation.
@@ -459,6 +477,16 @@ void schedule_restore_attempt(HWND hwnd) {
             g_app.layoutCooldownUntil = GetTickCount64() + cooldown;
             diag::write(L"layout: leaving this target alone for %u ms (%d rounds lost)",
                         cooldown, g_app.lostRounds);
+
+            // A bound layout that will not take while this process is unelevated
+            // is almost always a protected target (an anti-cheat game) refusing a
+            // lower-integrity caller. Point the user at elevation once -- the log
+            // alone made this invisible.
+            if (!autostart::elevated() && !g_app.elevationHintShown) {
+                g_app.elevationHintShown = true;
+                diag::write(L"notify: suggesting elevation for a refused binding");
+                show_notification(text::s().notifyElevateTitle, text::s().notifyElevateText);
+            }
         }
 
         const ime::Mode settled = ime::query_state(hwnd).mode;
