@@ -215,6 +215,101 @@ void garbage_in_the_registry_is_ignored() {
     wipe();
 }
 
+void glob_matcher_semantics() {
+    // '*' spans any run, path separators included, so one pattern can reach an
+    // executable at any depth.
+    CHECK(rules::matches_glob(L"*", L"anything"));
+    CHECK(rules::matches_glob(L"*\\game.exe", L"c:\\games\\deep\\dir\\game.exe"));
+    CHECK(rules::matches_glob(L"c:\\games\\*\\game.exe", L"c:\\games\\hd2\\game.exe"));
+
+    // '?' is exactly one character -- no more, no fewer.
+    CHECK(rules::matches_glob(L"game?.exe", L"game2.exe"));
+    CHECK(!rules::matches_glob(L"game?.exe", L"game.exe"));
+    CHECK(!rules::matches_glob(L"game?.exe", L"game22.exe"));
+
+    // The pattern is anchored at both ends: a match must cover the whole string,
+    // or a rule for "steam.exe" would fire on "not-steam.exe.bak".
+    CHECK(!rules::matches_glob(L"game.exe", L"mygame.exe"));
+    CHECK(!rules::matches_glob(L"game.exe", L"game.exe.bak"));
+
+    // Trailing stars can match nothing, a common shape for a prefix rule.
+    CHECK(rules::matches_glob(L"chrome_widgetwin_*", L"chrome_widgetwin_"));
+    CHECK(rules::matches_glob(L"chrome_widgetwin_*", L"chrome_widgetwin_1"));
+    CHECK(!rules::matches_glob(L"chrome_widgetwin_*", L"chrome_widgetwi"));
+}
+
+void path_globs_match_variable_locations() {
+    wipe();
+
+    // The point of a path glob: the same game installed on any drive or Steam
+    // library, without one rule per copy.
+    CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"*\\helldivers2.exe", kEnglish));
+    CHECK(rules::lookup(L"c:\\steam\\common\\hd2\\helldivers2.exe", L"") == kEnglish);
+    CHECK(rules::lookup(L"d:\\games\\helldivers2.exe", L"") == kEnglish);
+
+    // Still anchored: a different executable is not swept up.
+    CHECK(rules::lookup(L"c:\\steam\\common\\other.exe", L"") == 0);
+
+    wipe();
+}
+
+void class_globs_match_generated_suffixes() {
+    wipe();
+
+    // A window class with a generated numeric suffix -- the shape Chromium and
+    // Unity windows take -- matched without knowing the exact number.
+    CHECK(rules::set(std::wstring(rules::kClassGlobPrefix) + L"chrome_widgetwin_*", kChinese));
+    CHECK(rules::lookup(L"", L"chrome_widgetwin_1") == kChinese);
+    CHECK(rules::lookup(L"", L"chrome_widgetwin_2") == kChinese);
+    CHECK(rules::lookup(L"", L"notepad") == 0);
+
+    wipe();
+}
+
+void exact_rules_beat_globs() {
+    wipe();
+
+    // An exact rule and a glob that both match the same window: the literal one
+    // must win, so a broad glob never overrides a deliberately specific binding.
+    CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"*\\thing.exe", kChinese));
+    CHECK(rules::set(L"thing.exe", kEnglish));
+    const LANGID both = rules::lookup(L"c:\\a\\thing.exe", L"");
+    CHECK_MSG(both == kEnglish, "exact name should win over glob, got 0x%04X",
+              static_cast<unsigned>(both));
+
+    // With the exact rule gone, the glob is what remains.
+    CHECK(rules::clear(L"thing.exe"));
+    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"") == kChinese);
+
+    wipe();
+}
+
+void longest_glob_is_most_specific() {
+    wipe();
+
+    // Two overlapping globs match the same path; the longer, more specific
+    // pattern wins, and the result does not depend on registry order.
+    CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"*.exe", kChinese));
+    CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"c:\\games\\*\\game.exe", kEnglish));
+    const LANGID picked = rules::lookup(L"c:\\games\\hd2\\game.exe", L"");
+    CHECK_MSG(picked == kEnglish, "longer glob should win, got 0x%04X",
+              static_cast<unsigned>(picked));
+
+    wipe();
+}
+
+void globs_are_case_insensitive() {
+    wipe();
+
+    // The pattern is typed by the user; the subject comes from the system in
+    // whatever case it likes. set() lower-cases the key, lookup lower-cases the
+    // subject, so the two always meet.
+    CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"*\\Game.EXE", kEnglish));
+    CHECK(rules::lookup(L"C:\\Games\\HD2\\GAME.exe", L"") == kEnglish);
+
+    wipe();
+}
+
 } // namespace
 
 void run_rules_tests() {
@@ -237,6 +332,12 @@ void run_rules_tests() {
     clearing_is_idempotent();
     load_lists_what_was_set();
     garbage_in_the_registry_is_ignored();
+    glob_matcher_semantics();
+    path_globs_match_variable_locations();
+    class_globs_match_generated_suffixes();
+    exact_rules_beat_globs();
+    longest_glob_is_most_specific();
+    globs_are_case_insensitive();
 
     wipe();
 }
