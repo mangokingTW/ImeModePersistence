@@ -12,9 +12,9 @@ constexpr int kPadX = 4;
 constexpr int kPadY = 2;
 constexpr int kGap = 3;
 
-// Layered-window opacity, out of 255. A little below fully opaque so the badge
-// reads as an overlay rather than covering what is under it.
-constexpr BYTE kAlpha = 200;
+// Layered-window opacity, out of 255. Well below opaque so the badge reads as a
+// faint overlay rather than covering what is under it.
+constexpr BYTE kAlpha = 160;
 
 HWND g_hwnd = nullptr;
 std::wstring g_text;
@@ -118,8 +118,8 @@ void show(const RECT& caretScreen, const std::wstring& text) {
 
     const int caretHeight = caretScreen.bottom - caretScreen.top;
     const int basis = caretHeight > 0 ? caretHeight : 18;
-    // ~60% of the caret height, so the badge sits unobtrusively beside the text.
-    ensure_font(std::clamp(basis * 3 / 5, 10, 24));
+    // ~40% of the caret height, so the badge sits unobtrusively beside the text.
+    ensure_font(std::clamp(basis * 2 / 5, 9, 18));
 
     HDC screen = GetDC(nullptr);
     HGDIOBJ previous = SelectObject(screen, g_font);

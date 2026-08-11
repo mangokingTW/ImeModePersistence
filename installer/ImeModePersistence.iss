@@ -279,6 +279,7 @@ function InitializeSetup(): Boolean;
 var
   Command, Installed: String;
   Comparison: Integer;
+  Labels: TArrayOfString;
 begin
   Result := True;
 
@@ -300,12 +301,18 @@ begin
 
   if Comparison > 0 then
   begin
-    case SuppressibleMsgBox(
-           '{#AppName} ' + Installed + ' is installed, which is newer than this ' +
-           'installer ({#AppVersion}).' + #13#10#13#10 +
-           'Yes' + #9 + '- remove the installed version' + #13#10 +
-           'No' + #9 + '- downgrade to {#AppVersion}',
-           mbConfirmation, MB_YESNOCANCEL, IDCANCEL) of
+    { Custom button text so the buttons say what they do; a plain Yes/No/Cancel
+      box left the reader to map the words onto actions in the body text.
+      TaskDialogMsgBox relabels the standard buttons but still returns
+      IDYES/IDNO/IDCANCEL. }
+    SetArrayLength(Labels, 3);
+    Labels[0] := 'Remove the installed version';
+    Labels[1] := 'Downgrade to {#AppVersion}';
+    Labels[2] := 'Cancel';
+    case SuppressibleTaskDialogMsgBox(
+           '{#AppName} ' + Installed + ' is installed',
+           'That is newer than this installer ({#AppVersion}).',
+           mbConfirmation, MB_YESNOCANCEL, Labels, 0, IDCANCEL) of
       IDYES:
         begin
           RemoveInstalledCopy(Command);
@@ -318,12 +325,15 @@ begin
   end;
 
   { Same version, so there is nothing to update and the useful choices are
-    repairing the existing copy or removing it. }
-  case SuppressibleMsgBox(
-         '{#AppName} {#AppVersion} is already installed and up to date.' + #13#10#13#10 +
-         'Yes' + #9 + '- remove it' + #13#10 +
-         'No' + #9 + '- reinstall over the existing copy',
-         mbConfirmation, MB_YESNOCANCEL, IDNO) of
+    reinstalling over the existing copy or removing it. }
+  SetArrayLength(Labels, 3);
+  Labels[0] := 'Remove it';
+  Labels[1] := 'Reinstall over the existing copy';
+  Labels[2] := 'Cancel';
+  case SuppressibleTaskDialogMsgBox(
+         '{#AppName} {#AppVersion} is already installed and up to date.',
+         'You can reinstall over the existing copy or remove it.',
+         mbConfirmation, MB_YESNOCANCEL, Labels, 0, IDNO) of
     IDYES:
       begin
         RemoveInstalledCopy(Command);

@@ -25,6 +25,14 @@ std::wstring g_text;
 // for it, so on the first empty result widen the range to the character at the
 // caret and ask again -- that yields the glyph cell to sit the badge beside.
 bool rect_from_range(IUIAutomationTextRange* range, RECT& out) {
+    // Anchor at the insertion point. Some controls -- Chromium's omnibox among
+    // them -- hand back a range spanning from the start of the text to the caret
+    // rather than a degenerate caret, and its first bounding rectangle is then
+    // the far-left start of the text. Collapsing the range onto its end endpoint
+    // makes it degenerate at the caret; on a range that is already degenerate
+    // this is a no-op.
+    range->MoveEndpointByRange(TextPatternRangeEndpoint_Start, range,
+                              TextPatternRangeEndpoint_End);
     for (int attempt = 0; attempt < 2; ++attempt) {
         SAFEARRAY* bounds = nullptr;
         if (SUCCEEDED(range->GetBoundingRectangles(&bounds)) && bounds) {
