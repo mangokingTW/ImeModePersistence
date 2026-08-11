@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
 
 PackageIdentifier: mangokingTW.ImeModePersistence
-PackageVersion: 0.9.24
+PackageVersion: 0.9.25
 InstallerLocale: en-US
 InstallerType: inno
 Scope: user
@@ -16,23 +16,23 @@ ReleaseDate: 2026-08-11
 # asset and hash.
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/mangokingTW/ImeModePersistence/releases/download/v0.9.24/ImeModePersistence-0.9.24-setup-user.exe
-    InstallerSha256: 49F4AE7AFDB11DE8E2F1F76A767AD2F23AC7D66E088E276D7B9628B3D4FFE93A
+    InstallerUrl: https://github.com/mangokingTW/ImeModePersistence/releases/download/v0.9.25/ImeModePersistence-0.9.25-setup-user.exe
+    InstallerSha256: 166B9D82DFCDB2A86A74B7798C99A6CEAB02798698464DB7A8C2204CFD2E4109
     ProductCode: '{609AC807-6D9F-4D06-8F8D-AC65E29869D5}_is1'
     AppsAndFeaturesEntries:
       - DisplayName: ImeModePersistence
         Publisher: mangokingTW
-        DisplayVersion: 0.9.24
+        DisplayVersion: 0.9.25
         ProductCode: '{609AC807-6D9F-4D06-8F8D-AC65E29869D5}_is1'
         InstallerType: inno
   - Architecture: x86
-    InstallerUrl: https://github.com/mangokingTW/ImeModePersistence/releases/download/v0.9.24/ImeModePersistence-0.9.24-setup-user.exe
-    InstallerSha256: 49F4AE7AFDB11DE8E2F1F76A767AD2F23AC7D66E088E276D7B9628B3D4FFE93A
+    InstallerUrl: https://github.com/mangokingTW/ImeModePersistence/releases/download/v0.9.25/ImeModePersistence-0.9.25-setup-user.exe
+    InstallerSha256: 166B9D82DFCDB2A86A74B7798C99A6CEAB02798698464DB7A8C2204CFD2E4109
     ProductCode: '{609AC807-6D9F-4D06-8F8D-AC65E29869D5}_is1'
     AppsAndFeaturesEntries:
       - DisplayName: ImeModePersistence
         Publisher: mangokingTW
-        DisplayVersion: 0.9.24
+        DisplayVersion: 0.9.25
         ProductCode: '{609AC807-6D9F-4D06-8F8D-AC65E29869D5}_is1'
         InstallerType: inno
 ManifestType: installer
