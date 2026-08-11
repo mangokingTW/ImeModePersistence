@@ -10,3 +10,12 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+  # The fuzzing base image is pinned by digest in .clusterfuzzlite/Dockerfile.
+  # This keeps that digest current: Dependabot bumps it when OSS-Fuzz publishes a
+  # new base-builder, so the pin stays reproducible without going stale.
+  - package-ecosystem: docker
+    directory: /.clusterfuzzlite
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
