@@ -147,8 +147,13 @@ bool resolve(IUIAutomation* automation, DWORD thread, RECT& out) {
 void worker_main() {
     const HRESULT initialised = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
     IUIAutomation* automation = nullptr;
-    CoCreateInstance(__uuidof(CUIAutomation), nullptr, CLSCTX_INPROC_SERVER,
-                     __uuidof(IUIAutomation), reinterpret_cast<void**>(&automation));
+    if (FAILED(CoCreateInstance(__uuidof(CUIAutomation), nullptr, CLSCTX_INPROC_SERVER,
+                                __uuidof(IUIAutomation),
+                                reinterpret_cast<void**>(&automation)))) {
+        // Tier 2 is unavailable; classic_caret (Tier 1) still works, and every
+        // UIA call is guarded by a null check on automation.
+        automation = nullptr;
+    }
 
     while (g_running.load()) {
         WaitForSingleObject(g_wake, INFINITE);
