@@ -813,16 +813,18 @@ std::wstring indicator_badge(HKL layout, ime::Mode mode) {
         primary == LANG_CHINESE || primary == LANG_JAPANESE || primary == LANG_KOREAN;
 
     if (ime) {
-        if (mode == ime::Mode::Alphanumeric) {
-            return L"A";
-        }
+        // Full-width glyphs for both states so the badge keeps a steady width as
+        // it toggles -- a half-width "A" next to a full-width "中" reads as
+        // lopsided. Chinese uses the conventional 中/英 pair; Japanese and Korean
+        // pair their native glyph with a full-width Ａ (U+FF21).
+        const bool alpha = mode == ime::Mode::Alphanumeric;
         switch (primary) {
         case LANG_CHINESE:
-            return L"中"; // 中
+            return alpha ? L"英" : L"中";
         case LANG_JAPANESE:
-            return L"あ"; // あ
+            return alpha ? L"Ａ" : L"あ";
         case LANG_KOREAN:
-            return L"가"; // 가
+            return alpha ? L"Ａ" : L"가";
         default:
             break;
         }
