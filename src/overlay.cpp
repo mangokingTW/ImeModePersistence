@@ -8,9 +8,9 @@ namespace {
 constexpr wchar_t kClass[] = L"ImeModePersistenceIndicator";
 
 // Padding around the text and the gap between the caret and the badge.
-constexpr int kPadX = 7;
-constexpr int kPadY = 3;
-constexpr int kGap = 2;
+constexpr int kPadX = 5;
+constexpr int kPadY = 2;
+constexpr int kGap = 3;
 
 HWND g_hwnd = nullptr;
 std::wstring g_text;
@@ -113,7 +113,10 @@ void show(const RECT& caretScreen, const std::wstring& text) {
     g_lastCaret = caretScreen;
 
     const int caretHeight = caretScreen.bottom - caretScreen.top;
-    ensure_font(std::clamp(caretHeight > 0 ? caretHeight : 18, 14, 36));
+    const int basis = caretHeight > 0 ? caretHeight : 18;
+    // ~80% of the caret height, so the badge reads as a little smaller than the
+    // text it sits beside.
+    ensure_font(std::clamp(basis * 4 / 5, 12, 30));
 
     HDC screen = GetDC(nullptr);
     HGDIOBJ previous = SelectObject(screen, g_font);
@@ -125,22 +128,26 @@ void show(const RECT& caretScreen, const std::wstring& text) {
     const int width = size.cx + kPadX * 2;
     const int height = size.cy + kPadY * 2;
 
-    int x = caretScreen.left;
-    int y = caretScreen.bottom + kGap;
+    // Directly to the right of the caret, vertically centred on it and nudged up
+    // a little so it reads as sitting beside the insertion point rather than
+    // hanging off a corner.
+    const int caretMid = (caretScreen.top + caretScreen.bottom) / 2;
+    int x = caretScreen.right + kGap;
+    int y = caretMid - height / 2 - basis / 5;
 
-    // Keep the badge on the monitor the caret is on, flipping above the caret
-    // when there is no room below.
+    // Keep the badge on the monitor the caret is on: flip to the left of the
+    // caret when there is no room on the right, and clamp vertically.
     MONITORINFO mi{};
     mi.cbSize = sizeof(mi);
     if (GetMonitorInfoW(MonitorFromRect(&caretScreen, MONITOR_DEFAULTTONEAREST), &mi)) {
         if (x + width > mi.rcWork.right) {
-            x = mi.rcWork.right - width;
+            x = caretScreen.left - kGap - width;
         }
         if (x < mi.rcWork.left) {
             x = mi.rcWork.left;
         }
         if (y + height > mi.rcWork.bottom) {
-            y = caretScreen.top - kGap - height;
+            y = mi.rcWork.bottom - height;
         }
         if (y < mi.rcWork.top) {
             y = mi.rcWork.top;

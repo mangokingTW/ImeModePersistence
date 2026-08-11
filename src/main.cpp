@@ -854,16 +854,21 @@ void observe_tick() {
     }
 
     if (g_app.indicatorEnabled) {
-        // Ask the worker for the caret position; the badge text is derived from
-        // the layout now and the last observed conversion mode. The result comes
-        // back as WMAPP_CARET, off the UI thread's critical path. Throttled to
-        // ~100 ms so the UI-Automation path does not run 20 times a second.
+        // The badge text is derived from the layout now and the last observed
+        // conversion mode; the result comes back as WMAPP_CARET, off the UI
+        // thread's critical path. A change in what would be shown -- a language
+        // or mode switch -- is sent at once so the badge updates within a tick;
+        // an unchanged badge only refreshes its position, throttled to ~100 ms so
+        // the UI-Automation path does not run 20 times a second.
+        const std::wstring badge =
+            indicator_badge(GetKeyboardLayout(thread), g_app.observedMode);
+        static std::wstring lastBadge;
         static ULONGLONG lastRequest = 0;
         const ULONGLONG now = GetTickCount64();
-        if (now - lastRequest >= 100) {
+        if (badge != lastBadge || now - lastRequest >= 100) {
+            lastBadge = badge;
             lastRequest = now;
-            caret::request(thread,
-                           indicator_badge(GetKeyboardLayout(thread), g_app.observedMode));
+            caret::request(thread, badge);
         }
     }
 
