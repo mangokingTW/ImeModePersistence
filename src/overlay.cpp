@@ -40,9 +40,11 @@ HFONT ensure_font(int height) {
     lf.lfHeight = -height;
     lf.lfWeight = FW_SEMIBOLD;
     lf.lfQuality = CLEARTYPE_QUALITY;
-    // Segoe UI has no Han glyphs; the font mapper substitutes one that does for
-    // the CJK badge characters, which is fine for a single glyph.
-    wcscpy_s(lf.lfFaceName, L"Segoe UI");
+    lf.lfCharSet = DEFAULT_CHARSET;
+    // A CJK-capable UI font. Segoe UI has no Han glyphs, so GetTextExtentPoint32W
+    // measured the substituted glyph with the wrong metrics and the badge came
+    // out squashed; this face carries the glyphs the badge actually shows.
+    wcscpy_s(lf.lfFaceName, L"Microsoft JhengHei UI");
     g_font = CreateFontIndirectW(&lf);
     g_fontHeight = height;
     return g_font;
@@ -118,8 +120,8 @@ void show(const RECT& caretScreen, const std::wstring& text) {
 
     const int caretHeight = caretScreen.bottom - caretScreen.top;
     const int basis = caretHeight > 0 ? caretHeight : 18;
-    // ~40% of the caret height, so the badge sits unobtrusively beside the text.
-    ensure_font(std::clamp(basis * 2 / 5, 9, 18));
+    // ~50% of the caret height, so the badge sits unobtrusively beside the text.
+    ensure_font(std::clamp(basis / 2, 11, 22));
 
     HDC screen = GetDC(nullptr);
     HGDIOBJ previous = SelectObject(screen, g_font);

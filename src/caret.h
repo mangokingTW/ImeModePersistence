@@ -20,6 +20,7 @@ struct Result {
     RECT rect;          // caret rectangle in screen pixels, valid when found
     std::wstring text;  // badge text carried through from the request
     bool found;
+    int tier;           // which path resolved it: 0 none, 1 classic caret, 2 UIA
 };
 
 // Starts the worker thread. Results are posted to uiWindow as resultMessage.

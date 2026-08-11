@@ -1068,6 +1068,13 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         auto* result = reinterpret_cast<caret::Result*>(lParam);
         if (result) {
             if (g_app.indicatorEnabled && result->found) {
+                // write_once so a still caret logs a single line; distinct
+                // positions each record which tier placed the badge and where,
+                // enough to diagnose an app that mis-reports its caret.
+                diag::write_once(L"caret: tier=%d rect=(%ld,%ld)-(%ld,%ld) badge=%s",
+                                 result->tier, result->rect.left, result->rect.top,
+                                 result->rect.right, result->rect.bottom,
+                                 result->text.c_str());
                 overlay::show(result->rect, result->text);
             } else {
                 overlay::hide();
