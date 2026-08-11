@@ -813,16 +813,19 @@ std::wstring indicator_badge(HKL layout, ime::Mode mode) {
         primary == LANG_CHINESE || primary == LANG_JAPANESE || primary == LANG_KOREAN;
 
     if (ime) {
+        // Full-width glyphs so the badge keeps a steady width as it toggles: a
+        // half-width "A" beside a full-width "中" reads as lopsided. Alphanumeric
+        // is a full-width Ａ (U+FF21) for every IME language.
         if (mode == ime::Mode::Alphanumeric) {
-            return L"A";
+            return L"Ａ";
         }
         switch (primary) {
         case LANG_CHINESE:
-            return L"中"; // 中
+            return L"中";
         case LANG_JAPANESE:
-            return L"あ"; // あ
+            return L"あ";
         case LANG_KOREAN:
-            return L"가"; // 가
+            return L"가";
         default:
             break;
         }
@@ -854,16 +857,21 @@ void observe_tick() {
     }
 
     if (g_app.indicatorEnabled) {
-        // Ask the worker for the caret position; the badge text is derived from
-        // the layout now and the last observed conversion mode. The result comes
-        // back as WMAPP_CARET, off the UI thread's critical path. Throttled to
-        // ~100 ms so the UI-Automation path does not run 20 times a second.
+        // The badge text is derived from the layout now and the last observed
+        // conversion mode; the result comes back as WMAPP_CARET, off the UI
+        // thread's critical path. A change in what would be shown -- a language
+        // or mode switch -- is sent at once so the badge updates within a tick;
+        // an unchanged badge only refreshes its position, throttled to ~100 ms so
+        // the UI-Automation path does not run 20 times a second.
+        const std::wstring badge =
+            indicator_badge(GetKeyboardLayout(thread), g_app.observedMode);
+        static std::wstring lastBadge;
         static ULONGLONG lastRequest = 0;
         const ULONGLONG now = GetTickCount64();
-        if (now - lastRequest >= 100) {
+        if (badge != lastBadge || now - lastRequest >= 100) {
+            lastBadge = badge;
             lastRequest = now;
-            caret::request(thread,
-                           indicator_badge(GetKeyboardLayout(thread), g_app.observedMode));
+            caret::request(thread, badge);
         }
     }
 
