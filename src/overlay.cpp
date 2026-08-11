@@ -1,5 +1,7 @@
 #include "overlay.h"
 
+#include "diagnostic.h"
+
 #include <algorithm>
 
 namespace overlay {
@@ -159,6 +161,10 @@ void show(const RECT& caretScreen, const std::wstring& text) {
         }
     }
 
+    diag::write_once(L"overlay: place (%d,%d) %dx%d for caret (%ld,%ld)-(%ld,%ld) work=(%ld,%ld)-(%ld,%ld)",
+                     x, y, width, height, caretScreen.left, caretScreen.top,
+                     caretScreen.right, caretScreen.bottom, mi.rcWork.left,
+                     mi.rcWork.top, mi.rcWork.right, mi.rcWork.bottom);
     SetWindowPos(g_hwnd, HWND_TOPMOST, x, y, width, height,
                  SWP_NOACTIVATE | SWP_SHOWWINDOW);
     InvalidateRect(g_hwnd, nullptr, TRUE);
