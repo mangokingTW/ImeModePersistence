@@ -46,6 +46,9 @@ struct Strings {
     const wchar_t* errorAutostart;
     const wchar_t* errorHook;
 
+    const wchar_t* notifyElevateTitle;
+    const wchar_t* notifyElevateText;
+
     const wchar_t* rulesCaption;
     const wchar_t* rulesHeader;
     const wchar_t* groupAddUpdate;

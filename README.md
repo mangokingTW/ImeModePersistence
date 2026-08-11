@@ -69,6 +69,12 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 
 **已確認可用於有防作弊的全螢幕遊戲** —— Helldivers 2 用 `class:stingray_window` 即可，詳見 [Wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2)。
 
+### 游標輸入指示器
+
+托盤選單的**在游標旁顯示輸入指示**可開啟一個小徽章，貼在文字游標旁，顯示目前**會打出什麼**：`中`／`日`／`한`(該語言的輸入模式)、`Ａ`(輸入法切到英數)、或 `EN` 等語言代碼。**預設關閉**，設定會記住。
+
+它會避開自己的視窗、跟著游標走。在**瀏覽器網址列**這類程式,因為 Chromium 對外回報的游標位置不可靠,徽章改顯示在該行**上方**、不遮住文字。
+
 ## 限制
 
 - 寫入是 best-effort 並讀回驗證。IME 仍在啟動中時可能丟棄變更，重試四次後就接受目標視窗的狀態
@@ -100,7 +106,8 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 - [x] TSF 感知的轉換模式配接、還原後重試與驗證、區分使用者操作與系統事件
 - [x] 微軟注音實機驗證
 - [x] 開機自動啟動、設定介面、Windows CI、安裝檔與發佈流程
-- [x] 程式綁定輸入語言，含視窗類別綁定
+- [x] 程式綁定輸入語言，含視窗類別與萬用字元（glob）綁定
+- [x] 游標輸入指示器（游標旁的語言／模式徽章，預設關閉）
 - [ ] 同語言多輸入法的細分（注音 vs 倉頡）
 
 ---
@@ -165,6 +172,12 @@ Bind a program to an input language — a terminal to English, Word to Chinese.
 Lookup order: full path, file name, window class. A binding pins a **language**; where one language has several IMEs installed (Bopomofo and Cangjie are both zh-TW) the first is used.
 
 **Confirmed working for anti-cheat protected fullscreen games** — Helldivers 2 needs `class:stingray_window`; see the [wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2-English).
+
+### Caret input indicator
+
+**Show input indicator at the cursor** in the tray menu turns on a small badge beside the text caret showing what you will actually type: `中` / `あ` / `한` (that language's native mode), `Ａ` (the IME switched to alphanumeric), or a language code such as `EN`. **Off by default**; the choice is remembered.
+
+It stays out of its own windows and follows the caret. In fields where the reported caret position is unreliable — a browser address bar, because of a Chromium limitation — the badge is drawn above the line instead, so it does not cover the text.
 
 ## Limitations
 
