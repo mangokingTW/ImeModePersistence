@@ -52,6 +52,9 @@ Upload the unsigned `.msix` in Partner Center (it re-signs with the Store
 certificate), fill in the listing (description, screenshots, the elevation
 limitation note), and submit for certification.
 
+Privacy policy URL for the listing (required for a full-trust app):
+`https://github.com/mangokingTW/ImeModePersistence/blob/main/PRIVACY.md`
+
 ## Packaged-build behaviour
 
 The app detects the MSIX context (`GetCurrentPackageFullName`) and adjusts:
