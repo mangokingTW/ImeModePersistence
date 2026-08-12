@@ -47,18 +47,22 @@ Upload the unsigned `.msix` in Partner Center (it re-signs with the Store
 certificate), fill in the listing (description, screenshots, the elevation
 limitation note), and submit for certification.
 
-## Remaining code work (Phase 2, before a real submission)
+## Packaged-build behaviour
 
-The current app assumes an unpackaged install. For a correct MSIX build:
+The app detects the MSIX context (`GetCurrentPackageFullName`) and adjusts:
 
-- **Detect packaged context** (`GetCurrentPackageFullName` succeeds when packaged).
-- **Autostart** — when packaged, drive the tray "start at logon" toggle through
-  the `Windows.ApplicationModel.StartupTask` API (this manifest declares the
-  `windows.startupTask` extension) instead of the HKCU Run key, which MSIX
-  virtualizes to no effect.
-- **Elevation UI** — hide **Restart as administrator** and the "needs
-  administrator" notification when packaged, since MSIX cannot elevate.
-- The Inno installer is not used for this channel.
+- **Autostart** — the tray "start at logon" toggle is hidden; startup is the
+  package's StartupTask, which the user enables in **Windows Settings > Apps >
+  Startup** (an HKCU Run key would be virtualized to no effect). The manifest
+  declares the task disabled by default.
+- **Elevation** — **Restart as administrator** and the "needs administrator"
+  notification are hidden, since a packaged app cannot elevate.
+- Rules and settings live in the (virtualized) HKCU as usual and persist per
+  package. The Inno installer is not used for this channel.
 
-These need a Windows machine to test; they are tracked for when the account and
-package identity are in place.
+Optional later: an in-app toggle for the StartupTask via the
+`Windows.ApplicationModel.StartupTask` WinRT API, so users need not open Settings.
+
+Still to verify on a Windows machine after building the `.msix`: sideload it and
+confirm autostart (via Settings), rules persistence, and the caret indicator all
+work packaged.

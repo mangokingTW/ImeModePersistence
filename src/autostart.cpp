@@ -1,5 +1,6 @@
 #include "autostart.h"
 
+#include <appmodel.h>
 #include <comdef.h>
 #include <taskschd.h>
 
@@ -150,7 +151,24 @@ bool elevated() {
     return result;
 }
 
+bool packaged() {
+    // Static, not queried per call: package identity is fixed for the life of the
+    // process. GetCurrentPackageFullName returns APPMODEL_ERROR_NO_PACKAGE when
+    // unpackaged, and ERROR_INSUFFICIENT_BUFFER (a package exists) otherwise.
+    static const bool result = [] {
+        UINT32 length = 0;
+        return GetCurrentPackageFullName(&length, nullptr) != APPMODEL_ERROR_NO_PACKAGE;
+    }();
+    return result;
+}
+
 Kind current() {
+    // In the MSIX build, autostart is the package's StartupTask, managed from
+    // Windows Settings; the Run key below is virtualized and meaningless.
+    if (packaged()) {
+        return Kind::None;
+    }
+
     // A leftover elevated task from an older version still counts as "on", so the
     // status box shows it and toggling autostart off removes it. New installs
     // only ever use the Run entry below.
@@ -170,6 +188,12 @@ Kind current() {
 }
 
 bool set_enabled(bool enable) {
+    // The MSIX build manages autostart through its StartupTask (Windows Settings),
+    // not the Run key, and the tray toggle is hidden there, so this is inert.
+    if (packaged()) {
+        return false;
+    }
+
     // Autostart is always the unelevated Run entry. The utility no longer creates
     // an elevated logon task: a silent elevated task started at logon is exactly
     // the persistence pattern Defender's behaviour ML flags, and it is not worth
