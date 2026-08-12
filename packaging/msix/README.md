@@ -1,7 +1,7 @@
 # Microsoft Store (MSIX) build
 
 A packaged, full-trust desktop build for the Microsoft Store. The Store signs it
-on upload, so there is no code-signing cost and it does not trip SmartScreen or
+on upload, so it needs no certificate of its own and does not trip SmartScreen or
 antivirus the way the unsigned installer can.
 
 ## Important limitation
@@ -13,18 +13,18 @@ applications, and the caret indicator. Users who need to bind protected games
 should install the direct-download / Scoop / winget / Chocolatey build instead.
 The listing and description must say this clearly.
 
-## Prerequisites (must be done by the account owner)
+## Product identity (reserved)
 
-1. **Partner Center developer account** — one-time US$19 (individual):
-   https://partner.microsoft.com/dashboard/registration
-2. **Reserve the app name** (Apps and games > New product). This yields the
-   package identity. From *Product > Product identity*, copy into
-   `AppxManifest.xml`:
-   - `Name`                 → `Package/Identity/@Name`
-   - `Publisher` (`CN=...`) → `Package/Identity/@Publisher`
-   - `PublisherDisplayName` → `Package/Properties/PublisherDisplayName`
+The app name is reserved in Partner Center and its identity is set in
+`AppxManifest.xml`:
 
-Send me those three values and I will fill them in.
+| Field | Value |
+|---|---|
+| Identity Name | `MangoYen.IMEModePersistence` |
+| Publisher | `CN=B64E145E-DB3F-473D-9BA6-BDF6CF2E8081` |
+| PublisherDisplayName | `Mango Yen` |
+| Package Family Name | `MangoYen.IMEModePersistence_2zs50d2afav02` |
+| Store ID | `9P05QQZ2P5XC` |
 
 ## Build
 
