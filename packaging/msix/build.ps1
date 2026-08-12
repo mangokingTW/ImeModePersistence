@@ -1,11 +1,12 @@
 # Packs the Store MSIX from a built executable, the manifest and the assets.
-# Run on Windows with the Windows SDK installed (makeappx.exe on PATH, e.g.
-# "C:\Program Files (x86)\Windows Kits\10\bin\<ver>\x64").
+# Run on Windows with the Windows SDK installed (this script locates makeappx.exe
+# itself). In Windows PowerShell, run each line separately -- 5.1 has no '&&':
 #
-#   cmake -S . -B build-x64 -A x64 && cmake --build build-x64 --config Release
-#   pwsh packaging/msix/build.ps1
+#   cmake -S . -B build-x64 -A x64
+#   cmake --build build-x64 --config Release
+#   powershell -ExecutionPolicy Bypass -File packaging\msix\build.ps1
 #
-# Fill in the real Identity in AppxManifest.xml first (see README.md). The Store
+# The Store
 # signs the package on upload, so the .msix produced here does not need signing
 # for submission; sign it with a self-signed cert only to sideload-test locally.
 param(
@@ -28,7 +29,23 @@ Copy-Item (Join-Path $here 'assets')              (Join-Path $stage 'assets') -R
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $msix = Join-Path $OutDir 'ImeModePersistence.msix'
 
-makeappx pack /d $stage /p $msix /o
+# makeappx.exe is rarely on PATH; find the newest x64 one in the Windows SDK.
+function Find-MakeAppx {
+  $cmd = Get-Command makeappx.exe -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  foreach ($root in @("${env:ProgramFiles(x86)}\Windows Kits\10\bin", "${env:ProgramFiles}\Windows Kits\10\bin")) {
+    if (Test-Path $root) {
+      $exe = Get-ChildItem $root -Recurse -Filter makeappx.exe -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match '\\x64\\' } |
+        Sort-Object FullName -Descending | Select-Object -First 1
+      if ($exe) { return $exe.FullName }
+    }
+  }
+  throw "makeappx.exe not found. Install the Windows SDK, or run from the 'Developer PowerShell for VS'."
+}
+$makeappx = Find-MakeAppx
+Write-Host "Using $makeappx"
+& $makeappx pack /d $stage /p $msix /o
 if ($LASTEXITCODE -ne 0) { throw "makeappx failed" }
 
 Write-Host "Packed: $msix"
