@@ -28,12 +28,17 @@ The app name is reserved in Partner Center and its identity is set in
 
 ## Build
 
+In **Windows PowerShell** (run each line separately — 5.1 has no `&&`):
+
 ```powershell
-cmake -S . -B build-x64 -A x64 && cmake --build build-x64 --config Release
-pwsh packaging/msix/build.ps1        # needs makeappx.exe (Windows SDK) on PATH
+cmake -S . -B build-x64 -A x64
+cmake --build build-x64 --config Release
+powershell -ExecutionPolicy Bypass -File packaging\msix\build.ps1
 ```
 
-Produces `dist/ImeModePersistence.msix`.
+`build.ps1` locates `makeappx.exe` in the Windows SDK itself. If it reports it
+cannot find it, install the Windows SDK or run the commands from **Developer
+PowerShell for VS**. Produces `dist/ImeModePersistence.msix`.
 
 ## Test locally (sideload)
 
