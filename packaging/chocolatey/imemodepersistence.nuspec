@@ -14,7 +14,7 @@
     <projectSourceUrl>https://github.com/mangokingTW/ImeModePersistence</projectSourceUrl>
     <docsUrl>https://github.com/mangokingTW/ImeModePersistence/wiki</docsUrl>
     <bugTrackerUrl>https://github.com/mangokingTW/ImeModePersistence/issues</bugTrackerUrl>
-    <releaseNotes>https://github.com/mangokingTW/ImeModePersistence/releases/tag/v1.0.0</releaseNotes>
+    <releaseNotes>https://github.com/mangokingTW/ImeModePersistence/releases</releaseNotes>
     <tags>imemodepersistence ime input-method keyboard tray windows helldivers-2 chinese foss</tags>
     <summary>Windows tray utility for IME mode persistence and per-app input-language binding.</summary>
     <description>
