@@ -481,8 +481,10 @@ void schedule_restore_attempt(HWND hwnd) {
             // A bound layout that will not take while this process is unelevated
             // is almost always a protected target (an anti-cheat game) refusing a
             // lower-integrity caller. Point the user at elevation once -- the log
-            // alone made this invisible.
-            if (!autostart::elevated() && !g_app.elevationHintShown) {
+            // alone made this invisible. Not in the MSIX build, which cannot
+            // elevate at all, so the hint would be a dead end.
+            if (!autostart::elevated() && !autostart::packaged() &&
+                !g_app.elevationHintShown) {
                 g_app.elevationHintShown = true;
                 diag::write(L"notify: suggesting elevation for a refused binding");
                 show_notification(text::s().notifyElevateTitle, text::s().notifyElevateText);
@@ -1114,16 +1116,21 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         } else if (lParam == WM_RBUTTONUP) {
             HMENU menu = CreatePopupMenu();
             if (menu) {
-                AppendMenuW(
-                    menu,
-                    // The cached kind: reading the real state runs schtasks.exe,
-                    // and blocking the UI thread up to ten seconds to draw a
-                    // checkmark is how right-click used to freeze the tray.
-                    MF_STRING | (g_app.autostartKind != autostart::Kind::None
-                                     ? MF_CHECKED
-                                     : MF_UNCHECKED),
-                    ID_TRAY_AUTOSTART,
-                    text::s().menuAutostart);
+                if (!autostart::packaged()) {
+                    // Hidden in the MSIX build: autostart there is the package's
+                    // StartupTask, managed in Windows Settings > Startup, not a Run
+                    // entry this toggle could write.
+                    AppendMenuW(
+                        menu,
+                        // The cached kind: reading the real state runs schtasks.exe,
+                        // and blocking the UI thread up to ten seconds to draw a
+                        // checkmark is how right-click used to freeze the tray.
+                        MF_STRING | (g_app.autostartKind != autostart::Kind::None
+                                         ? MF_CHECKED
+                                         : MF_UNCHECKED),
+                        ID_TRAY_AUTOSTART,
+                        text::s().menuAutostart);
+                }
                 AppendMenuW(
                     menu,
                     MF_STRING | (g_app.persistMode ? MF_CHECKED : MF_UNCHECKED),
@@ -1135,9 +1142,10 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     ID_TRAY_INDICATOR,
                     text::s().menuIndicator);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
-                if (!autostart::elevated()) {
+                if (!autostart::elevated() && !autostart::packaged()) {
                     // Hidden rather than greyed when already elevated: a disabled
-                    // item invites the question of how to enable it.
+                    // item invites the question of how to enable it. Also hidden in
+                    // the MSIX build, which cannot elevate.
                     AppendMenuW(menu, MF_STRING, ID_TRAY_ELEVATE, text::s().menuElevate);
                 }
                 if (!diag::path().empty()) {

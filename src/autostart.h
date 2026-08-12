@@ -43,6 +43,13 @@ bool set_enabled(bool enable);
 // times a second for an answer that cannot change.
 bool elevated();
 
+// Whether this process is running from an MSIX package (the Microsoft Store
+// build). Autostart there is the package's StartupTask, managed by the user in
+// Windows Settings > Startup, not an HKCU Run entry (which MSIX virtualizes to no
+// effect); and a packaged app cannot elevate. Callers use this to drop the Run
+// key and the elevation affordances in that build. Computed once.
+bool packaged();
+
 // Full path of this executable. Grows the buffer rather than assuming MAX_PATH,
 // because GetModuleFileNameW truncates instead of failing. Shared here so the
 // elevate-and-restart path does not keep its own, shorter-buffered copy.
