@@ -1,7 +1,7 @@
 # Microsoft Store (MSIX) build
 
 A packaged, full-trust desktop build for the Microsoft Store. The Store signs it
-on upload, so there is no code-signing cost and it does not trip SmartScreen or
+on upload, so it needs no certificate of its own and does not trip SmartScreen or
 antivirus the way the unsigned installer can.
 
 ## Important limitation
@@ -25,8 +25,6 @@ The app name is reserved in Partner Center and its identity is set in
 | PublisherDisplayName | `Mango Yen` |
 | Package Family Name | `MangoYen.IMEModePersistence_2zs50d2afav02` |
 | Store ID | `9P05QQZ2P5XC` |
-
-The Partner Center account (one-time US$19) is registered under the owner.
 
 ## Build
 
