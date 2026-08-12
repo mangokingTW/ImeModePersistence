@@ -1,0 +1,94 @@
+# Push the Chocolatey package when a stable release is published. A no-op until
+# the CHOCO_API_KEY secret is set, and pre-releases are skipped so betas never
+# reach the community repo. The package version comes from the tag and the
+# installer checksum from the release's SHA256SUMS.txt, so nothing here is
+# hand-edited per release.
+name: Chocolatey
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to push (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  push:
+    runs-on: windows-latest
+    env:
+      CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+      TAG: ${{ inputs.tag || github.event.release.tag_name }}
+    steps:
+      - name: Decide whether to run
+        id: gate
+        shell: pwsh
+        run: |
+          $skip = 'false'
+          if (-not $env:CHOCO_API_KEY) { Write-Host 'CHOCO_API_KEY not set - skipping'; $skip = 'true' }
+          if ('${{ github.event.release.prerelease }}' -eq 'true') { Write-Host 'pre-release event - skipping'; $skip = 'true' }
+          if ($env:TAG -match '-(alpha|beta|rc)\.') { Write-Host 'pre-release tag - skipping'; $skip = 'true' }
+          "skip=$skip" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+
+      - name: Checkout
+        if: steps.gate.outputs.skip == 'false'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Pack and push
+        if: steps.gate.outputs.skip == 'false'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = $env:TAG -replace '^v', ''
+
+          # The installer checksum is the release's own published value, so the
+          # package can never disagree with what it downloads.
+          gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --pattern SHA256SUMS.txt --dir .
+          $match = Select-String -Path SHA256SUMS.txt -Pattern 'setup-admin\.exe'
+          $sha = (($match.Line -split '\s+')[0]).ToUpper()
+          if ($sha -notmatch '^[A-F0-9]{64}$') { throw "could not read setup-admin checksum from SHA256SUMS.txt" }
+          Write-Host "version=$version checksum=$sha"
+
+          $dir = 'packaging/chocolatey'
+
+          # Inject the checksum for this release; the version comes from the
+          # package (choco pack --version) and $env:ChocolateyPackageVersion.
+          $install = "$dir/tools/chocolateyInstall.ps1"
+          (Get-Content $install -Raw) -replace "(?m)^\`$checksum\s*=\s*'.*'", "`$checksum = '$sha'" |
+            Set-Content $install -Encoding utf8
+
+          # Regenerate VERIFICATION.txt so it matches this version and checksum.
+          # Built as a line array rather than a here-string, whose closing "@
+          # cannot be indented under a YAML block.
+          $shaLower = $sha.ToLower()
+          $verify = @(
+            'VERIFICATION',
+            '',
+            "This package downloads the official installer from the project's GitHub",
+            'Releases rather than embedding a binary:',
+            '',
+            "  https://github.com/mangokingTW/ImeModePersistence/releases/tag/v$version",
+            '',
+            'The SHA256 pinned in tools\chocolateyInstall.ps1 matches the value',
+            "published in that release's SHA256SUMS.txt:",
+            '',
+            "  ImeModePersistence-$version-setup-admin.exe",
+            "  $shaLower",
+            '',
+            'Every release also publishes build provenance, checkable with:',
+            '',
+            '  gh attestation verify <file> --repo mangokingTW/ImeModePersistence',
+            '',
+            'The software is published by mangokingTW under the MIT License:',
+            '  https://github.com/mangokingTW/ImeModePersistence/blob/main/LICENSE'
+          )
+          $verify | Set-Content "$dir/tools/VERIFICATION.txt" -Encoding utf8
+
+          choco pack "$dir/imemodepersistence.nuspec" --version $version --outputdirectory dist
+          choco apikey --key "$env:CHOCO_API_KEY" --source https://push.chocolatey.org/
+          choco push "dist/imemodepersistence.$version.nupkg" --source https://push.chocolatey.org/ --timeout 300

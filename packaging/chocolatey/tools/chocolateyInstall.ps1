@@ -1,6 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
-$version  = '1.0.0'
+# The package version drives the download URL, so one script serves every
+# release. choco sets this during install; the release workflow bumps the package
+# version (choco pack --version) and the $checksum below.
+$version  = $env:ChocolateyPackageVersion
 # One Inno installer adapts to the host architecture, so the 32- and 64-bit
 # slots point at the same asset. Chocolatey runs elevated, so the machine-wide
 # (admin) installer is the right variant here.
