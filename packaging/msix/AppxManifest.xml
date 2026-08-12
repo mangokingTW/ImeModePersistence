@@ -2,15 +2,9 @@
 <!--
   MSIX manifest for the Microsoft Store build.
 
-  Identity Name / Publisher / PublisherDisplayName below are PLACEHOLDERS. After
-  reserving the app name in Partner Center (Product > Product identity), replace
-  them with the exact values shown there:
-
-    Name                 -> "Package/Identity/Name"           (e.g. 12345mangokingTW.ImeModePersistence)
-    Publisher            -> "Package/Identity/Publisher"      (e.g. CN=XXXXXXXX-XXXX-...)
-    PublisherDisplayName -> "Package/Properties/PublisherDisplayName"
-
-  Version's fourth field must stay 0 for Store submissions.
+  Identity below is the reserved Partner Center identity for Store ID 9P05QQZ2P5XC
+  (PFN MangoYen.IMEModePersistence_2zs50d2afav02). Name and Publisher must match
+  it exactly. Version's fourth field must stay 0 for Store submissions.
 
   This is a full-trust packaged desktop app (rescap:runFullTrust). Note the Store
   build CANNOT elevate, so it cannot control admin/anti-cheat-protected targets;
@@ -24,13 +18,13 @@
   IgnorableNamespaces="uap uap5 rescap">
 
   <Identity
-    Name="PLACEHOLDER.ImeModePersistence"
-    Publisher="CN=PLACEHOLDER-REPLACE-WITH-PARTNER-CENTER-VALUE"
+    Name="MangoYen.IMEModePersistence"
+    Publisher="CN=B64E145E-DB3F-473D-9BA6-BDF6CF2E8081"
     Version="1.0.0.0" />
 
   <Properties>
     <DisplayName>ImeModePersistence</DisplayName>
-    <PublisherDisplayName>mangokingTW</PublisherDisplayName>
+    <PublisherDisplayName>Mango Yen</PublisherDisplayName>
     <Logo>assets\StoreLogo.png</Logo>
   </Properties>
 
