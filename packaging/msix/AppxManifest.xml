@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MSIX manifest for the Microsoft Store build.
+
+  Identity Name / Publisher / PublisherDisplayName below are PLACEHOLDERS. After
+  reserving the app name in Partner Center (Product > Product identity), replace
+  them with the exact values shown there:
+
+    Name                 -> "Package/Identity/Name"           (e.g. 12345mangokingTW.ImeModePersistence)
+    Publisher            -> "Package/Identity/Publisher"      (e.g. CN=XXXXXXXX-XXXX-...)
+    PublisherDisplayName -> "Package/Properties/PublisherDisplayName"
+
+  Version's fourth field must stay 0 for Store submissions.
+
+  This is a full-trust packaged desktop app (rescap:runFullTrust). Note the Store
+  build CANNOT elevate, so it cannot control admin/anti-cheat-protected targets;
+  see packaging/msix/README.md.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap5 rescap">
+
+  <Identity
+    Name="PLACEHOLDER.ImeModePersistence"
+    Publisher="CN=PLACEHOLDER-REPLACE-WITH-PARTNER-CENTER-VALUE"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>ImeModePersistence</DisplayName>
+    <PublisherDisplayName>mangokingTW</PublisherDisplayName>
+    <Logo>assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+    <Resource Language="zh-tw" />
+  </Resources>
+
+  <Applications>
+    <Application Id="ImeModePersistence" Executable="ImeModePersistence.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="ImeModePersistence"
+        Description="Keeps the IME conversion mode consistent across windows and binds a chosen input language per application."
+        BackgroundColor="transparent"
+        Square150x150Logo="assets\Square150x150Logo.png"
+        Square44x44Logo="assets\Square44x44Logo.png">
+        <uap:DefaultTile
+          Wide310x150Logo="assets\Wide310x150Logo.png"
+          Square71x71Logo="assets\Square71x71Logo.png"
+          Square310x310Logo="assets\Square310x310Logo.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- Autostart at logon the packaged way (a virtualized HKCU Run key does
+             nothing under MSIX). The user can turn it off in Settings > Apps >
+             Startup; the tray toggle will drive this via the StartupTask API. -->
+        <uap5:Extension Category="windows.startupTask" Executable="ImeModePersistence.exe" EntryPoint="Windows.FullTrustApplication">
+          <uap5:StartupTask TaskId="ImeModePersistenceStartup" Enabled="false" DisplayName="ImeModePersistence" />
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>
