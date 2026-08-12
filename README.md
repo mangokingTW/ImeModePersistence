@@ -41,8 +41,6 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 | `...-x64.zip` / `-x86.zip` | 免安裝，解壓即用 |
 
 > **防毒軟體可能刪除安裝檔。** 未簽章的安裝檔常被啟發式誤判 —— 遇到時改用免安裝的 zip，功能完全相同。
->
-> 本專案使用 [SignPath Foundation](https://signpath.org) 提供的免費程式碼簽章（審核中）；生效前釋出檔未簽章，見[簽章政策](docs/code-signing-policy.md)。
 
 ### 套件管理器
 
@@ -155,8 +153,6 @@ From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 | `...-x64.zip` / `-x86.zip` | Portable; unzip and run |
 
 > **Antivirus may delete the installer.** Unsigned installers are frequently caught by heuristics — use the portable archive, which is functionally identical.
->
-> This project uses [SignPath Foundation](https://signpath.org) for free code signing (application pending); until it is active, releases are unsigned — see the [code signing policy](docs/code-signing-policy.md).
 
 ### Package managers
 
