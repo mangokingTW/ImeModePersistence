@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>imemodepersistence</id>
+    <version>1.0.0</version>
+    <packageSourceUrl>https://github.com/mangokingTW/ImeModePersistence/tree/main/packaging/chocolatey</packageSourceUrl>
+    <owners>mangokingTW</owners>
+    <title>ImeModePersistence</title>
+    <authors>mangokingTW</authors>
+    <projectUrl>https://github.com/mangokingTW/ImeModePersistence</projectUrl>
+    <copyright>Copyright (c) mangokingTW</copyright>
+    <license type="expression">MIT</license>
+    <licenseUrl>https://github.com/mangokingTW/ImeModePersistence/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/mangokingTW/ImeModePersistence</projectSourceUrl>
+    <docsUrl>https://github.com/mangokingTW/ImeModePersistence/wiki</docsUrl>
+    <bugTrackerUrl>https://github.com/mangokingTW/ImeModePersistence/issues</bugTrackerUrl>
+    <releaseNotes>https://github.com/mangokingTW/ImeModePersistence/releases/tag/v1.0.0</releaseNotes>
+    <tags>imemodepersistence ime input-method keyboard tray windows helldivers-2 chinese foss</tags>
+    <summary>Windows tray utility for IME mode persistence and per-app input-language binding.</summary>
+    <description>
+ImeModePersistence is a Windows system-tray utility that:
+
+- **Keeps your IME conversion mode consistent across windows** — the Chinese vs. alphanumeric mode follows your most recent deliberate choice instead of resetting on every window switch (something no built-in Windows setting does).
+- **Binds applications to a fixed input language** — by exact path, file name, window class, or wildcard (`glob:` / `class-glob:`). This works even for programs whose executable cannot be read, such as anti-cheat fullscreen games (e.g. Helldivers 2, via its window class).
+- **Optional caret input indicator** — a small badge next to the text cursor showing the current input language and mode.
+
+To control a program that itself runs as administrator (most anti-cheat games), start the utility elevated or use **Restart as administrator** from the tray menu.
+
+Source, build provenance, and OpenSSF Scorecard are public. This Chocolatey package downloads the official installer from GitHub Releases and verifies its SHA256.
+    </description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
