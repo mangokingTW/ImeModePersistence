@@ -48,6 +48,10 @@ const Strings kEnglish{
     .notifyElevateTitle = L"IME Mode Persistence",
     .notifyElevateText = L"This program needs administrator access to switch its input. "
                          L"Use \"Restart as administrator\" in the tray menu.",
+    .notifyDesktopTitle = L"IME Mode Persistence",
+    .notifyDesktopText = L"This target needs the desktop version run as administrator; "
+                         L"the Store build can't elevate. Get it at "
+                         L"github.com/mangokingTW/ImeModePersistence",
 
     .rulesCaption = L"ImeModePersistence - app language bindings",
     .rulesHeader = L"Applications bound to an input language:",
@@ -130,6 +134,9 @@ const Strings kTraditionalChinese{
     .notifyElevateTitle = L"輸入法模式延續",
     .notifyElevateText = L"需要以管理員身分才能切換這個程式的輸入法。"
                          L"請用托盤選單的「以管理員身分重新啟動」。",
+    .notifyDesktopTitle = L"輸入法模式延續",
+    .notifyDesktopText = L"這個目標需要以系統管理員執行的桌面版;市集版無法提權。"
+                         L"下載:github.com/mangokingTW/ImeModePersistence",
 
     .rulesCaption = L"輸入法模式延續 － 程式綁定輸入語言",
     .rulesHeader = L"已綁定輸入語言的程式：",
