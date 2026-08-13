@@ -85,6 +85,17 @@ jobs:
             }
           }
 
+      - name: Build Store MSIX (unsigned)
+        shell: pwsh
+        run: |
+          # The unsigned package to upload to Partner Center -- the Store signs it
+          # on ingestion, so no code-signing cert is needed here. build.ps1 locates
+          # makeappx in the Windows SDK on the runner. Named with the version so
+          # the maintainer grabs it straight from the release for submission.
+          & packaging\msix\build.ps1
+          if ($LASTEXITCODE -ne 0) { throw "MSIX packaging failed" }
+          Move-Item dist/ImeModePersistence.msix "dist/ImeModePersistence-$env:FILEVER.msix" -Force
+
       - name: Build installer
         shell: pwsh
         run: |
@@ -113,7 +124,7 @@ jobs:
       - name: Checksums
         shell: pwsh
         run: |
-          $lines = Get-FileHash dist/*.zip, dist/*.exe -Algorithm SHA256 |
+          $lines = Get-FileHash dist/*.zip, dist/*.exe, dist/*.msix -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" }
 
           # Written with LF, not the CRLF that Set-Content would produce: coreutils
@@ -137,6 +148,7 @@ jobs:
           subject-path: |
             dist/*.exe
             dist/*.zip
+            dist/*.msix
             dist/SHA256SUMS.txt
 
       - name: Attach provenance to the release
@@ -162,6 +174,7 @@ jobs:
             "ImeModePersistence-$env:FILEVER-setup-user.exe",
             "ImeModePersistence-$env:FILEVER-x64.zip",
             "ImeModePersistence-$env:FILEVER-x86.zip",
+            "ImeModePersistence-$env:FILEVER.msix",
             'SHA256SUMS.txt'
           )
           $missing = $expected | Where-Object { -not (Test-Path "dist/$_") }
