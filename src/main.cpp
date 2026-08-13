@@ -488,6 +488,13 @@ void schedule_restore_attempt(HWND hwnd) {
                 g_app.elevationHintShown = true;
                 diag::write(L"notify: suggesting elevation for a refused binding");
                 show_notification(text::s().notifyElevateTitle, text::s().notifyElevateText);
+            } else if (autostart::packaged() && !g_app.elevationHintShown) {
+                // The MSIX build cannot elevate, so "Restart as administrator" is a
+                // dead end here. Point the user at the desktop build instead, which
+                // can reach a protected target (run as administrator / UIAccess).
+                g_app.elevationHintShown = true;
+                diag::write(L"notify: suggesting the desktop build for a refused binding (packaged)");
+                show_notification(text::s().notifyDesktopTitle, text::s().notifyDesktopText);
             }
         }
 

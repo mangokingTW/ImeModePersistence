@@ -48,6 +48,8 @@ struct Strings {
 
     const wchar_t* notifyElevateTitle;
     const wchar_t* notifyElevateText;
+    const wchar_t* notifyDesktopTitle;
+    const wchar_t* notifyDesktopText;
 
     const wchar_t* rulesCaption;
     const wchar_t* rulesHeader;
