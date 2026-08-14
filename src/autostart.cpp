@@ -95,28 +95,11 @@ Kind startup_task_kind() {
     return result;
 }
 
-// Enables or disables the StartupTask (MSIX build). True when the resulting state
-// matches the request. A task the user disabled from Settings (DisabledByUser)
-// or by policy cannot be re-enabled here -- returns false so the caller can open
-// Settings. RequestEnableAsync may show a one-time consent dialog.
-bool set_startup_task(bool enable) {
-    bool result = false;
-    run_on_mta([enable, &result] {
-        using namespace winrt::Windows::ApplicationModel;
-        const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
-        if (!enable) {
-            task.Disable();
-            result = true;
-        } else {
-            StartupTaskState state = task.State();
-            if (state != StartupTaskState::Enabled && state != StartupTaskState::EnabledByPolicy) {
-                state = task.RequestEnableAsync().get();
-            }
-            result = state == StartupTaskState::Enabled || state == StartupTaskState::EnabledByPolicy;
-        }
-    });
-    return result;
-}
+// Note: the MSIX build no longer toggles the StartupTask from code. Driving it
+// with StartupTask.RequestEnableAsync() / Disable() faulted in combase.dll
+// (0xc0000005), and Windows anyway forbids overriding a user/admin choice. The
+// tray menu opens Windows Settings > Startup apps instead; startup_task_kind()
+// above still reads the state (safe) for the menu check mark.
 
 // Connects to the local Task Scheduler and returns its root folder, or nullptr.
 ITaskFolderPtr task_root() {
@@ -261,10 +244,12 @@ Kind current() {
 }
 
 bool set_enabled(bool enable) {
-    // The MSIX build drives its package StartupTask, not the Run key (which it
-    // virtualizes to no effect).
+    // The MSIX build toggles its StartupTask through Windows Settings (the tray
+    // menu opens Startup apps), not from code, so there is nothing to set here.
+    // Reached only defensively -- the menu handler special-cases the packaged
+    // build before calling this.
     if (packaged()) {
-        return set_startup_task(enable);
+        return false;
     }
 
     // Autostart is always the unelevated Run entry. The utility no longer creates

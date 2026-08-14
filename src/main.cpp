@@ -1174,6 +1174,16 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
         if (LOWORD(wParam) == ID_TRAY_AUTOSTART) {
+            if (autostart::packaged()) {
+                // The MSIX build's autostart is the package StartupTask. Only
+                // Windows Settings toggles it reliably -- driving it from the app
+                // faulted in combase -- so open Startup apps and re-read the
+                // state for the menu check mark.
+                diag::write(L"user: autostart -> open Settings (packaged)");
+                autostart::open_startup_settings();
+                g_app.autostartKind = autostart::current();
+                return 0;
+            }
             const bool enable = g_app.autostartKind == autostart::Kind::None;
             diag::write(L"user: autostart -> %s", enable ? L"on" : L"off");
             if (autostart::set_enabled(enable)) {
@@ -1181,16 +1191,8 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 // outcome is known and the round-trip is unnecessary.
                 g_app.autostartKind =
                     !enable ? autostart::Kind::None
-                            : (autostart::packaged()
-                                   ? autostart::Kind::StartupTask
-                                   : (autostart::elevated() ? autostart::Kind::ScheduledTask
-                                                            : autostart::Kind::Registry));
-            } else if (autostart::packaged() && enable) {
-                // The package StartupTask was disabled from Settings (or by policy)
-                // and can only be re-enabled there, so send the user rather than
-                // showing a generic failure.
-                autostart::open_startup_settings();
-                g_app.autostartKind = autostart::current();
+                            : (autostart::elevated() ? autostart::Kind::ScheduledTask
+                                                     : autostart::Kind::Registry);
             } else {
                 show_error(text::s().errorAutostart);
                 // Failure leaves the real state unknown; one query on an explicit
