@@ -1056,6 +1056,7 @@ const wchar_t* autostart_label() {
     switch (g_app.autostartKind) {
     case autostart::Kind::ScheduledTask: return t.autostartTask;
     case autostart::Kind::Registry: return t.autostartRegistry;
+    case autostart::Kind::StartupTask: return t.autostartStartupTask;
     default: return t.autostartOff;
     }
 }
@@ -1123,21 +1124,17 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         } else if (lParam == WM_RBUTTONUP) {
             HMENU menu = CreatePopupMenu();
             if (menu) {
-                if (!autostart::packaged()) {
-                    // Hidden in the MSIX build: autostart there is the package's
-                    // StartupTask, managed in Windows Settings > Startup, not a Run
-                    // entry this toggle could write.
-                    AppendMenuW(
-                        menu,
-                        // The cached kind: reading the real state runs schtasks.exe,
-                        // and blocking the UI thread up to ten seconds to draw a
-                        // checkmark is how right-click used to freeze the tray.
-                        MF_STRING | (g_app.autostartKind != autostart::Kind::None
-                                         ? MF_CHECKED
-                                         : MF_UNCHECKED),
-                        ID_TRAY_AUTOSTART,
-                        text::s().menuAutostart);
-                }
+                AppendMenuW(
+                    menu,
+                    // The cached kind: reading the real state can be slow (schtasks
+                    // for a scheduled task, a WinRT call for the package StartupTask),
+                    // and blocking the UI thread to draw a checkmark is how
+                    // right-click used to freeze the tray. In the MSIX build this
+                    // toggle drives the package StartupTask.
+                    MF_STRING | (g_app.autostartKind != autostart::Kind::None ? MF_CHECKED
+                                                                             : MF_UNCHECKED),
+                    ID_TRAY_AUTOSTART,
+                    text::s().menuAutostart);
                 AppendMenuW(
                     menu,
                     MF_STRING | (g_app.persistMode ? MF_CHECKED : MF_UNCHECKED),
@@ -1181,11 +1178,19 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             diag::write(L"user: autostart -> %s", enable ? L"on" : L"off");
             if (autostart::set_enabled(enable)) {
                 // Derived rather than re-queried: set_enabled succeeded, so the
-                // outcome is known and the schtasks round-trip is unnecessary.
+                // outcome is known and the round-trip is unnecessary.
                 g_app.autostartKind =
                     !enable ? autostart::Kind::None
-                            : (autostart::elevated() ? autostart::Kind::ScheduledTask
-                                                     : autostart::Kind::Registry);
+                            : (autostart::packaged()
+                                   ? autostart::Kind::StartupTask
+                                   : (autostart::elevated() ? autostart::Kind::ScheduledTask
+                                                            : autostart::Kind::Registry));
+            } else if (autostart::packaged() && enable) {
+                // The package StartupTask was disabled from Settings (or by policy)
+                // and can only be re-enabled there, so send the user rather than
+                // showing a generic failure.
+                autostart::open_startup_settings();
+                g_app.autostartKind = autostart::current();
             } else {
                 show_error(text::s().errorAutostart);
                 // Failure leaves the real state unknown; one query on an explicit

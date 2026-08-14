@@ -84,6 +84,7 @@ target_link_libraries(ime_core PUBLIC
     dwmapi
     ole32
     taskschd
+    windowsapp
 )
 
 if(MSVC)

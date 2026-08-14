@@ -23,6 +23,7 @@ enum class Kind {
     None,
     Registry,       // HKCU Run entry, starts unelevated
     ScheduledTask,  // at logon with highest privileges
+    StartupTask,    // MSIX package StartupTask (the Store build)
 };
 
 // What is configured right now, regardless of which mechanism this process would
@@ -49,6 +50,11 @@ bool elevated();
 // effect); and a packaged app cannot elevate. Callers use this to drop the Run
 // key and the elevation affordances in that build. Computed once.
 bool packaged();
+
+// Opens Windows Settings > Apps > Startup. In the MSIX build, a StartupTask the
+// user disabled from Settings can only be re-enabled there (RequestEnableAsync
+// won't override that choice), so the tray toggle sends them here as a fallback.
+void open_startup_settings();
 
 // Full path of this executable. Grows the buffer rather than assuming MAX_PATH,
 // because GetModuleFileNameW truncates instead of failing. Shared here so the
