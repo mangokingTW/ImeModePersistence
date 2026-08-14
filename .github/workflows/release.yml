@@ -190,3 +190,40 @@ jobs:
           if ($env:PRERELEASE -eq 'true') { $ghArgs += '--prerelease' }
           $ghArgs += $assets
           gh release create @ghArgs
+
+      # --- Microsoft Store auto-submit --------------------------------------
+      # Stable releases only, and a no-op until the PARTNER_CENTER_* secrets are
+      # set, so this stays dormant until Store publishing is configured. Runs
+      # after the GitHub release so a Store hiccup never blocks the release.
+      - name: Store submit gate
+        if: env.PRERELEASE == 'false'
+        shell: pwsh
+        env:
+          CLIENTID: ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
+        run: |
+          if ($env:CLIENTID) {
+            "HAVE_STORE=true" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          } else {
+            Write-Host 'PARTNER_CENTER_* secrets not set; skipping Store submission.'
+          }
+
+      - name: Set up Microsoft Store CLI
+        if: env.HAVE_STORE == 'true'
+        uses: microsoft/microsoft-store-apppublisher@15abd1c50fcc164b19cb240fb04ef3c49bf715a2 # v1.1
+
+      - name: Submit MSIX to the Microsoft Store
+        if: env.HAVE_STORE == 'true'
+        shell: pwsh
+        env:
+          TENANT: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
+          SELLERID: ${{ secrets.PARTNER_CENTER_SELLER_ID }}
+          CLIENTID: ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
+          CLIENTSECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
+        run: |
+          # Store ID 9P05QQZ2P5XC. The Store re-signs the package; publish clones
+          # the last submission, uploads this .msix, and commits it for
+          # certification (which then runs server-side).
+          msstore reconfigure --tenantId $env:TENANT --sellerId $env:SELLERID --clientId $env:CLIENTID --clientSecret $env:CLIENTSECRET
+          if ($LASTEXITCODE) { throw 'msstore reconfigure failed' }
+          msstore publish "dist/ImeModePersistence-$env:FILEVER.msix" -id 9P05QQZ2P5XC
+          if ($LASTEXITCODE) { throw 'msstore publish failed' }
