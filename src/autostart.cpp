@@ -54,6 +54,28 @@ struct ComScope {
     ComScope& operator=(const ComScope&) = delete;
 };
 
+// Runs `work` on a dedicated multithreaded-apartment thread and waits for it.
+// The package StartupTask's WinRT calls must not run on the tray's
+// single-threaded apartment: pairing them with a per-call CoInitialize /
+// CoUninitialize there, and blocking on their message-pumping .get(), corrupts
+// COM's cached state and faults in combase.dll (0xc0000005 access violation) --
+// both enabling and disabling did. A short-lived MTA thread is self-contained:
+// .get() blocks safely, and the UI STA is never touched or re-entered.
+template <typename F>
+void run_on_mta(F&& work) {
+    std::thread worker([&] {
+        if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) {
+            return;
+        }
+        try {
+            work();
+        } catch (...) {
+        }
+        CoUninitialize();
+    });
+    worker.join();
+}
+
 // Matches uap5:StartupTask TaskId in packaging/msix/AppxManifest.xml.
 constexpr wchar_t kStartupTaskId[] = L"ImeModePersistenceStartup";
 
@@ -61,56 +83,38 @@ constexpr wchar_t kStartupTaskId[] = L"ImeModePersistenceStartup";
 // None otherwise -- including any failure, so an unexpected error reads as off
 // rather than throwing out of a menu handler.
 Kind startup_task_kind() {
-    ComScope com;
-    try {
+    Kind result = Kind::None;
+    run_on_mta([&result] {
         using namespace winrt::Windows::ApplicationModel;
         const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
         const StartupTaskState state = task.State();
         if (state == StartupTaskState::Enabled || state == StartupTaskState::EnabledByPolicy) {
-            return Kind::StartupTask;
+            result = Kind::StartupTask;
         }
-    } catch (...) {
-    }
-    return Kind::None;
+    });
+    return result;
 }
 
 // Enables or disables the StartupTask (MSIX build). True when the resulting state
 // matches the request. A task the user disabled from Settings (DisabledByUser)
 // or by policy cannot be re-enabled here -- returns false so the caller can open
-// Settings.
-//
-// The work runs on a dedicated multithreaded-apartment thread. RequestEnableAsync
-// can show a one-time consent dialog and complete asynchronously; blocking on its
-// .get() from the tray's single-threaded apartment deadlocks (the STA that must
-// pump for the async to finish is the very thread blocked on it), which surfaced
-// as a crash when enabling. On an MTA thread .get() blocks safely and the UI STA
-// stays free to pump.
+// Settings. RequestEnableAsync may show a one-time consent dialog.
 bool set_startup_task(bool enable) {
     bool result = false;
-    std::thread worker([enable, &result] {
-        if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) {
-            return;
-        }
-        try {
-            using namespace winrt::Windows::ApplicationModel;
-            const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
-            if (!enable) {
-                task.Disable();
-                result = true;
-            } else {
-                StartupTaskState state = task.State();
-                if (state != StartupTaskState::Enabled &&
-                    state != StartupTaskState::EnabledByPolicy) {
-                    state = task.RequestEnableAsync().get();
-                }
-                result = state == StartupTaskState::Enabled ||
-                         state == StartupTaskState::EnabledByPolicy;
+    run_on_mta([enable, &result] {
+        using namespace winrt::Windows::ApplicationModel;
+        const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
+        if (!enable) {
+            task.Disable();
+            result = true;
+        } else {
+            StartupTaskState state = task.State();
+            if (state != StartupTaskState::Enabled && state != StartupTaskState::EnabledByPolicy) {
+                state = task.RequestEnableAsync().get();
             }
-        } catch (...) {
+            result = state == StartupTaskState::Enabled || state == StartupTaskState::EnabledByPolicy;
         }
-        CoUninitialize();
     });
-    worker.join();
     return result;
 }
 
