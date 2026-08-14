@@ -64,8 +64,11 @@ install mango/ImeModePersistence-beta` tracks it.
 
 ## CHANGELOG format
 
-Each version is a `## vX.Y.Z` heading followed by **bilingual highlights** —
-English first, then a paragraph beginning `繁體中文:`:
+Each version is a `## vX.Y.Z` heading followed by that version's **real changes**
+as bilingual highlights — English first, then a paragraph beginning `繁體中文:`.
+Keep it to what actually changed in this release; an overview of the whole app
+belongs in the Store **Description**, not here (see [Description vs "What's
+new"](#store-listing-description-vs-whats-new)):
 
 ```markdown
 ## v1.0.4
@@ -92,6 +95,22 @@ The section drives two different outputs:
 Keep the highlights **≤ 1500 characters per language** (the Store's plain-text
 release-notes cap). If a tag has no CHANGELOG section, the GitHub note is
 auto-generated and the Store "What's new" is left as the previous version's.
+
+### Store listing: Description vs "What's new"
+
+Two Store fields, managed two different ways — don't mix them up:
+
+| Field | What goes in it | Who sets it |
+|---|---|---|
+| **Description** (the app's long 說明) | the evergreen **overview** of the whole app | **by hand in Partner Center** — the release workflow **never touches it** |
+| **"What's new"** (`releaseNotes`) | **this version's real changes** | **automatically**, from the `## vX.Y.Z` CHANGELOG section, every stable release |
+
+The Store step only ever writes `releaseNotes`; it round-trips the rest of the
+submission unchanged, so the Description you set in Partner Center survives every
+release. Put the app overview in the Description **once**; put per-version
+changes in the CHANGELOG. A tag with no CHANGELOG section leaves the previous
+"What's new" in place — there is no auto-blank, so if a release truly has nothing
+to announce, clear it by hand in Partner Center.
 
 ## Microsoft Store
 
