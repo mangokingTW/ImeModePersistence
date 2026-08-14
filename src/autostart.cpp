@@ -2,7 +2,11 @@
 
 #include <appmodel.h>
 #include <comdef.h>
+#include <shellapi.h>
 #include <taskschd.h>
+
+#include <winrt/Windows.ApplicationModel.h>
+#include <winrt/Windows.Foundation.h>
 
 #include <string>
 
@@ -48,6 +52,50 @@ struct ComScope {
     ComScope(const ComScope&) = delete;
     ComScope& operator=(const ComScope&) = delete;
 };
+
+// Matches uap5:StartupTask TaskId in packaging/msix/AppxManifest.xml.
+constexpr wchar_t kStartupTaskId[] = L"ImeModePersistenceStartup";
+
+// Reads the package StartupTask state (MSIX build). StartupTask when enabled,
+// None otherwise -- including any failure, so an unexpected error reads as off
+// rather than throwing out of a menu handler.
+Kind startup_task_kind() {
+    ComScope com;
+    try {
+        using namespace winrt::Windows::ApplicationModel;
+        const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
+        const StartupTaskState state = task.State();
+        if (state == StartupTaskState::Enabled || state == StartupTaskState::EnabledByPolicy) {
+            return Kind::StartupTask;
+        }
+    } catch (...) {
+    }
+    return Kind::None;
+}
+
+// Enables or disables the StartupTask (MSIX build). True when the resulting state
+// matches the request. A task the user disabled from Settings (DisabledByUser)
+// or by policy cannot be re-enabled here -- returns false so the caller can open
+// Settings. RequestEnableAsync may show a one-time consent dialog; .get() pumps
+// the STA while it is up.
+bool set_startup_task(bool enable) {
+    ComScope com;
+    try {
+        using namespace winrt::Windows::ApplicationModel;
+        const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
+        if (!enable) {
+            task.Disable();
+            return true;
+        }
+        StartupTaskState state = task.State();
+        if (state != StartupTaskState::Enabled && state != StartupTaskState::EnabledByPolicy) {
+            state = task.RequestEnableAsync().get();
+        }
+        return state == StartupTaskState::Enabled || state == StartupTaskState::EnabledByPolicy;
+    } catch (...) {
+        return false;
+    }
+}
 
 // Connects to the local Task Scheduler and returns its root folder, or nullptr.
 ITaskFolderPtr task_root() {
@@ -162,11 +210,15 @@ bool packaged() {
     return result;
 }
 
+void open_startup_settings() {
+    ShellExecuteW(nullptr, L"open", L"ms-settings:startupapps", nullptr, nullptr, SW_SHOWNORMAL);
+}
+
 Kind current() {
-    // In the MSIX build, autostart is the package's StartupTask, managed from
-    // Windows Settings; the Run key below is virtualized and meaningless.
+    // In the MSIX build, autostart is the package's StartupTask; the Run key
+    // below is virtualized and meaningless.
     if (packaged()) {
-        return Kind::None;
+        return startup_task_kind();
     }
 
     // A leftover elevated task from an older version still counts as "on", so the
@@ -188,10 +240,10 @@ Kind current() {
 }
 
 bool set_enabled(bool enable) {
-    // The MSIX build manages autostart through its StartupTask (Windows Settings),
-    // not the Run key, and the tray toggle is hidden there, so this is inert.
+    // The MSIX build drives its package StartupTask, not the Run key (which it
+    // virtualizes to no effect).
     if (packaged()) {
-        return false;
+        return set_startup_task(enable);
     }
 
     // Autostart is always the unelevated Run entry. The utility no longer creates
