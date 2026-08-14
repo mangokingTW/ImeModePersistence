@@ -215,7 +215,7 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 
 The installers need [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer; regenerating the icon needs [ImageMagick](https://imagemagick.org) 7 (`./tools/make_icon.sh`).
 
-`project(... VERSION ...)` in `CMakeLists.txt` is the single source of truth, stamped into `VERSIONINFO`. Bump it when releasing and push a matching `vMAJOR.MINOR.PATCH` tag (CI only rejects a version that moves backward; ordinary PRs need no bump). For a test build push `vMAJOR.MINOR.PATCH-beta.N` (or `-rc.N`): it publishes as a GitHub pre-release, never becomes "Latest", and `scoop install mango/ImeModePersistence-beta` tracks it.
+`project(... VERSION ...)` in `CMakeLists.txt` is the single source of truth, stamped into `VERSIONINFO`. Bump it when releasing and push a matching `vMAJOR.MINOR.PATCH` tag (CI only rejects a version that moves backward; ordinary PRs need no bump). For a test build push `vMAJOR.MINOR.PATCH-beta.N` (or `-rc.N`): it publishes as a GitHub pre-release, never becomes "Latest", and `scoop install mango/ImeModePersistence-beta` tracks it. The full release, packaging, and Microsoft Store publishing flow is documented in **[docs/PACKAGING.md](docs/PACKAGING.md)**.
 
 ## License
 
