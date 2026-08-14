@@ -122,7 +122,7 @@ const Strings kTraditionalChinese{
     .noRule = L"（無規則）",
     .autostartTask = L"排程工作（提權）",
     .autostartRegistry = L"登錄項目（一般權限）",
-    .autostartStartupTask = L"開機啟動（市集版）",
+    .autostartStartupTask = L"開機啟動",
     .autostartOff = L"關閉",
     .elevatedYes = L"是",
     .elevatedNo = L"否 － 無法控制提權的程式",
