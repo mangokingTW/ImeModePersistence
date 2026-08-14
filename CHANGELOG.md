@@ -9,12 +9,13 @@ tag has no section here, the workflow falls back to auto-generated notes.
 
 ## v1.0.7
 
-Fixed: the Microsoft Store build could crash when toggling "Start at logon"
-(both enabling and disabling). The package StartupTask calls now run off the
-tray thread, so they no longer corrupt COM state. Also renamed the app's file
-description (shown in Task Manager's Startup tab) to "IME Mode Persistence".
+Fixed: the Microsoft Store build could crash when toggling "Start at logon".
+That build's autostart is a Windows StartupTask; driving it from the app faulted
+in the COM runtime, so the tray item now opens Windows Settings > Startup apps to
+turn it on or off (the menu still shows the current state). Also renamed the file
+description shown in Task Manager's Startup tab to "IME Mode Persistence".
 
-繁體中文:修正 Microsoft Store 版切換「開機時啟動」(開啟或關閉)時可能導致 crash 的問題。封裝的 StartupTask 呼叫現在移到背景執行,不再破壞 COM 狀態。另把檔案描述(工作管理員「啟動」分頁顯示的名稱)改為「IME Mode Persistence」。
+繁體中文:修正 Microsoft Store 版切換「開機時啟動」時可能 crash 的問題。市集版的開機啟動是 Windows 的 StartupTask,由 App 直接切換會在 COM 元件崩潰;托盤選項現在改為開啟「Windows 設定 → 啟動應用程式」讓你開關(選單仍顯示目前狀態)。另把工作管理員「啟動」分頁顯示的檔案描述改為「IME Mode Persistence」。
 
 ## v1.0.6
 
