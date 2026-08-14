@@ -17,14 +17,8 @@ be reviewed, diffed, and re-uploaded when they change.
   the matching-language shot to each listing. (If you'd rather, one set can be
   shared — adding a language reuses the default language's screenshots.)
 
-## Microsoft Store requirements (desktop app)
-
-- **PNG** only. At least **1**, up to **10** per listing.
-- 16:9, from **1366×768** up to **3840×2160**.
-
-> The captures currently in this folder are **small UI grabs kept as
-> reference/source** — they are below the Store's minimum size, so reframe or
-> scale them to 16:9 (≥1366×768) before uploading to Partner Center.
+These are usage screenshots (not icons), kept as-is at whatever size they were
+captured.
 
 See [`../../../docs/PACKAGING.md`](../../../docs/PACKAGING.md) for how the rest of
 the Store listing (Description, "What's new") is managed.
