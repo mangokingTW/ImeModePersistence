@@ -109,7 +109,14 @@ bool set_startup_task(bool enable) {
             result = true;
         } else {
             StartupTaskState state = task.State();
-            if (state != StartupTaskState::Enabled && state != StartupTaskState::EnabledByPolicy) {
+            // Only Disabled can be turned on from here (RequestEnableAsync shows
+            // the one-time consent dialog). DisabledByUser -- what Task Manager's
+            // and Settings' "off" produces -- and DisabledByPolicy cannot be
+            // re-enabled by the app: Windows forbids overriding the user/admin
+            // choice, and calling RequestEnableAsync in that state faults in
+            // combase (0xc0000005). Skip it; the state stays off, so the caller
+            // sends the user to Settings.
+            if (state == StartupTaskState::Disabled) {
                 state = task.RequestEnableAsync().get();
             }
             result = state == StartupTaskState::Enabled || state == StartupTaskState::EnabledByPolicy;
