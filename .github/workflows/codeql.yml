@@ -8,7 +8,20 @@ name: CodeQL
 on:
   push:
     branches: [main]
+    # Only when compiled code changes -- CodeQL builds C/C++ under its tracer,
+    # which is slow, and it is not a required check, so docs / packaging / other
+    # workflow PRs skip it. The weekly schedule still scans everything.
+    paths: &code
+      - "**/*.cpp"
+      - "**/*.h"
+      - "**/*.hpp"
+      - "**/*.c"
+      - "**/*.rc"
+      - "**/*.rc.in"
+      - "CMakeLists.txt"
+      - ".github/workflows/codeql.yml"
   pull_request:
+    paths: *code
   schedule:
     # Weekly, so new queries reach old code without a push.
     - cron: "27 4 * * 1"
