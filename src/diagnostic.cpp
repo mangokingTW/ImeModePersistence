@@ -70,9 +70,14 @@ std::set<std::wstring> g_seen;
 bool open_log(const std::wstring& file) {
     rotate_if_large(file);
 
-    // FILE_SHARE_READ so the file can be opened in Notepad while the utility runs,
-    // which is the whole point of having it.
-    g_file = CreateFileW(file.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ,
+    // FILE_SHARE_READ so it can be opened in Notepad while the utility runs, which
+    // is the whole point of having it. FILE_SHARE_WRITE so a second instance can
+    // open it too: during "Restart as administrator" the outgoing copy still holds
+    // the file when the elevated one starts, and without write sharing the elevated
+    // copy's open failed -- leaving it with no log for the whole session (the
+    // "Open diagnostic log" menu item then vanished). FILE_APPEND_DATA makes each
+    // write atomically append at end-of-file, so concurrent appenders are safe.
+    g_file = CreateFileW(file.c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE,
                          nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (g_file == INVALID_HANDLE_VALUE) {
         return false;
