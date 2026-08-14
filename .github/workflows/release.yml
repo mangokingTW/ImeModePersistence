@@ -204,6 +204,15 @@ jobs:
                 # footer, which would be wrong for a Store listing). The Store
                 # step reads this file.
                 [System.IO.File]::WriteAllText("$PWD/storenotes.md", $text + "`n")
+                # Split into per-language notes at the "繁體中文" marker so each
+                # Store listing gets its own language (en-us -> English,
+                # zh-tw -> Chinese). storenotes.md stays as the bilingual
+                # fallback (used when an app has a single listing).
+                $parts = $text -split "(?m)^(?=繁體中文)", 2
+                $enNotes = $parts[0].Trim()
+                $zhNotes = if ($parts.Count -gt 1) { ($parts[1] -replace "^繁體中文[:：]\s*", "").Trim() } else { "" }
+                if ($enNotes) { [System.IO.File]::WriteAllText("$PWD/storenotes.en.md", $enNotes + "`n") }
+                if ($zhNotes) { [System.IO.File]::WriteAllText("$PWD/storenotes.zh.md", $zhNotes + "`n") }
                 # Wrap the per-version highlights with a consistent install /
                 # verify section, so every release reads as a finished note.
                 # Built as an array (not a here-string) so every line stays
@@ -292,8 +301,6 @@ jobs:
             # means the package ships with the previous notes -- it must never
             # block the commit below, so it is wrapped and the exit code reset.
             try {
-              $notes = (Get-Content $notesFile -Raw).Trim()
-              if ($notes.Length -gt 1500) { $notes = $notes.Substring(0, 1500) }  # Store limit
               # msstore prints the JSON via AnsiConsole, which hard-wraps to
               # ~80 cols in CI and splits \uXXXX escapes (breaks non-ASCII
               # notes). Rejoin the physical lines so the escapes are whole.
@@ -303,8 +310,17 @@ jobs:
                 # Round-trip the whole submission -- update is a full replace, so
                 # only releaseNotes changes and the uploaded package is preserved.
                 $obj = $raw.Substring($s, $e - $s + 1) | ConvertFrom-Json
-                foreach ($p in $obj.listings.PSObject.Properties) {
-                  if ($p.Value.baseListing) { $p.Value.baseListing.releaseNotes = $notes }
+                $read1500 = { param($f) $t = (Get-Content $f -Raw).Trim(); if ($t.Length -gt 1500) { $t.Substring(0, 1500) } else { $t } }
+                $enFile = "$PWD/storenotes.en.md"; $zhFile = "$PWD/storenotes.zh.md"
+                $listed = @($obj.listings.PSObject.Properties | Where-Object { $_.Value.baseListing })
+                foreach ($p in $listed) {
+                  # Give each listing its own language when there is more than one
+                  # listing and a matching split exists; a single-listing app
+                  # keeps the bilingual note so nothing is dropped.
+                  $f = if ($listed.Count -gt 1 -and $p.Name -like 'zh*' -and (Test-Path $zhFile)) { $zhFile }
+                       elseif ($listed.Count -gt 1 -and $p.Name -notlike 'zh*' -and (Test-Path $enFile)) { $enFile }
+                       else { $notesFile }
+                  $p.Value.baseListing.releaseNotes = (& $read1500 $f)
                 }
                 msstore submission update $storeId ($obj | ConvertTo-Json -Depth 100)
               } else {
