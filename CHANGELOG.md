@@ -7,6 +7,32 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.0.5
+
+Overview of everything ImeModePersistence does — it keeps your IME conversion
+mode (Chinese ↔ alphanumeric) consistent as you move between windows, so you
+don't land in the wrong mode after switching apps.
+
+- Per-app input-language binding: pin a specific app (by process) to a keyboard
+  input language — e.g. force a game to English while your editor stays Chinese.
+- A caret input indicator shows the current input state right where you type.
+- Prompts for elevation when a target needs administrator rights.
+- Optional diagnostic log for troubleshooting.
+
+Note: the Microsoft Store (MSIX) build can't elevate, so it can't control apps
+run as administrator or anti-cheat games — for those use the desktop build
+(installer / Scoop / winget) run as administrator. "Start at logon" is available
+in the Store build.
+
+繁體中文:ImeModePersistence 功能總覽——讓輸入法模式(中文 ↔ 英數)在視窗間切換時保持一致,不會換 app 後停在錯的模式。
+
+- 依 App 綁定輸入語言:可依程式把特定 app 固定成某個鍵盤輸入語言——例如把遊戲強制成英文,編輯器維持中文。
+- 游標輸入指示器:在你打字的位置顯示目前輸入狀態。
+- 需要管理員權限時會提示提權。
+- 可選的診斷記錄,方便排查問題。
+
+注意:Microsoft Store(MSIX)版無法提權,碰不到以系統管理員執行的程式或反作弊遊戲——那類請用桌面版(安裝檔／Scoop／winget)並以系統管理員執行。市集版支援「開機時啟動」。
+
 ## v1.0.4
 
 Overview of everything ImeModePersistence does — it keeps your IME conversion
