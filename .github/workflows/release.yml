@@ -275,7 +275,9 @@ jobs:
           # pending by an earlier release -- this newer version supersedes it.
           # Best-effort: "no pending submission" is not an error, so the result
           # is intentionally ignored (and $LASTEXITCODE reset afterwards).
-          msstore submission delete $storeId
+          # --no-confirm: msstore prompts y/n otherwise and dies in CI with
+          # "Failed to read input in non-interactive mode".
+          msstore submission delete $storeId --no-confirm
           $global:LASTEXITCODE = 0
 
           $notesFile = "$PWD/storenotes.md"
