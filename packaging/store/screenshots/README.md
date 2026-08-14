@@ -10,15 +10,21 @@ be reviewed, diffed, and re-uploaded when they change.
 
 ## Convention
 
-- Drop the PNG(s) here, named `NN-<short-desc>.png` in display order —
-  e.g. `01-tray-menu.png`, `02-app-binding.png`, `03-caret-indicator.png`.
-- One set serves every language: **screenshots are shared across listings**, so
-  the `en-us` and `zh-tw` listings reuse these — no per-language upload needed.
+- Named `NN-<short-desc>.<lang>.png` in display order, where `<lang>` is `en-US`
+  or `zh-TW` — e.g. `01-app-language-bindings.en-US.png`. Drop the `.<lang>` for
+  a language-neutral shot.
+- Partner Center listings can carry their own screenshots per language: upload
+  the matching-language shot to each listing. (If you'd rather, one set can be
+  shared — adding a language reuses the default language's screenshots.)
 
 ## Microsoft Store requirements (desktop app)
 
 - **PNG** only. At least **1**, up to **10** per listing.
 - 16:9, from **1366×768** up to **3840×2160**.
+
+> The captures currently in this folder are **small UI grabs kept as
+> reference/source** — they are below the Store's minimum size, so reframe or
+> scale them to 16:9 (≥1366×768) before uploading to Partner Center.
 
 See [`../../../docs/PACKAGING.md`](../../../docs/PACKAGING.md) for how the rest of
 the Store listing (Description, "What's new") is managed.
