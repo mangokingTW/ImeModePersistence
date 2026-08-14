@@ -64,11 +64,6 @@ jobs:
           cmake -S . -B build-x64 -A x64 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Build x86
-        run: |
-          cmake -S . -B build-x86 -A Win32 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_TESTING=OFF
-          cmake --build build-x86 --config Release
-
       - name: Check the stamped version
         shell: pwsh
         run: |
@@ -76,7 +71,7 @@ jobs:
           # ships a binary reporting the wrong version is worse than a failed one,
           # and only an end-to-end check catches the ways the number can go astray
           # between the tag and the resource.
-          foreach ($arch in 'x64', 'x86') {
+          foreach ($arch in @('x64')) {
             $exe = "build-$arch/Release/ImeModePersistence.exe"
             $reported = (Get-Item $exe).VersionInfo.FileVersion
             Write-Output "$arch reports $reported"
@@ -115,7 +110,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          foreach ($arch in 'x64', 'x86') {
+          foreach ($arch in @('x64')) {
             Compress-Archive `
               -Path "build-$arch/Release/ImeModePersistence.exe", 'README.md', 'LICENSE' `
               -DestinationPath "dist/ImeModePersistence-$env:FILEVER-$arch.zip"
@@ -173,7 +168,6 @@ jobs:
             "ImeModePersistence-$env:FILEVER-setup-admin.exe",
             "ImeModePersistence-$env:FILEVER-setup-user.exe",
             "ImeModePersistence-$env:FILEVER-x64.zip",
-            "ImeModePersistence-$env:FILEVER-x86.zip",
             "ImeModePersistence-$env:FILEVER.msix",
             'SHA256SUMS.txt'
           )

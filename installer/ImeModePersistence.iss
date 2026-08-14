@@ -4,7 +4,7 @@
 ; and it keeps the utility at the same integrity level as the ordinary
 ; applications whose IME state it adjusts (see the UIPI note in README.md).
 ;
-; Build (after compiling both architectures into build-x64 and build-x86):
+; Build (after compiling build-x64):
 ;   iscc /DAppVersion=1.0.0 installer\ImeModePersistence.iss
 
 #ifndef AppVersion
@@ -83,7 +83,8 @@ WizardStyle=modern
 LicenseFile=..\LICENSE
 SetupIconFile=..\assets\ImeModePersistence.ico
 
-; 32-bit build on 32-bit Windows, 64-bit build everywhere else.
+; x64 only -- there is no 32-bit build, so refuse to install on 32-bit Windows.
+ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Tasks]
@@ -104,9 +105,7 @@ TaskHelldivers=Bind Helldivers 2 to English input (adds a rule on first run)
 
 [Files]
 Source: "..\build-x64\Release\{#AppExeName}"; DestDir: "{app}"; DestName: "{#AppExeName}"; \
-    Check: Is64BitInstallMode; Flags: ignoreversion
-Source: "..\build-x86\Release\{#AppExeName}"; DestDir: "{app}"; DestName: "{#AppExeName}"; \
-    Check: not Is64BitInstallMode; Flags: ignoreversion
+    Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 ; Only when the Helldivers task is ticked. The utility reads it once per user and
