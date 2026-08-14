@@ -294,7 +294,10 @@ jobs:
             try {
               $notes = (Get-Content $notesFile -Raw).Trim()
               if ($notes.Length -gt 1500) { $notes = $notes.Substring(0, 1500) }  # Store limit
-              $raw = (msstore submission get $storeId | Out-String)
+              # msstore prints the JSON via AnsiConsole, which hard-wraps to
+              # ~80 cols in CI and splits \uXXXX escapes (breaks non-ASCII
+              # notes). Rejoin the physical lines so the escapes are whole.
+              $raw = ((msstore submission get $storeId) -join '')
               $s = $raw.IndexOf('{'); $e = $raw.LastIndexOf('}')
               if ($s -ge 0 -and $e -gt $s) {
                 # Round-trip the whole submission -- update is a full replace, so
