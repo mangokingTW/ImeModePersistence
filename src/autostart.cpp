@@ -9,6 +9,7 @@
 #include <winrt/Windows.Foundation.h>
 
 #include <string>
+#include <thread>
 
 namespace autostart {
 namespace {
@@ -76,25 +77,41 @@ Kind startup_task_kind() {
 // Enables or disables the StartupTask (MSIX build). True when the resulting state
 // matches the request. A task the user disabled from Settings (DisabledByUser)
 // or by policy cannot be re-enabled here -- returns false so the caller can open
-// Settings. RequestEnableAsync may show a one-time consent dialog; .get() pumps
-// the STA while it is up.
+// Settings.
+//
+// The work runs on a dedicated multithreaded-apartment thread. RequestEnableAsync
+// can show a one-time consent dialog and complete asynchronously; blocking on its
+// .get() from the tray's single-threaded apartment deadlocks (the STA that must
+// pump for the async to finish is the very thread blocked on it), which surfaced
+// as a crash when enabling. On an MTA thread .get() blocks safely and the UI STA
+// stays free to pump.
 bool set_startup_task(bool enable) {
-    ComScope com;
-    try {
-        using namespace winrt::Windows::ApplicationModel;
-        const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
-        if (!enable) {
-            task.Disable();
-            return true;
+    bool result = false;
+    std::thread worker([enable, &result] {
+        if (FAILED(CoInitializeEx(nullptr, COINIT_MULTITHREADED))) {
+            return;
         }
-        StartupTaskState state = task.State();
-        if (state != StartupTaskState::Enabled && state != StartupTaskState::EnabledByPolicy) {
-            state = task.RequestEnableAsync().get();
+        try {
+            using namespace winrt::Windows::ApplicationModel;
+            const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
+            if (!enable) {
+                task.Disable();
+                result = true;
+            } else {
+                StartupTaskState state = task.State();
+                if (state != StartupTaskState::Enabled &&
+                    state != StartupTaskState::EnabledByPolicy) {
+                    state = task.RequestEnableAsync().get();
+                }
+                result = state == StartupTaskState::Enabled ||
+                         state == StartupTaskState::EnabledByPolicy;
+            }
+        } catch (...) {
         }
-        return state == StartupTaskState::Enabled || state == StartupTaskState::EnabledByPolicy;
-    } catch (...) {
-        return false;
-    }
+        CoUninitialize();
+    });
+    worker.join();
+    return result;
 }
 
 // Connects to the local Task Scheduler and returns its root folder, or nullptr.
