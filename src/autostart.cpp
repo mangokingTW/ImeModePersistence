@@ -105,8 +105,20 @@ bool set_startup_task(bool enable) {
         using namespace winrt::Windows::ApplicationModel;
         const StartupTask task = StartupTask::GetAsync(kStartupTaskId).get();
         if (!enable) {
-            task.Disable();
-            result = true;
+            // Symmetric to the enable guard: only the plain Enabled state is the
+            // app's to turn off. EnabledByPolicy is admin-forced (the app cannot
+            // disable it), and the already-off states need nothing -- calling
+            // Disable() outside Enabled is futile and risks the same combase
+            // fault, so act only on Enabled.
+            const StartupTaskState state = task.State();
+            if (state == StartupTaskState::Enabled) {
+                task.Disable();
+                result = true;
+            } else {
+                // Already off counts as success; only a policy-forced task can't
+                // be turned off, which stays a failure.
+                result = state != StartupTaskState::EnabledByPolicy;
+            }
         } else {
             StartupTaskState state = task.State();
             // Only Disabled can be turned on from here (RequestEnableAsync shows
