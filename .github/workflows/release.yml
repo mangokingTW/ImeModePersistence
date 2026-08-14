@@ -200,18 +200,24 @@ jobs:
               }
               $text = ($body -join "`n").Trim()
               if ($text) {
+                # Store "What's new": the highlights only (no install/verify
+                # footer, which would be wrong for a Store listing). The Store
+                # step reads this file.
+                [System.IO.File]::WriteAllText("$PWD/storenotes.md", $text + "`n")
                 # Wrap the per-version highlights with a consistent install /
                 # verify section, so every release reads as a finished note.
-                $footer = @'
-
----
-
-### Install
-`scoop install mango/ImeModePersistence` · `winget install mangokingTW.ImeModePersistence` · `choco install imemodepersistence` — or the setup / portable zip below. Verify a download with `gh attestation verify <file> --repo mangokingTW/ImeModePersistence`.
-
-The Microsoft Store (MSIX) build can't elevate; for apps run as administrator or anti-cheat games, use the desktop build run as administrator.
-安裝:上方任一套件管理器,或下方安裝檔／免安裝 zip。Store 版無法提權,提權目標請用桌面版並以系統管理員執行。
-'@
+                # Built as an array (not a here-string) so every line stays
+                # indented inside this YAML block scalar.
+                $footer = @(
+                  '',
+                  '---',
+                  '',
+                  '### Install',
+                  '`scoop install mango/ImeModePersistence` · `winget install mangokingTW.ImeModePersistence` · `choco install imemodepersistence` — or the setup / portable zip below. Verify a download with `gh attestation verify <file> --repo mangokingTW/ImeModePersistence`.',
+                  '',
+                  "The Microsoft Store (MSIX) build can't elevate; for apps run as administrator or anti-cheat games, use the desktop build run as administrator.",
+                  '安裝:上方任一套件管理器,或下方安裝檔／免安裝 zip。Store 版無法提權,提權目標請用桌面版並以系統管理員執行。'
+                ) -join "`n"
                 [System.IO.File]::WriteAllText("$PWD/relnotes.md", ($text + "`n" + $footer).Trim() + "`n")
                 $notesArgs = @('--notes-file', "$PWD/relnotes.md")
               }
@@ -249,22 +255,63 @@ The Microsoft Store (MSIX) build can't elevate; for apps run as administrator or
       - name: Submit MSIX to the Microsoft Store
         if: env.HAVE_STORE == 'true'
         shell: pwsh
+        # msstore's commit has been seen to hang at "CommitStarted"
+        # (microsoft/msstore-cli#29); bound it so a hang fails the step instead
+        # of running out the job's default timeout.
+        timeout-minutes: 30
         env:
           TENANT: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
           SELLERID: ${{ secrets.PARTNER_CENTER_SELLER_ID }}
           CLIENTID: ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
           CLIENTSECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
         run: |
-          # Store ID 9P05QQZ2P5XC. The Store re-signs the package; publish clones
-          # the last submission, uploads this .msix, and commits it for
-          # certification (which then runs server-side).
+          $storeId = '9P05QQZ2P5XC'
+          $msix = "dist/ImeModePersistence-$env:FILEVER.msix"
+          # The Store re-signs the package on ingestion.
           msstore reconfigure --tenantId $env:TENANT --sellerId $env:SELLERID --clientId $env:CLIENTID --clientSecret $env:CLIENTSECRET
           if ($LASTEXITCODE) { throw 'msstore reconfigure failed' }
+
           # The Store allows only one in-flight submission, so cancel any left
           # pending by an earlier release -- this newer version supersedes it.
           # Best-effort: "no pending submission" is not an error, so the result
-          # is intentionally ignored (and $LASTEXITCODE reset before publish).
-          msstore submission delete 9P05QQZ2P5XC
+          # is intentionally ignored (and $LASTEXITCODE reset afterwards).
+          msstore submission delete $storeId
           $global:LASTEXITCODE = 0
-          msstore publish "dist/ImeModePersistence-$env:FILEVER.msix" -id 9P05QQZ2P5XC
-          if ($LASTEXITCODE) { throw 'msstore publish failed' }
+
+          $notesFile = "$PWD/storenotes.md"
+          if (Test-Path $notesFile) {
+            # `msstore publish` clones the previous submission's release notes, so
+            # to set this version's "What's new" we upload the package into a
+            # draft WITHOUT committing (-nc), inject the notes, then commit.
+            msstore publish $msix -id $storeId -nc
+            if ($LASTEXITCODE) { throw 'msstore publish (-nc) failed' }
+
+            # Best-effort: set the notes on every listing. Any failure here just
+            # means the package ships with the previous notes -- it must never
+            # block the commit below, so it is wrapped and the exit code reset.
+            try {
+              $notes = (Get-Content $notesFile -Raw).Trim()
+              if ($notes.Length -gt 1500) { $notes = $notes.Substring(0, 1500) }  # Store limit
+              $raw = (msstore submission get $storeId | Out-String)
+              $s = $raw.IndexOf('{'); $e = $raw.LastIndexOf('}')
+              if ($s -ge 0 -and $e -gt $s) {
+                # Round-trip the whole submission -- update is a full replace, so
+                # only releaseNotes changes and the uploaded package is preserved.
+                $obj = $raw.Substring($s, $e - $s + 1) | ConvertFrom-Json
+                foreach ($p in $obj.listings.PSObject.Properties) {
+                  if ($p.Value.baseListing) { $p.Value.baseListing.releaseNotes = $notes }
+                }
+                msstore submission update $storeId ($obj | ConvertTo-Json -Depth 100)
+              } else {
+                Write-Host 'could not parse submission JSON; keeping previous notes'
+              }
+            } catch { Write-Host "release-notes update skipped: $_" }
+            $global:LASTEXITCODE = 0
+
+            msstore submission publish $storeId
+            if ($LASTEXITCODE) { throw 'msstore submission publish (commit) failed' }
+          } else {
+            # No curated notes for this tag: package-only publish (commits).
+            msstore publish $msix -id $storeId
+            if ($LASTEXITCODE) { throw 'msstore publish failed' }
+          }
