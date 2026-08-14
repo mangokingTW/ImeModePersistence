@@ -21,8 +21,6 @@ jobs:
         include:
           - name: x64
             platform: x64
-          - name: x86
-            platform: Win32
 
     name: ${{ matrix.name }}
 
@@ -84,9 +82,9 @@ jobs:
   installer:
     runs-on: windows-latest
     name: installer
-    # The executables this packages were just built by the matrix job, so take
-    # those instead of compiling both architectures a second time -- the .iss
-    # reads them from the paths the download steps recreate.
+    # The executable this packages was just built by the matrix job, so take it
+    # instead of compiling again -- the .iss reads it from the path the download
+    # step recreates.
     needs: build
 
     steps:
@@ -97,12 +95,6 @@ jobs:
         with:
           name: ImeModePersistence-x64
           path: build-x64/Release
-
-      - name: Fetch the x86 executable
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: ImeModePersistence-x86
-          path: build-x86/Release
 
       - name: Build installer
         shell: pwsh

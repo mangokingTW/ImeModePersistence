@@ -38,7 +38,7 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 |---|---|
 | `...-setup-admin.exe` | 需要管理員權限，裝在 Program Files。**有防作弊的遊戲需要這個版本** |
 | `...-setup-user.exe` | 不需要管理員權限，裝在使用者目錄。無法控制提權的程式 |
-| `...-x64.zip` / `-x86.zip` | 免安裝，解壓即用 |
+| `...-x64.zip` | 免安裝，解壓即用 |
 
 > **防毒軟體可能刪除安裝檔。** 未簽章的安裝檔常被啟發式誤判 —— 遇到時改用免安裝的 zip，功能完全相同。
 
@@ -95,9 +95,7 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
-cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+ctest --test-dir build -C Release --output-on-failureiscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
 iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
@@ -150,7 +148,7 @@ From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 |---|---|
 | `...-setup-admin.exe` | Needs administrator rights, installs to Program Files. **Required for anti-cheat protected games** |
 | `...-setup-user.exe` | No administrator rights, installs into your user directory. Cannot control elevated programs |
-| `...-x64.zip` / `-x86.zip` | Portable; unzip and run |
+| `...-x64.zip` | Portable; unzip and run |
 
 > **Antivirus may delete the installer.** Unsigned installers are frequently caught by heuristics — use the portable archive, which is functionally identical.
 
@@ -207,9 +205,7 @@ It stays out of its own windows and follows the caret. In fields where the repor
 
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failure
-cmake -S . -B build-x86 -A Win32 && cmake --build build-x86 --config Release
-iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+ctest --test-dir build -C Release --output-on-failureiscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
 iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 

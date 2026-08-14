@@ -15,8 +15,12 @@ does the rest.
 | winget | `mangokingTW.ImeModePersistence` | manifest in [`packaging/winget`](../packaging/winget), updated separately |
 
 Release assets: two installers (`-setup-admin.exe`, `-setup-user.exe`), portable
-`-x64.zip` / `-x86.zip`, the Store `.msix`, `SHA256SUMS.txt`, and the SLSA
-provenance bundle (`multiple.intoto.jsonl`).
+`-x64.zip`, the Store `.msix`, `SHA256SUMS.txt`, and the SLSA provenance bundle
+(`multiple.intoto.jsonl`).
+
+Builds are **x64 only** — Windows 11 has no 32-bit edition and 32-bit Windows 10
+is end-of-life, so there is no x86 build; the installer refuses to run on a
+32-bit OS.
 
 ## Cutting a release
 
@@ -29,7 +33,7 @@ provenance bundle (`multiple.intoto.jsonl`).
      the resubmission.
    - `CHANGELOG.md` — add a `## vX.Y.Z` section (see [CHANGELOG format](#changelog-format)).
 2. Open a PR and merge to `main` (branch-protected; required checks: `version
-   bump`, `x64`, `x86`, `installer`).
+   bump`, `x64`, `installer`).
 3. Tag `main` and push:
    ```sh
    git tag -a vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z
@@ -47,7 +51,7 @@ install mango/ImeModePersistence-beta` tracks it.
 ## What `release.yml` does
 
 1. **Derive version** from the tag (`FILEVER` = full, `VERSION` = numeric).
-2. **Build** x64 + x86 (CMake/MSVC Release).
+2. **Build** x64 (CMake/MSVC Release).
 3. **Build installer** (Inno Setup, `installer/ImeModePersistence.iss`).
 4. **Package** portable zips; **build the MSIX** (`packaging/msix/build.ps1`).
 5. **Checksums** + **build provenance attestation**.
