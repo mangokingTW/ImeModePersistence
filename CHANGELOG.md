@@ -7,6 +7,15 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.0.7
+
+Fixed: the Microsoft Store build could crash when toggling "Start at logon"
+(both enabling and disabling). The package StartupTask calls now run off the
+tray thread, so they no longer corrupt COM state. Also renamed the app's file
+description (shown in Task Manager's Startup tab) to "IME Mode Persistence".
+
+繁體中文:修正 Microsoft Store 版切換「開機時啟動」(開啟或關閉)時可能導致 crash 的問題。封裝的 StartupTask 呼叫現在移到背景執行,不再破壞 COM 狀態。另把檔案描述(工作管理員「啟動」分頁顯示的名稱)改為「IME Mode Persistence」。
+
 ## v1.0.6
 
 Overview of everything ImeModePersistence does — it keeps your IME conversion
