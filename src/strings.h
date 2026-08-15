@@ -22,6 +22,7 @@ struct Strings {
     const wchar_t* menuRules;
     const wchar_t* menuLog;
     const wchar_t* menuExit;
+    const wchar_t* menuVersion;       // "Version" / "版本"; the number is appended
 
     const wchar_t* statusTitle;
     const wchar_t* statusFormat;      // desired, foreground, reachable, app,

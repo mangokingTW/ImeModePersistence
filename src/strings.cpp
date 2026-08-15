@@ -15,6 +15,7 @@ const Strings kEnglish{
     .menuRules = L"App language bindings...",
     .menuLog = L"Open diagnostic log",
     .menuExit = L"Exit",
+    .menuVersion = L"Version",
 
     .statusTitle = L"IME Mode Persistence",
     .statusFormat = L"Desired mode: %s\n"
@@ -102,6 +103,7 @@ const Strings kTraditionalChinese{
     .menuRules = L"程式綁定輸入語言...",
     .menuLog = L"開啟診斷記錄",
     .menuExit = L"結束",
+    .menuVersion = L"版本",
 
     .statusTitle = L"輸入法模式延續",
     .statusFormat = L"目標模式：%s\n"
