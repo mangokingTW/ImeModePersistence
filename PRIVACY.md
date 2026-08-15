@@ -2,7 +2,7 @@
 
 _Last updated: 2026-08-12_
 
-ImeModePersistence ("the app") is a local Windows utility. **It collects no
+IME Mode Persistence ("the app") is a local Windows utility. **It collects no
 personal information, makes no network connections, and sends nothing off your
 device.** There is no telemetry, no account, and no sharing with third parties.
 
@@ -46,7 +46,7 @@ Questions or reports: <https://github.com/mangokingTW/ImeModePersistence/issues>
 
 _最後更新：2026-08-12_
 
-ImeModePersistence（下稱「本程式」）是在本機執行的 Windows 工具。**它不蒐集任何個人資訊、不進行任何網路連線，也不會把任何資料傳出你的裝置。** 沒有遙測、沒有帳號、不與第三方分享。
+IME Mode Persistence（下稱「本程式」）是在本機執行的 Windows 工具。**它不蒐集任何個人資訊、不進行任何網路連線，也不會把任何資料傳出你的裝置。** 沒有遙測、沒有帳號、不與第三方分享。
 
 ## 本程式會存取什麼、為什麼
 

@@ -1,6 +1,6 @@
 # Packaging & Releasing
 
-How ImeModePersistence is built and published. Everything is driven by pushing a
+How IME Mode Persistence is built and published. Everything is driven by pushing a
 `vX.Y.Z` tag — [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 does the rest.
 
