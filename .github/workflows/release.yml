@@ -378,26 +378,30 @@ jobs:
 
             # `submission publish` returns at CommitStarted -- the commit is still
             # processing, so Partner Center doesn't yet show the submission as
-            # submitted. Wait until it leaves CommitStarted (i.e. the commit
-            # finished and it's in certification). Bounded, since full
-            # certification takes far longer; `msstore submission poll` would wait
-            # for full publication.
-            $committed = $false
+            # submitted. Wait until it leaves CommitStarted (the commit finished).
+            # Bounded, since certification itself takes far longer; `msstore
+            # submission poll` would block for full publication.
+            $done = $false
             for ($i = 0; $i -lt 50; $i++) {
               Start-Sleep -Seconds 30
-              $status = ((msstore submission status $storeId) -join ' ')
+              # msstore prints the status line to stderr via Spectre.Console, so
+              # 2>&1 is required -- without it the capture is empty and this loop
+              # never detects completion (it just idles the full window).
+              $status = ((msstore submission status $storeId 2>&1) -join ' ')
               $global:LASTEXITCODE = 0
               Write-Host "poll ${i}: $status"
-              if ($status -match 'CommitFailed|CertificationFailed|PreProcessingFailed') {
+              if ($status -match 'CommitFailed|CertificationFailed|PreProcessingFailed|PublishFailed|ReleaseFailed') {
                 throw "submission failed: $status"
               }
+              # Once it has left CommitStarted / PendingCommit the commit is done
+              # (now certifying / releasing / published) -- stop here.
               if ($status -match 'Submission Status' -and $status -notmatch 'CommitStarted|PendingCommit') {
-                $committed = $true
+                $done = $true
                 break
               }
             }
-            if (-not $committed) {
-              Write-Host 'still committing after the wait; the submission is in progress server-side'
+            if (-not $done) {
+              Write-Host 'still processing after the wait; the submission is in progress server-side'
             }
           } else {
             # No curated notes for this tag: package-only publish (commits).
