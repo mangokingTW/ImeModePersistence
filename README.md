@@ -1,5 +1,7 @@
 # ImeModePersistence
 
+[![Get it from Microsoft Store](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9P05QQZ2P5XC)
+
 [![Windows build](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/windows-build.yml/badge.svg)](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/windows-build.yml)
 [![CodeQL](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/codeql.yml/badge.svg)](https://github.com/mangokingTW/ImeModePersistence/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/mangokingTW/ImeModePersistence/badge)](https://scorecard.dev/viewer/?uri=github.com/mangokingTW/ImeModePersistence)
@@ -32,7 +34,7 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 
 ## 安裝
 
-到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載：
+**最簡單：從 [Microsoft Store](https://apps.microsoft.com/detail/9P05QQZ2P5XC) 安裝**（自動更新）。商店版以一般權限執行，無法控制提權程式——有防作弊的遊戲請改用下方 `setup-admin`。或到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載：
 
 | 檔案 | 說明 |
 |---|---|
@@ -53,6 +55,14 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 > Scoop 已可用。winget 與 Chocolatey 的套件正在各自社群審核中，通過後即可安裝。
 
 安裝時有兩個勾選項。「開機時自動啟動」：**兩個版本都是以一般權限**在登入時啟動（寫 HKCU 登錄項目，不建立提權排程工作）。要控制**提權的程式（多數反作弊遊戲）**時，用托盤選單的**以管理員身分重新啟動**當場提權（每次開機後、開玩前按一次，過一次 UAC）。「綁定 Helldivers 2 為英文輸入」：預設不勾，勾了會在第一次啟動時自動加上 `class:stingray_window` → 英文的規則（若你已有自己的規則就不覆蓋，日後刪掉也不會復活）。
+
+**進階：讓 admin 版開機就以提權啟動。** 這是刻意不內建的——登入時靜默提權啟動正是防毒行為偵測會標記的持續化（persistence）模式，所以 app 內建的開機啟動一律未提權。若你確定要，可自行用工作排程器建立。以**系統管理員**開啟命令提示字元，執行（路徑換成你的實際安裝位置）：
+
+```
+schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeModePersistence\ImeModePersistence.exe\"" /SC ONLOGON /RL HIGHEST /F
+```
+
+`/RL HIGHEST` 讓它登入時以最高權限啟動且**不跳 UAC**。建立後，請到托盤選單把 app 內建的**開機時自動啟動**關掉，否則未提權的 HKCU Run 登錄項目會在登入時再開一個未提權實例。要移除這個排程：`schtasks /Delete /TN "ImeModePersistence-Elevated" /F`。
 
 **更新**：執行新版安裝檔，會就地升級並自動關閉重啟執行中的副本；也會清掉舊版可能留下的提權排程工作。**卸除**：設定 → 應用程式。安裝目錄與登錄項目都會清掉。
 
@@ -142,7 +152,7 @@ Its **second** purpose is pinning a specific program to an input language, inclu
 
 ## Install
 
-From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
+**Easiest: get it from the [Microsoft Store](https://apps.microsoft.com/detail/9P05QQZ2P5XC)** (auto-updates). The Store build runs unelevated and cannot control elevated programs — for anti-cheat games use the `setup-admin` installer below instead. Or from [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 
 | File | What it is |
 |---|---|
@@ -163,6 +173,14 @@ From [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 > Scoop is available now. The winget and Chocolatey packages are pending community moderation and will install once approved.
 
 Setup has two options. *Start automatically at logon*: **both variants start unelevated** at logon (an HKCU registry entry; no elevated scheduled task). To control an **elevated program (most anti-cheat games)**, use **Restart as administrator** in the tray menu to elevate on the spot — once per session, before playing, accepting one UAC prompt. *Bind Helldivers 2 to English input* (off by default): on first run it adds a `class:stingray_window` → English rule for you — it never overwrites a rule you already have, and does not come back if you later remove it.
+
+**Advanced: start the admin variant elevated at logon.** This is deliberately not built in — a silent elevated launch at logon is the persistence pattern antivirus behaviour detection flags, so the app's own autostart is always unelevated. If you're sure you want it, set it up yourself with Task Scheduler. From an **administrator** command prompt, run (replace the path with your actual install location):
+
+```
+schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeModePersistence\ImeModePersistence.exe\"" /SC ONLOGON /RL HIGHEST /F
+```
+
+`/RL HIGHEST` starts it with highest privileges at logon with **no UAC prompt**. After creating it, turn **off** the app's own *Start automatically at logon* in the tray menu, or the unelevated HKCU Run entry will launch a second, unelevated copy at logon. To remove the task: `schtasks /Delete /TN "ImeModePersistence-Elevated" /F`.
 
 **Updating**: run the newer installer; it upgrades in place, closing and restarting a running copy, and removes any elevated scheduled task an older version left behind. **Uninstalling**: Settings → Apps. The install directory and registry entries all go.
 
