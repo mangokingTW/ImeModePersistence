@@ -1124,6 +1124,11 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         } else if (lParam == WM_RBUTTONUP) {
             HMENU menu = CreatePopupMenu();
             if (menu) {
+                // A non-clickable header naming the app and its version, so the
+                // running build is identifiable straight from the tray.
+                AppendMenuW(menu, MF_STRING | MF_GRAYED, 0,
+                            L"IME Mode Persistence  v" APP_VERSION_STRING);
+                AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(
                     menu,
                     // The cached kind: reading the real state can be slow (schtasks

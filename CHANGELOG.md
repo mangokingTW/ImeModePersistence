@@ -7,6 +7,13 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.1.1
+
+The tray right-click menu now shows the app name and version at the top, so you
+can tell which build is running at a glance.
+
+繁體中文:托盤右鍵選單頂端現在會顯示 App 名稱與版本號,一眼就能看出目前執行的是哪個版本。
+
 ## v1.1.0
 
 Fixed: the Microsoft Store build could crash when toggling "Start at logon".
