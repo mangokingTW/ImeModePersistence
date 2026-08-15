@@ -358,11 +358,13 @@ jobs:
                 $enFile = "$PWD/storenotes.en.md"; $zhFile = "$PWD/storenotes.zh.md"
                 $listed = @($obj.listings.PSObject.Properties | Where-Object { $_.Value.baseListing })
                 foreach ($p in $listed) {
-                  # Give each listing its own language when there is more than one
-                  # listing and a matching split exists; a single-listing app
-                  # keeps the bilingual note so nothing is dropped.
-                  $f = if ($listed.Count -gt 1 -and $p.Name -like 'zh*' -and (Test-Path $zhFile)) { $zhFile }
-                       elseif ($listed.Count -gt 1 -and $p.Name -notlike 'zh*' -and (Test-Path $enFile)) { $enFile }
+                  # Only the Traditional Chinese listing gets the Chinese note;
+                  # every other listing (English, Simplified Chinese, Japanese,
+                  # Korean) gets English -- we don't maintain the What's-new in
+                  # those languages. Match both zh-tw and zh-Hant naming. A
+                  # single-listing app keeps the bilingual note so nothing drops.
+                  $f = if ($listed.Count -gt 1 -and ($p.Name -like '*tw*' -or $p.Name -like '*hant*') -and (Test-Path $zhFile)) { $zhFile }
+                       elseif ($listed.Count -gt 1 -and (Test-Path $enFile)) { $enFile }
                        else { $notesFile }
                   $p.Value.baseListing.releaseNotes = (& $read1500 $f)
                 }
