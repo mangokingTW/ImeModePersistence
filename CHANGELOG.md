@@ -7,7 +7,7 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
-## v1.0.7
+## v1.1.0
 
 Fixed: the Microsoft Store build could crash when toggling "Start at logon".
 That build's autostart is a Windows StartupTask; driving it from the app faulted
