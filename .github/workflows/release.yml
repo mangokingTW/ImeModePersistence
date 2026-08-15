@@ -311,7 +311,7 @@ jobs:
         # msstore's commit has been seen to hang at "CommitStarted"
         # (microsoft/msstore-cli#29); bound it so a hang fails the step instead
         # of running out the job's default timeout.
-        timeout-minutes: 30
+        timeout-minutes: 45
         env:
           TENANT: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
           SELLERID: ${{ secrets.PARTNER_CENTER_SELLER_ID }}
@@ -383,8 +383,8 @@ jobs:
             # certification takes far longer; `msstore submission poll` would wait
             # for full publication.
             $committed = $false
-            for ($i = 0; $i -lt 24; $i++) {
-              Start-Sleep -Seconds 15
+            for ($i = 0; $i -lt 50; $i++) {
+              Start-Sleep -Seconds 30
               $status = ((msstore submission status $storeId) -join ' ')
               $global:LASTEXITCODE = 0
               Write-Host "poll ${i}: $status"
