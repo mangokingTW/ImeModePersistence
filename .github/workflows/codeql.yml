@@ -8,10 +8,10 @@ name: CodeQL
 on:
   push:
     branches: [main]
-    # Only when compiled code changes -- CodeQL builds C/C++ under its tracer,
-    # which is slow, and it is not a required check, so docs / packaging / other
-    # workflow PRs skip it. The weekly schedule still scans everything.
-    paths: &code
+    # On main, only when compiled code changes -- CodeQL builds C/C++ under its
+    # tracer, which is slow, and a doc-only merge to main gains nothing. PRs run
+    # it unconditionally (below), which is what the score actually depends on.
+    paths:
       - "**/*.cpp"
       - "**/*.h"
       - "**/*.hpp"
@@ -21,7 +21,10 @@ on:
       - "CMakeLists.txt"
       - ".github/workflows/codeql.yml"
   pull_request:
-    paths: *code
+    # Every PR, docs and packaging included: Scorecard's SAST check credits a
+    # project only when its recent PRs ran a static analyser, so a doc-only PR
+    # that skipped CodeQL drags the score down. The extra build time is the cost
+    # of keeping SAST at full marks.
   schedule:
     # Weekly, so new queries reach old code without a push.
     - cron: "27 4 * * 1"
