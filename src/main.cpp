@@ -38,6 +38,12 @@ constexpr UINT ID_TRAY_PERSIST = 1004;
 constexpr UINT ID_TRAY_ELEVATE = 1005;
 constexpr UINT ID_TRAY_LOG = 1006;
 constexpr UINT ID_TRAY_INDICATOR = 1007;
+constexpr UINT ID_TRAY_LANG_AUTO = 1008;
+constexpr UINT ID_TRAY_LANG_EN = 1009;
+constexpr UINT ID_TRAY_LANG_ZHTW = 1010;
+constexpr UINT ID_TRAY_LANG_ZHCN = 1011;
+constexpr UINT ID_TRAY_LANG_JA = 1012;
+constexpr UINT ID_TRAY_LANG_KO = 1013;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Session-local: one instance per interactive logon session is what we want, and
@@ -373,7 +379,7 @@ void compose_attempt(wchar_t* out, size_t count, bool requested, bool satisfied,
 // Hovering the tray icon does not change the foreground window, which is what
 // makes the tooltip the one place a diagnostic can be read without disturbing
 // the thing being diagnosed.
-void update_tooltip(HWND hwnd) {
+void update_tooltip(HWND hwnd, bool force = false) {
     const text::Strings& t = text::s();
 
     const HKL current = hwnd ? layout::current(hwnd) : nullptr;
@@ -398,7 +404,7 @@ void update_tooltip(HWND hwnd) {
                         g_app.layoutRequested,
                         g_app.layoutSatisfied,
                         g_app.layoutMethod};
-    if (inputs == last) {
+    if (!force && inputs == last) {
         return;
     }
     last = inputs;
@@ -426,7 +432,7 @@ void update_tooltip(HWND hwnd) {
         // to read state without disturbing the window being read.
         autostart::elevated() ? L"" : t.tooltipUnelevated);
 
-    if (g_app.tooltip == composed) {
+    if (!force && g_app.tooltip == composed) {
         return;
     }
     g_app.tooltip = composed;
@@ -1163,6 +1169,24 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     // something that does nothing.
                     AppendMenuW(menu, MF_STRING, ID_TRAY_LOG, text::s().menuLog);
                 }
+                HMENU langMenu = CreatePopupMenu();
+                if (langMenu) {
+                    const text::Language curLang = text::language();
+                    auto langItem = [&](text::Language l, UINT id, const wchar_t* label) {
+                        AppendMenuW(langMenu, MF_STRING | (curLang == l ? MF_CHECKED : 0u),
+                                    id, label);
+                    };
+                    // The concrete languages are named in their own script (endonyms),
+                    // not translated into the current UI language.
+                    langItem(text::Language::Auto, ID_TRAY_LANG_AUTO, text::s().languageAuto);
+                    langItem(text::Language::English, ID_TRAY_LANG_EN, L"English");
+                    langItem(text::Language::TraditionalChinese, ID_TRAY_LANG_ZHTW, L"繁體中文");
+                    langItem(text::Language::SimplifiedChinese, ID_TRAY_LANG_ZHCN, L"简体中文");
+                    langItem(text::Language::Japanese, ID_TRAY_LANG_JA, L"日本語");
+                    langItem(text::Language::Korean, ID_TRAY_LANG_KO, L"한국어");
+                    AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(langMenu),
+                                text::s().menuLanguage);
+                }
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, text::s().menuExit);
                 POINT pt{};
@@ -1259,6 +1283,28 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             g_app.observedLayout = nullptr;
             return 0;
         }
+        {
+            // The UI-language submenu. A single block maps each id to a choice so
+            // non-language commands fall straight through.
+            text::Language chosen{};
+            bool isLanguage = true;
+            switch (LOWORD(wParam)) {
+            case ID_TRAY_LANG_AUTO: chosen = text::Language::Auto; break;
+            case ID_TRAY_LANG_EN:   chosen = text::Language::English; break;
+            case ID_TRAY_LANG_ZHTW: chosen = text::Language::TraditionalChinese; break;
+            case ID_TRAY_LANG_ZHCN: chosen = text::Language::SimplifiedChinese; break;
+            case ID_TRAY_LANG_JA:   chosen = text::Language::Japanese; break;
+            case ID_TRAY_LANG_KO:   chosen = text::Language::Korean; break;
+            default: isLanguage = false; break;
+            }
+            if (isLanguage) {
+                settings::set_ui_language(static_cast<int>(chosen));
+                text::set_language(chosen);
+                diag::write(L"user: UI language -> %d", static_cast<int>(chosen));
+                update_tooltip(hwnd, true);
+                return 0;
+            }
+        }
         break;
 
     case WM_DESTROY:
@@ -1286,6 +1332,9 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     // no DPI call to make here.
     // Before any window exists, because the framework wants COM on this thread.
     // A failure is not fatal: the other switching mechanisms still work.
+    // Apply the saved UI-language choice before any window or menu is built.
+    text::set_language(static_cast<text::Language>(settings::ui_language()));
+
     g_app.persistMode = settings::persist_mode();
 
     // Primed before anything reads autostart_label: the cache is the only thing

@@ -7,6 +7,17 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.2.0
+
+The app interface is now available in Simplified Chinese, Japanese and Korean, on
+top of English and Traditional Chinese. It follows your Windows display language
+by default (Traditional for TW/HK/MO, Simplified elsewhere), and you can also
+pick a language yourself from the new tray **Language** submenu — "Automatic"
+restores following Windows. The Simplified Chinese, Japanese and Korean text is
+machine-translated for now and may be refined by native speakers later.
+
+繁體中文:App 介面新增簡體中文、日文、韓文(原本已有英文與繁體中文)。預設依 Windows 顯示語言自動選擇(繁體給台/港/澳,其餘給簡體),也可以從新的托盤「顯示語言」子選單自行指定(選「自動」即回到依 Windows)。簡中、日文、韓文目前為機器翻譯,日後可能由母語者校正。
+
 ## v1.1.1
 
 The tray right-click menu now shows the app name and version at the top, so you

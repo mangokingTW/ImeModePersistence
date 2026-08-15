@@ -14,7 +14,7 @@
 
 Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的**輸入模式**（中文／英數），並可把指定程式**綁定到固定的輸入語言** —— 連讀不到執行檔的程式也行，例如有防作弊的全螢幕遊戲。
 
-操作教學在 **[Wiki](https://github.com/mangokingTW/ImeModePersistence/wiki)**，設計取捨與被否決的做法在 **[docs/design.md](docs/design.md)**。
+操作教學在 **[Wiki](https://github.com/mangokingTW/ImeModePersistence/wiki)**，設計取捨與被否決的做法在 **[docs/design.md](docs/design.md)**。與同類工具的比較見 **[Wiki 的同類工具頁](https://github.com/mangokingTW/ImeModePersistence/wiki/Similar-tools)**。
 
 ## 這是什麼
 
@@ -132,7 +132,7 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 
 Windows utility that controls how input methods behave across programs: it carries the **input mode you last chose** (native or alphanumeric) to the next window, and can **bind a program to a fixed input language** — including programs whose executable cannot be read, such as anti-cheat protected fullscreen games.
 
-Step-by-step guides are in the **[wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Home-English)**; design trade-offs and rejected approaches in **[docs/design.md](docs/design.md)**.
+Step-by-step guides are in the **[wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Home-English)**; design trade-offs and rejected approaches in **[docs/design.md](docs/design.md)**. How it compares to similar tools is on the **[wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Similar-tools-English)**.
 
 ## What it does
 

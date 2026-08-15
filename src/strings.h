@@ -83,10 +83,24 @@ struct Strings {
 
     const wchar_t* browseTitle;
     const wchar_t* browseFilter;       // double-null terminated
+
+    const wchar_t* menuLanguage;       // tray "Language" submenu title
+    const wchar_t* languageAuto;       // the "follow Windows" entry in that submenu
 };
+
+// The UI languages the app ships. Auto follows the Windows display language.
+enum class Language { Auto = 0, English, TraditionalChinese, SimplifiedChinese, Japanese, Korean };
 
 // Reads the UI language on first use. Any Chinese UI language selects the
 // Traditional strings, which is the only Chinese translation provided.
 const Strings& s();
+
+// Override the language shown. Auto restores following the Windows display
+// language. Text read after the call uses it (the tray menu and tooltip pick it
+// up right away; an already-open window updates when next shown).
+void set_language(Language language);
+
+// The current override (Auto when following Windows), for the menu check mark.
+Language language();
 
 } // namespace text

@@ -18,4 +18,10 @@ bool set_persist_mode(bool enabled);
 bool indicator_enabled();
 bool set_indicator_enabled(bool enabled);
 
+// Which UI language to show, as a text::Language value. 0 = Auto, i.e. follow the
+// Windows display language (the default); 1..5 pin a specific language. Stored so
+// the choice survives a restart.
+int ui_language();
+bool set_ui_language(int language);
+
 } // namespace settings
