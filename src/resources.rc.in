@@ -74,7 +74,7 @@ BEGIN
             VALUE "InternalName",     "ImeModePersistence"
             VALUE "LegalCopyright",   "Copyright (c) 2026 Mango Yen. MIT License."
             VALUE "OriginalFilename", "ImeModePersistence.exe"
-            VALUE "ProductName",      "ImeModePersistence"
+            VALUE "ProductName",      "IME Mode Persistence"
             VALUE "ProductVersion",   "@APP_VERSION@"
         END
     END

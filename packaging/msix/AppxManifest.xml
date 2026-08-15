@@ -23,7 +23,7 @@
     Version="1.0.7.0" />
 
   <Properties>
-    <DisplayName>ImeModePersistence</DisplayName>
+    <DisplayName>IME Mode Persistence</DisplayName>
     <PublisherDisplayName>Mango Yen</PublisherDisplayName>
     <Logo>assets\StoreLogo.png</Logo>
   </Properties>
@@ -40,7 +40,7 @@
   <Applications>
     <Application Id="ImeModePersistence" Executable="ImeModePersistence.exe" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="ImeModePersistence"
+        DisplayName="IME Mode Persistence"
         Description="Keeps the IME conversion mode consistent across windows and binds a chosen input language per application."
         BackgroundColor="transparent"
         Square150x150Logo="assets\Square150x150Logo.png"
@@ -55,7 +55,7 @@
              nothing under MSIX). The user can turn it off in Settings > Apps >
              Startup; the tray toggle will drive this via the StartupTask API. -->
         <uap5:Extension Category="windows.startupTask" Executable="ImeModePersistence.exe" EntryPoint="Windows.FullTrustApplication">
-          <uap5:StartupTask TaskId="ImeModePersistenceStartup" Enabled="false" DisplayName="ImeModePersistence" />
+          <uap5:StartupTask TaskId="ImeModePersistenceStartup" Enabled="false" DisplayName="IME Mode Persistence" />
         </uap5:Extension>
       </Extensions>
     </Application>
