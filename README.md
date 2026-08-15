@@ -1,4 +1,4 @@
-# ImeModePersistence
+# IME Mode Persistence
 
 [![Get it from Microsoft Store](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9P05QQZ2P5XC)
 
