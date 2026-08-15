@@ -27,7 +27,11 @@
   #define SetupSuffix "-admin"
 #endif
 
-#define AppName "ImeModePersistence"
+#define AppName "IME Mode Persistence"
+; Unspaced slug for the setup filename, install folder, the Run value name (must
+; match kValueName in src/autostart.cpp), and the legacy scheduled-task name.
+; Display uses AppName.
+#define AppSlug "ImeModePersistence"
 #define AppExeName "ImeModePersistence.exe"
 ; Must match kClassName and kSingleInstanceMutex in src/main.cpp.
 #define AppWindowClass "ImeModePersistenceHiddenWindow"
@@ -56,13 +60,13 @@ VersionInfoVersion={#AppVersion}
 ; reach anti-cheat protected games -- fine for someone who only wants the ordinary
 ; behaviour, or who has no administrator rights to give.
 PrivilegesRequired=lowest
-DefaultDirName={localappdata}\Programs\{#AppName}
+DefaultDirName={localappdata}\Programs\{#AppSlug}
 #else
 ; Setup elevates so it can install into Program Files and close a running elevated
 ; copy when updating. The utility still starts unelevated at logon; elevation is
 ; on demand via the tray.
 PrivilegesRequired=admin
-DefaultDirName={autopf}\{#AppName}
+DefaultDirName={autopf}\{#AppSlug}
 #endif
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
@@ -76,7 +80,7 @@ AppMutex={#AppMutexName}
 CloseApplications=yes
 
 OutputDir=..\dist
-OutputBaseFilename={#AppName}-{#AppVersionFull}-setup{#SetupSuffix}
+OutputBaseFilename={#AppSlug}-{#AppVersionFull}-setup{#SetupSuffix}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -125,14 +129,14 @@ Name: "{group}\{cm:UninstallProgram,{#AppName}}"; Filename: "{uninstallexe}"
 ; single-user machine that is the same account, and the tray toggle fixes the rare
 ; over-the-shoulder case.)
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
-    ValueType: string; ValueName: "{#AppName}"; ValueData: """{app}\{#AppExeName}"""; \
+    ValueType: string; ValueName: "{#AppSlug}"; ValueData: """{app}\{#AppExeName}"""; \
     Tasks: logon; Flags: uninsdeletevalue
 
 ; Always clean up on uninstall, including an entry the user enabled from the tray
 ; menu rather than through this installer. ValueType none plus dontcreatekey
 ; writes nothing at install time, so it cannot clobber that entry.
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
-    ValueType: none; ValueName: "{#AppName}"; \
+    ValueType: none; ValueName: "{#AppSlug}"; \
     Flags: dontcreatekey uninsdeletevalue
 
 [Run]
@@ -156,7 +160,7 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
 ; Removed whether or not this install created it, so a task left behind by an
 ; earlier install does not survive. Failure is ignored: having nothing to delete
 ; is the normal case.
-Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /F /TN ""{#AppName}"""; \
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /F /TN ""{#AppSlug}"""; \
     Flags: runhidden; RunOnceId: "DeleteLogonTask"
 
 [Code]
