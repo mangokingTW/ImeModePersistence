@@ -1453,6 +1453,11 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
         // The same path the tray icon's double-click takes.
         PostMessageW(g_app.hwnd, WMAPP_TRAY, 0, WM_LBUTTONDBLCLK);
     }
+    if (wcsstr(cmdline, L"--show-menu")) {
+        // The same path the tray icon's right-click takes: it builds and tracks
+        // the context menu at the current cursor position.
+        PostMessageW(g_app.hwnd, WMAPP_TRAY, 0, WM_RBUTTONUP);
+    }
 
     MSG msg{};
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
