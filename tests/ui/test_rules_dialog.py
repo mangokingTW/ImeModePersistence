@@ -45,10 +45,17 @@ def run():
 
         # The action buttons, matched by their visible label (& access keys are
         # dropped from the UIA Name).
-        for label in ("Add / update", "Remove selected", "Browse", "Close"):
+        for label in ("Add / update", "Remove selected", "Browse"):
             btn = dlg.child_window(title_re=label, control_type="Button")
             assert btn.exists(timeout=5), f"missing button: {label}"
             print("found button:", label)
+
+        # Close is IDOK (auto_id "1"); match by id, not title -- the window's
+        # title-bar [X] is also a UIA Button named "Close", which the first PoC
+        # run tripped on (ElementAmbiguousError).
+        close_btn = dlg.child_window(auto_id="1", control_type="Button")
+        assert close_btn.exists(timeout=5), "missing Close button (IDOK)"
+        print("found button: Close (IDOK)")
 
         # The executable field and language combo, by their Win32 control ids
         # (IDC_EXECUTABLE = 1002, IDC_LAYOUT = 1003), which UIA exposes as
@@ -69,8 +76,8 @@ def run():
         print("edit value after typing:", repr(value))
         assert "notepad.exe" in value, f"edit did not accept text: {value!r}"
 
-        # Close cleanly through the button.
-        dlg.child_window(title="Close", control_type="Button").click()
+        # Close cleanly through the dialog's own Close button.
+        close_btn.click()
         print("clicked Close -- PoC PASSED")
         return 0
     except Exception as exc:
