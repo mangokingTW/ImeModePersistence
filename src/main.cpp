@@ -1441,12 +1441,17 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     // note_context_switch call above has already done that if one applies.
     set_tray_icon(true);
 
-    // Test hook: --show-rules opens the rules dialog immediately by posting the
-    // same command the tray menu sends, so a UI test can drive the dialog without
-    // automating the system tray (which is fragile, especially in CI). Harmless
-    // in normal use; a second instance still exits at the single-instance check.
-    if (wcsstr(GetCommandLineW(), L"--show-rules")) {
+    // Test/automation hooks: open a window immediately so a UI test or the
+    // screenshot job can drive it without automating the fragile system tray.
+    // Each posts the same message the tray itself would. Harmless in normal use;
+    // a second instance still exits at the single-instance check above.
+    const wchar_t* cmdline = GetCommandLineW();
+    if (wcsstr(cmdline, L"--show-rules")) {
         PostMessageW(g_app.hwnd, WM_COMMAND, ID_TRAY_RULES, 0);
+    }
+    if (wcsstr(cmdline, L"--show-status")) {
+        // The same path the tray icon's double-click takes.
+        PostMessageW(g_app.hwnd, WMAPP_TRAY, 0, WM_LBUTTONDBLCLK);
     }
 
     MSG msg{};

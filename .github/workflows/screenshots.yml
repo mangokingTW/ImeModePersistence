@@ -1,0 +1,40 @@
+name: Store screenshots
+
+# On-demand: builds the app and captures cropped window screenshots of the rules
+# dialog and the status box in each UI language (en / zh-tw / zh-cn / ja / ko),
+# then uploads them as an artifact to download for the Microsoft Store listing.
+# Run it from the Actions tab before a Store update. Not tied to PRs.
+#
+# Screenshots are window crops (no fixed size); resize/frame them as the Store
+# requires. The runner desktop is a plain default Windows, so these are
+# functional captures, not marketing shots.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build x64
+        run: |
+          cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
+          cmake --build build-x64 --config Release
+
+      - name: Install screenshot dependencies
+        run: pip install pywinauto==0.6.9 pillow==10.4.0
+
+      - name: Capture screenshots
+        run: python tests/ui/capture_store_screenshots.py "build-x64/Release/ImeModePersistence.exe" store-shots
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: store-screenshots
+          path: store-shots/*.png
+          if-no-files-found: warn
