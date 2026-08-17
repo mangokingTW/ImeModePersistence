@@ -25,3 +25,7 @@ Release/
 *.obj
 *.pdb
 *.ilk
+
+# Python bytecode caches (UI tests)
+__pycache__/
+*.pyc

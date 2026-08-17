@@ -1,0 +1,40 @@
+name: UI tests
+
+# GUI automation on a GitHub-hosted runner: build the app, then drive its rules
+# dialog through UI Automation (pywinauto). The dialog is opened with the
+# --show-rules test hook so the fragile system tray is never automated.
+#
+# This is a real gate: if the dialog fails to open or a control is missing, the
+# job fails and the PR is not CLEAN. A screenshot is uploaded as the ui-failure
+# artifact on failure. Actions are SHA-pinned.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ui-tests:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Build x64
+        run: |
+          cmake -S . -B build-x64 -A x64 -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_TESTING=OFF
+          cmake --build build-x64 --config Release
+
+      - name: Install UI-test dependencies
+        run: pip install pywinauto==0.6.9 pillow==10.4.0
+
+      - name: Run rules-dialog UI test
+        run: python tests/ui/test_rules_dialog.py "build-x64/Release/ImeModePersistence.exe"
+
+      - name: Upload failure screenshot
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ui-failure-screenshot
+          path: ui-failure.png
+          if-no-files-found: ignore
