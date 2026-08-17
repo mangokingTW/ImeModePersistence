@@ -43,23 +43,28 @@ def capture(pid, out_path):
     from pywinauto import Application
 
     app = Application(backend="uia").connect(process=pid, timeout=30)
-    # Give the posted message time to open the window and paint.
-    time.sleep(1.5)
-    best, best_area = None, 0
-    for win in app.windows():
-        try:
-            if not win.is_visible():
+    # app.windows() returns already-resolved UIAWrapper objects (no .wait()), so
+    # poll for the largest visible top-level window to appear and paint. The
+    # hidden zero-size message window is skipped by the is_visible()/area check.
+    best = None
+    for _ in range(20):  # up to ~10s
+        best, best_area = None, 0
+        for win in app.windows():
+            try:
+                if not win.is_visible():
+                    continue
+                rect = win.rectangle()
+                area = rect.width() * rect.height()
+                if area > best_area:
+                    best, best_area = win, area
+            except Exception:
                 continue
-            rect = win.rectangle()
-            area = rect.width() * rect.height()
-            if area > best_area:
-                best, best_area = win, area
-        except Exception:
-            continue
+        if best is not None and best_area > 0:
+            break
+        time.sleep(0.5)
     if best is None:
         raise RuntimeError("no visible window found for the process")
-    best.wait("visible ready", timeout=15)
-    time.sleep(0.5)
+    time.sleep(0.5)  # let it finish painting
     best.capture_as_image().save(out_path)
 
 
