@@ -1,8 +1,9 @@
 name: Store screenshots
 
-# On-demand: builds the app and captures cropped window screenshots of the rules
-# dialog and the status box in each UI language (en / zh-tw / zh-cn / ja / ko),
-# then uploads them as an artifact to download for the Microsoft Store listing.
+# On-demand: builds the app and captures cropped screenshots of the rules dialog,
+# the status box and the tray context menu in each UI language (en / zh-tw /
+# zh-cn / ja / ko), then uploads them as an artifact for the Microsoft Store
+# listing. Crops use DWM extended frame bounds, so no console/desktop bleeds in.
 # Run it from the Actions tab before a Store update. Not tied to PRs.
 #
 # Screenshots are window crops (no fixed size); resize/frame them as the Store
