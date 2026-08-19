@@ -68,7 +68,7 @@ const Strings kEnglish{
     .buttonClose = L"Close",
     .ruleApplyOnce = L"Apply once on switch (don't keep enforcing)",
     .ruleOnceSuffix = L"  (once)",
-    .ruleReorderHint = L"Drag a rule to reorder — the lowest match wins",
+    .ruleReorderHint = L"Drag a rule to reorder — the topmost match wins",
     .defaultGroup = L"Default (when no rule matches)",
     .defaultEnable = L"Use a default language",
 
@@ -163,7 +163,7 @@ const Strings kTraditionalChinese{
     .buttonClose = L"關閉",
     .ruleApplyOnce = L"切換時只套用一次（不持續強制）",
     .ruleOnceSuffix = L"（一次）",
-    .ruleReorderHint = L"拖曳規則可調整順序，最下方符合者優先",
+    .ruleReorderHint = L"拖曳規則可調整順序，最上方符合者優先",
     .defaultGroup = L"預設（無規則符合時）",
     .defaultEnable = L"使用預設語言",
 
@@ -256,7 +256,7 @@ const Strings kSimplifiedChinese{
     .buttonClose = L"关闭",
     .ruleApplyOnce = L"切换时只应用一次（不持续强制）",
     .ruleOnceSuffix = L"（一次）",
-    .ruleReorderHint = L"拖动规则可调整顺序，最下方符合者优先",
+    .ruleReorderHint = L"拖动规则可调整顺序，最上方符合者优先",
     .defaultGroup = L"默认（无规则符合时）",
     .defaultEnable = L"使用默认语言",
 
@@ -349,7 +349,7 @@ const Strings kJapanese{
     .buttonClose = L"閉じる",
     .ruleApplyOnce = L"切り替え時に一度だけ適用（以降は強制しない）",
     .ruleOnceSuffix = L"（一度）",
-    .ruleReorderHint = L"ドラッグで並べ替え。下にあるものほど優先",
+    .ruleReorderHint = L"ドラッグで並べ替え。上にあるものほど優先",
     .defaultGroup = L"既定（ルールに一致しないとき）",
     .defaultEnable = L"既定の言語を使う",
 
@@ -442,7 +442,7 @@ const Strings kKorean{
     .buttonClose = L"닫기",
     .ruleApplyOnce = L"전환 시 한 번만 적용(계속 강제하지 않음)",
     .ruleOnceSuffix = L" (한 번)",
-    .ruleReorderHint = L"드래그하여 순서 변경 — 아래쪽이 우선",
+    .ruleReorderHint = L"드래그하여 순서 변경 — 위쪽이 우선",
     .defaultGroup = L"기본값(규칙이 일치하지 않을 때)",
     .defaultEnable = L"기본 언어 사용",
 
