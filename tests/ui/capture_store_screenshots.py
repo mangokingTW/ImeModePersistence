@@ -50,6 +50,20 @@ def set_language(value):
     winreg.CloseKey(key)
 
 
+THEME_KEY = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
+
+
+def set_theme(light):
+    """Switch Windows between light and dark. Each app is launched fresh after
+    this, so it reads the new theme at startup."""
+    key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, THEME_KEY)
+    value = 1 if light else 0
+    winreg.SetValueEx(key, "AppsUseLightTheme", 0, winreg.REG_DWORD, value)
+    winreg.SetValueEx(key, "SystemUsesLightTheme", 0, winreg.REG_DWORD, value)
+    winreg.CloseKey(key)
+    time.sleep(1.0)  # let the setting settle / broadcast
+
+
 def visible_bounds(hwnd):
     """The true visible rectangle: DWM extended frame bounds, falling back to
     GetWindowRect (used for menus, which have no DWM frame)."""
@@ -100,35 +114,41 @@ def popup_menu_window():
     raise RuntimeError("popup menu window (#32768) not found")
 
 
+THEMES = [(True, "light"), (False, "dark")]
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     failures = 0
-    for value, lang in LANGS:
-        set_language(value)
-        for flag, screen, kind in SCREENS:
-            out_path = os.path.join(OUT, f"{screen}-{lang}.png")
-            if kind == "menu":
-                # The menu opens at the cursor (GetCursorPos in the handler), so
-                # place the cursor somewhere fully on-screen first.
-                _user32.SetCursorPos(400, 300)
-            proc = subprocess.Popen([EXE, flag])
-            try:
-                time.sleep(1.5)
-                hwnd = popup_menu_window() if kind == "menu" else largest_visible_window(proc.pid)
-                time.sleep(0.5)  # let it finish painting
-                grab(hwnd, out_path)
-                print("captured", out_path)
-            except Exception as exc:
-                print("FAILED", out_path, repr(exc))
-                failures += 1
-            finally:
+    for light, theme in THEMES:
+        set_theme(light)
+        for value, lang in LANGS:
+            set_language(value)
+            for flag, screen, kind in SCREENS:
+                out_path = os.path.join(OUT, f"{screen}-{lang}-{theme}.png")
+                if kind == "menu":
+                    # The menu opens at the cursor (GetCursorPos in the handler),
+                    # so place the cursor somewhere fully on-screen first.
+                    _user32.SetCursorPos(400, 300)
+                proc = subprocess.Popen([EXE, flag])
                 try:
-                    proc.terminate()
-                except Exception:
-                    pass
-                time.sleep(0.5)
-    # Leave the machine following Windows again rather than pinned to Korean.
+                    time.sleep(1.5)
+                    hwnd = popup_menu_window() if kind == "menu" else largest_visible_window(proc.pid)
+                    time.sleep(0.5)  # let it finish painting
+                    grab(hwnd, out_path)
+                    print("captured", out_path)
+                except Exception as exc:
+                    print("FAILED", out_path, repr(exc))
+                    failures += 1
+                finally:
+                    try:
+                        proc.terminate()
+                    except Exception:
+                        pass
+                    time.sleep(0.5)
+    # Leave the machine following Windows again rather than pinned to Korean/dark.
     set_language(0)
+    set_theme(True)
     print(f"done: {failures} failure(s)")
     return 1 if failures else 0
 
