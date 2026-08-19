@@ -70,7 +70,11 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 常駐在通知區域。右鍵選單：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**以管理員身分重新啟動**（未提權時才出現）、**結束**。
 
+<p align="center"><img src="docs/screenshots/menu-zh-tw-light.png" alt="托盤右鍵選單" width="230"></p>
+
 **把滑鼠停在圖示上**會顯示當前程式、綁定語言、實際語言與上次切換結果 —— 停留不會改變前景視窗，點下去會。左鍵雙擊顯示完整狀態。每個登入工作階段只有一份執行中。
+
+<p align="center"><img src="docs/screenshots/status-zh-tw-light.png" alt="停在圖示上顯示的完整狀態" width="300"></p>
 
 切換沒有如預期作用時，右鍵選單的**開啟診斷記錄**會叫出 `%LocalAppData%\ImeModePersistence\log.txt`，裡面記錄每次上下文切換、規則比對結果、以及切換用了哪個機制與是否成功。回報問題時附上它。
 
@@ -78,10 +82,7 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 把程式綁定到一個輸入語言，例如終端機綁英文、Word 綁中文。
 
-<p align="center">
-  <img src="docs/screenshots/rules-zh-tw-light.png" alt="程式綁定輸入語言對話框（淺色）" width="49%">
-  <img src="docs/screenshots/rules-zh-tw-dark.png" alt="程式綁定輸入語言對話框（深色）" width="49%">
-</p>
+<p align="center"><img src="docs/screenshots/rules-zh-tw-light.png" alt="程式綁定輸入語言對話框" width="620"></p>
 
 - **瀏覽** 選執行檔 → 規則是那個**完整路徑**，同名的兩個執行檔可以分開設定
 - 只填**檔名**（`notepad.exe`）→ 不管裝在哪都套用
@@ -193,7 +194,11 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start automatically at logon**, **App language bindings...**, **Restart as administrator** (shown only when not elevated) and **Exit**.
 
+<p align="center"><img src="docs/screenshots/menu-en-light.png" alt="Tray right-click menu" width="230"></p>
+
 **Hover** the icon to see the current program, its bound language, the language actually in use, and whether the last switch worked — hovering does not change the foreground window, clicking does. Double-click for full status. One instance runs per logon session.
+
+<p align="center"><img src="docs/screenshots/status-en-light.png" alt="Full status shown on hover" width="300"></p>
 
 When a switch does not do what you expect, **Open diagnostic log** in the tray menu opens `%LocalAppData%\ImeModePersistence\log.txt`, which records every context switch, whether a rule matched, and which mechanism was used with its outcome. Attach it when reporting a problem.
 
@@ -201,10 +206,7 @@ When a switch does not do what you expect, **Open diagnostic log** in the tray m
 
 Bind a program to an input language — a terminal to English, Word to Chinese.
 
-<p align="center">
-  <img src="docs/screenshots/rules-en-light.png" alt="App language bindings dialog (light)" width="49%">
-  <img src="docs/screenshots/rules-en-dark.png" alt="App language bindings dialog (dark)" width="49%">
-</p>
+<p align="center"><img src="docs/screenshots/rules-en-light.png" alt="App language bindings dialog" width="620"></p>
 
 - **Browse** for an executable → the rule is that **full path**, so two executables sharing a name can be configured separately
 - A bare **file name** (`notepad.exe`) → applies wherever the program is installed
