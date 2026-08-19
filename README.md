@@ -83,7 +83,7 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 - **用視窗類別** 填 `class:類別名` → 有防作弊的遊戲讀不到路徑（連管理員也讀不到），視窗類別是唯一不碰該程式就能識別它的方式
 - **用剛才的程式** 自動填入你開這個視窗之前用的程式
 
-比對順序：完整路徑 → 檔名 → 視窗類別。綁定的是**語言**，同一語言裝多個輸入法（注音與倉頡都是 zh-TW）時用第一個已安裝的。
+清單可**拖拉排序，第一個符合的規則優先**（預設依精確度：完整路徑 → 檔名 → 視窗類別 → 萬用字元）。每條規則可設**只套用一次**（切到時設一次、之後不強制，不勾則持續維持）；都不符合時可啟用一條**預設語言**（預設關閉）。綁定的是**語言**，同一語言裝多個輸入法（注音與倉頡都是 zh-TW）時用第一個已安裝的。
 
 **已確認可用於有防作弊的全螢幕遊戲** —— Helldivers 2 用 `class:stingray_window` 即可，詳見 [Wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2)。
 
@@ -97,8 +97,8 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 - 寫入是 best-effort 並讀回驗證。IME 仍在啟動中時可能丟棄變更，重試四次後就接受目標視窗的狀態
 - 讀取或修改**提權程式**的視窗需要同等權限，所以控制有防作弊的遊戲必須提權執行
-- 介面依 Windows 顯示語言選繁體中文或英文；沒有簡體版本，安裝程式仍是英文
-- 深色模式只作用於標題列
+- 介面依 Windows 顯示語言選擇：英文、繁體中文、簡體中文、日文、韓文（後三者為機器翻譯）；安裝程式仍是英文
+- 深色模式：程式綁定對話框整個套用；狀態／錯誤這類暫時性小框維持淺底、僅標題列變暗（與 Windows 系統對話框一致）
 - 不注入、不掛勾、不模擬按鍵。切換是向視窗投遞 Windows 標準的「切換輸入語言」通知（視窗可自行忽略），行不通再請 TSF 以公開 API 切換；仍無效就放手，愈輸愈少問
 
 ## 開發
@@ -201,7 +201,7 @@ Bind a program to an input language — a terminal to English, Word to Chinese.
 - **Use window class** → `class:<name>`, the only way to identify an anti-cheat protected game, whose path cannot be read even by an administrator
 - **Use last app** → fills in the program you were in before opening the dialog
 
-Lookup order: full path, file name, window class. A binding pins a **language**; where one language has several IMEs installed (Bopomofo and Cangjie are both zh-TW) the first is used.
+**Drag** bindings to reorder them; the **first that matches wins** (by default they are ordered by specificity: full path, file name, window class, then wildcards). A binding can **apply once** — set on the switch, then left alone rather than held — and an opt-in **default** (off by default) supplies a language when none match. A binding pins a **language**; where one language has several IMEs installed (Bopomofo and Cangjie are both zh-TW) the first is used.
 
 **Confirmed working for anti-cheat protected fullscreen games** — Helldivers 2 needs `class:stingray_window`; see the [wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2-English).
 
@@ -215,8 +215,8 @@ It stays out of its own windows and follows the caret. In fields where the repor
 
 - Writes are best-effort and verified by reading back. An IME still activating can discard one; after four attempts the utility accepts whatever the target settled on
 - Reading or changing the windows of an **elevated** program requires equal privileges, so controlling an anti-cheat protected game means running elevated
-- The interface follows Windows' display language, Traditional Chinese or English. No Simplified translation; the installer is English only
-- Dark mode applies to the title bar only
+- The interface follows Windows' display language — English, Traditional Chinese, Simplified Chinese, Japanese or Korean (the last three machine-translated); the installer is English only
+- Dark mode themes the App-language-bindings dialog fully; the transient status and error boxes keep a light body with a dark title bar, as Windows' own system dialogs do
 - Nothing is injected, hooked or synthesised. Switching posts the window Windows' standard input-language-change notification (which it is free to ignore), then falls back to TSF's public API; where neither takes, the utility backs off, asking less the more it loses
 
 ## Development
