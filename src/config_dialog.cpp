@@ -8,8 +8,12 @@
 #include <string>
 #include <vector>
 
-// gdiplus.h uses unqualified min/max; the build defines NOMINMAX, so bring the
-// std versions into scope for it. Contained to this translation unit.
+// gdiplus.h needs COM types (interface, IStream, PROPID) that WIN32_LEAN_AND_MEAN
+// trims from windows.h, and uses unqualified min/max that NOMINMAX removes -- so
+// pull the COM headers in and bring std::min/std::max into scope before it.
+// Contained to this translation unit.
+#include <objbase.h>
+#include <objidl.h>
 using std::max;
 using std::min;
 #include <gdiplus.h>
