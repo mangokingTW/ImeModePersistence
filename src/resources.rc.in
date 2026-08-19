@@ -20,7 +20,7 @@ IDI_APPICON ICON "@CMAKE_CURRENT_SOURCE_DIR@/assets/ImeModePersistence.ico"
 // Every string here is replaced at runtime from src/strings.cpp, so the text in
 // this template only matters if that ever fails. Widths are sized for the
 // English strings, which are the longer of the two.
-IDD_RULES DIALOGEX 0, 0, 440, 326
+IDD_RULES DIALOGEX 0, 0, 440, 342
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU |
       WS_MINIMIZEBOX
 // WS_EX_APPWINDOW because the taskbar omits owned windows, and this dialog's
@@ -38,7 +38,7 @@ BEGIN
                     LBS_NOTIFY | LBS_USETABSTOPS | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP
     PUSHBUTTON      "&Remove selected", IDC_REMOVE, 348, 120, 84, 14
 
-    GROUPBOX        "Add or update a binding", IDC_GROUP, 8, 142, 424, 80
+    GROUPBOX        "Add or update a binding", IDC_GROUP, 8, 142, 424, 90
     LTEXT           "Application or class:", IDC_STATIC, 16, 158, 76, 8
     EDITTEXT        IDC_EXECUTABLE, 96, 156, 264, 12, ES_AUTOHSCROLL
     PUSHBUTTON      "&Browse...", IDC_BROWSE, 366, 155, 58, 14
@@ -52,16 +52,16 @@ BEGIN
     // Owner-drawn as toggle switches (see config_dialog.cpp); kept as
     // AUTOCHECKBOX so they still carry the checkbox state and role. Taller than a
     // plain checkbox row so the toggle capsule is not clipped.
-    AUTOCHECKBOX    "", IDC_ONCE, 96, 206, 328, 14
+    AUTOCHECKBOX    "", IDC_ONCE, 96, 214, 328, 14
 
-    GROUPBOX        "Default (when no rule matches)", IDC_DEFAULT_GROUP, 8, 226, 424, 46
-    AUTOCHECKBOX    "", IDC_DEFAULT_ENABLE, 16, 238, 170, 14
-    COMBOBOX        IDC_DEFAULT_LANG, 190, 238, 234, 100,
+    GROUPBOX        "Default (when no rule matches)", IDC_DEFAULT_GROUP, 8, 238, 424, 48
+    AUTOCHECKBOX    "", IDC_DEFAULT_ENABLE, 16, 250, 170, 14
+    COMBOBOX        IDC_DEFAULT_LANG, 190, 250, 234, 100,
                     CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    AUTOCHECKBOX    "", IDC_DEFAULT_ONCE, 16, 254, 408, 14
+    AUTOCHECKBOX    "", IDC_DEFAULT_ONCE, 16, 266, 408, 14
 
-    LTEXT           "", IDC_HINT, 8, 278, 424, 24
-    PUSHBUTTON      "Close", IDOK, 366, 306, 58, 14
+    LTEXT           "", IDC_HINT, 8, 292, 424, 24
+    PUSHBUTTON      "Close", IDOK, 366, 322, 58, 14
 END
 
 VS_VERSION_INFO VERSIONINFO
