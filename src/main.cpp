@@ -104,6 +104,13 @@ struct AppState {
     int restoreAttempt{};
     ULONGLONG suppressPromotionUntil{};
 
+    // Continuous conversion-mode enforcement. A window that reverts the mode we
+    // restored -- Chromium apps (Chrome, Discord) re-assert their own mode on
+    // focus -- is fought again, with a doubling back-off so one that always wins
+    // is not re-asserted on every observe tick. Reset once the mode holds.
+    ULONGLONG modeCooldownUntil{};
+    int modeReassertRounds{};
+
     // What began the current round, which decides how long its waits are.
     schedule::Trigger trigger{schedule::Trigger::FocusChange};
 
@@ -1077,6 +1084,41 @@ void observe_tick() {
         g_app.restoreAttempt = 0;
         schedule_restore_attempt(hwnd);
         return;
+    }
+
+    // A window that reverted the conversion mode we restored -- Chromium apps
+    // (Chrome, Discord) re-assert their own mode when they take focus -- leaves it
+    // stable but wrong: the change edge was swallowed by the post-restore suppress
+    // window, so it was never a user decision to adopt, and without this the
+    // target's revert simply wins and the carried mode is lost. Re-assert
+    // desiredMode through the normal restore ladder, with a doubling back-off so a
+    // target that always wins is not fought on every tick. A deliberate user
+    // change arrives while not settling and is adopted below instead, after which
+    // desiredMode matches and this no longer fires.
+    if (g_app.persistMode && !settling &&
+        state.mode != ime::Mode::Unknown &&
+        g_app.desiredMode != ime::Mode::Unknown &&
+        state.mode == g_app.observedMode &&
+        state.mode != g_app.desiredMode) {
+        if (now >= g_app.modeCooldownUntil) {
+            ++g_app.modeReassertRounds;
+            g_app.modeCooldownUntil = now + schedule::cooldown_ms(g_app.modeReassertRounds);
+            diag::write(L"desiredMode: %s reverted to %s in %s -- re-asserting (round %d)",
+                        ime::mode_name(g_app.desiredMode), ime::mode_name(state.mode),
+                        window_identity(hwnd, g_app.observedExecutable).c_str(),
+                        g_app.modeReassertRounds);
+            g_app.trigger = schedule::Trigger::FocusChange;
+            g_app.restoreAttempt = 0;
+            schedule_restore_attempt(hwnd);
+        }
+        return;
+    }
+
+    // Once the mode is where we want it the fight is over: reset the back-off so
+    // the next revert starts from the short cooldown again.
+    if (state.mode == g_app.desiredMode && g_app.modeReassertRounds != 0) {
+        g_app.modeReassertRounds = 0;
+        g_app.modeCooldownUntil = 0;
     }
 
     // Same input context + a settled mode change is the strongest signal
