@@ -1,4 +1,8 @@
-# IME Mode Persistence
+<p align="center">
+  <img src="assets/app_icon.png" alt="IME Mode Persistence" width="120">
+</p>
+
+<h1 align="center">IME Mode Persistence</h1>
 
 [![Get it from Microsoft Store](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9P05QQZ2P5XC)
 
