@@ -112,7 +112,7 @@ add_executable(ImeModePersistence WIN32
 
 # oleaut32 for the SafeArray helpers the caret's UI-Automation path uses; ole32
 # and the rest propagate from ime_core.
-target_link_libraries(ImeModePersistence PRIVATE ime_core oleaut32)
+target_link_libraries(ImeModePersistence PRIVATE ime_core oleaut32 gdiplus)
 
 target_compile_definitions(ImeModePersistence PRIVATE
     APP_VERSION_STRING="${APP_VERSION}"

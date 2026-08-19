@@ -8,6 +8,12 @@
 #include <string>
 #include <vector>
 
+// gdiplus.h uses unqualified min/max; the build defines NOMINMAX, so bring the
+// std versions into scope for it. Contained to this translation unit.
+using std::max;
+using std::min;
+#include <gdiplus.h>
+
 #include "layout.h"
 #include "resource.h"
 #include "rules.h"
@@ -324,6 +330,140 @@ void subclass_list(HWND list) {
     }
 }
 
+// ---- Toggle switches -------------------------------------------------------
+// The three checkboxes (apply-once, default-enable, default-once) are painted as
+// Windows 11-style toggle switches. They stay AUTOCHECKBOX controls -- so they
+// keep their checked state, keyboard toggle, and checkbox accessibility role --
+// and are only subclassed to replace the painting.
+
+ULONG_PTR g_gdiplusToken = 0;
+WNDPROC g_toggleProc = nullptr;
+
+// Light vs dark is read from the actual dialog background, not the system
+// dark-mode flag: the dialog body is not themed dark (only its title bar is), so
+// the toggle must match whatever colour the body really is.
+bool is_dark(COLORREF c) {
+    return (GetRValue(c) * 299u + GetGValue(c) * 587u + GetBValue(c) * 114u) / 1000u < 128u;
+}
+
+void draw_toggle(HWND ctrl, HDC dc) {
+    RECT rc{};
+    GetClientRect(ctrl, &rc);
+    const int width = rc.right;
+    const int height = rc.bottom;
+
+    const UINT dpi = GetDpiForWindow(ctrl);
+    const auto px = [dpi](double dip) { return static_cast<int>(dip * dpi / 96.0 + 0.5); };
+
+    const bool checked = SendMessageW(ctrl, BM_GETCHECK, 0, 0) == BST_CHECKED;
+    const bool enabled = IsWindowEnabled(ctrl) != FALSE;
+    const bool focused = GetFocus() == ctrl;
+
+    // Paint the dialog's own background first, so the rounded track sits on the
+    // real body colour with no grey box behind the corners.
+    HBRUSH bg = reinterpret_cast<HBRUSH>(SendMessageW(GetParent(ctrl), WM_CTLCOLORSTATIC,
+                    reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(ctrl)));
+    if (!bg) {
+        bg = GetSysColorBrush(COLOR_3DFACE);
+    }
+    FillRect(dc, &rc, bg);
+
+    const bool dark = is_dark(GetSysColor(COLOR_3DFACE));
+    const BYTE alpha = enabled ? 255 : 110;
+    const auto col = [alpha](BYTE r, BYTE g, BYTE b) { return Gdiplus::Color(alpha, r, g, b); };
+
+    const int trackW = px(40);
+    const int trackH = px(20);
+    const int tx = px(2);
+    const int ty = (height - trackH) / 2;
+
+    Gdiplus::Graphics g(dc);
+    g.SetSmoothingMode(Gdiplus::SmoothingModeAntiAlias);
+
+    Gdiplus::GraphicsPath capsule;
+    capsule.AddArc(tx, ty, trackH, trackH, 90.0f, 180.0f);
+    capsule.AddArc(tx + trackW - trackH, ty, trackH, trackH, 270.0f, 180.0f);
+    capsule.CloseFigure();
+
+    if (checked) {
+        Gdiplus::SolidBrush track(dark ? col(76, 194, 255) : col(0, 95, 184));
+        g.FillPath(&track, &capsule);
+        const int d = px(16);
+        const int cx = tx + trackW - px(3) - d;
+        const int cy = ty + (trackH - d) / 2;
+        Gdiplus::SolidBrush thumb(dark ? col(20, 20, 20) : col(255, 255, 255));
+        g.FillEllipse(&thumb, cx, cy, d, d);
+    } else {
+        Gdiplus::SolidBrush fill(dark ? col(43, 43, 43) : col(255, 255, 255));
+        g.FillPath(&fill, &capsule);
+        Gdiplus::Pen border(dark ? col(157, 157, 157) : col(138, 138, 138),
+                            static_cast<Gdiplus::REAL>(px(1.3)));
+        g.DrawPath(&border, &capsule);
+        const int d = px(12);
+        const int cx = tx + px(3);
+        const int cy = ty + (trackH - d) / 2;
+        Gdiplus::SolidBrush thumb(dark ? col(208, 208, 208) : col(93, 93, 93));
+        g.FillEllipse(&thumb, cx, cy, d, d);
+    }
+
+    // The label, in the control's font, to the right of the toggle.
+    HFONT font = reinterpret_cast<HFONT>(SendMessageW(ctrl, WM_GETFONT, 0, 0));
+    HFONT old = font ? reinterpret_cast<HFONT>(SelectObject(dc, font)) : nullptr;
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, GetSysColor(enabled ? COLOR_BTNTEXT : COLOR_GRAYTEXT));
+    wchar_t label[256]{};
+    GetWindowTextW(ctrl, label, ARRAYSIZE(label));
+    RECT text{tx + trackW + px(8), 0, width, height};
+    DrawTextW(dc, label, -1, &text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    if (old) {
+        SelectObject(dc, old);
+    }
+
+    if (focused) {
+        RECT ring{tx + trackW + px(6), (height - px(14)) / 2, width, (height + px(14)) / 2};
+        DrawFocusRect(dc, &ring);
+    }
+}
+
+LRESULT CALLBACK toggle_proc(HWND ctrl, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_ERASEBKGND:
+        return 1;
+    case WM_PAINT: {
+        PAINTSTRUCT ps{};
+        HDC dc = BeginPaint(ctrl, &ps);
+        RECT rc{};
+        GetClientRect(ctrl, &rc);
+        // Double-buffered so the state flip does not flicker.
+        HDC mem = CreateCompatibleDC(dc);
+        HBITMAP bmp = CreateCompatibleBitmap(dc, rc.right, rc.bottom);
+        HBITMAP oldBmp = reinterpret_cast<HBITMAP>(SelectObject(mem, bmp));
+        draw_toggle(ctrl, mem);
+        BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
+        SelectObject(mem, oldBmp);
+        DeleteObject(bmp);
+        DeleteDC(mem);
+        EndPaint(ctrl, &ps);
+        return 0;
+    }
+    case WM_SETFOCUS:
+    case WM_KILLFOCUS:
+        InvalidateRect(ctrl, nullptr, FALSE);
+        break;
+    default:
+        break;
+    }
+    return CallWindowProcW(g_toggleProc, ctrl, message, wParam, lParam);
+}
+
+void subclass_toggle(HWND ctrl) {
+    WNDPROC previous = reinterpret_cast<WNDPROC>(
+        SetWindowLongPtrW(ctrl, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(toggle_proc)));
+    if (!g_toggleProc) {
+        g_toggleProc = previous;
+    }
+}
+
 LANGID selected_language(HWND dialog) {
     HWND combo = GetDlgItem(dialog, IDC_LAYOUT);
     const int index = static_cast<int>(SendMessageW(combo, CB_GETCURSEL, 0, 0));
@@ -477,6 +617,9 @@ void on_select(HWND dialog, const State& state) {
 }
 
 void on_init(HWND dialog, State& state) {
+    Gdiplus::GdiplusStartupInput gdiplusInput;
+    Gdiplus::GdiplusStartup(&g_gdiplusToken, &gdiplusInput, nullptr);
+
     apply_language(dialog);
     apply_icon(dialog);
     theme::apply_titlebar(dialog);
@@ -491,6 +634,9 @@ void on_init(HWND dialog, State& state) {
     fill_rules(dialog, state);
     load_default(dialog);
     subclass_list(GetDlgItem(dialog, IDC_RULE_LIST));
+    for (const int id : {IDC_ONCE, IDC_DEFAULT_ENABLE, IDC_DEFAULT_ONCE}) {
+        subclass_toggle(GetDlgItem(dialog, id));
+    }
 
     if (!state.lastApplication.empty()) {
         SetDlgItemTextW(dialog, IDC_EXECUTABLE, state.lastApplication.c_str());
@@ -517,6 +663,16 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
         // desktop until the dialog is reopened.
         if (theme::is_colour_change(lParam)) {
             theme::apply_titlebar(dialog);
+            for (const int id : {IDC_ONCE, IDC_DEFAULT_ENABLE, IDC_DEFAULT_ONCE}) {
+                InvalidateRect(GetDlgItem(dialog, id), nullptr, FALSE);
+            }
+        }
+        break;
+
+    case WM_DESTROY:
+        if (g_gdiplusToken) {
+            Gdiplus::GdiplusShutdown(g_gdiplusToken);
+            g_gdiplusToken = 0;
         }
         break;
 
