@@ -304,6 +304,13 @@ jobs:
       - name: Set up Microsoft Store CLI
         if: env.HAVE_STORE == 'true'
         uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+        with:
+          # Pin the CLI: unpinned installs the latest, and msstore-cli v0.4.0
+          # (2026-08-18) regressed package upload -- it hangs at "Uploading
+          # Bundle to Azure blob: 67%" then fails with "Error while uploading
+          # the application package". v0.3.9 is the last good release (the one
+          # v1.2.0 shipped on). Revisit when a fixed v0.4.x lands.
+          version: v0.3.9
 
       - name: Submit MSIX to the Microsoft Store
         if: env.HAVE_STORE == 'true'
