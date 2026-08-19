@@ -465,6 +465,87 @@ void subclass_toggle(HWND ctrl) {
     }
 }
 
+// A group box's caption is drawn by the visual style and ignores the text colour
+// set through WM_CTLCOLORSTATIC, so in dark mode it stays black on the dark body.
+// Subclass the two group boxes and, in dark mode only, draw the frame and caption
+// ourselves; in light mode the default painting is left untouched.
+WNDPROC g_groupProc = nullptr;
+
+void draw_group(HWND ctrl, HDC dc) {
+    RECT rc{};
+    GetClientRect(ctrl, &rc);
+    const int w = rc.right;
+    const int h = rc.bottom;
+    const UINT dpi = GetDpiForWindow(ctrl);
+    const auto px = [dpi](double dip) { return static_cast<int>(dip * dpi / 96.0 + 0.5); };
+
+    FillRect(dc, &rc, theme::bg_brush());
+
+    HFONT font = reinterpret_cast<HFONT>(SendMessageW(ctrl, WM_GETFONT, 0, 0));
+    HFONT oldFont = font ? reinterpret_cast<HFONT>(SelectObject(dc, font)) : nullptr;
+
+    wchar_t caption[256]{};
+    GetWindowTextW(ctrl, caption, ARRAYSIZE(caption));
+    SIZE ts{};
+    GetTextExtentPoint32W(dc, caption, lstrlenW(caption), &ts);
+
+    const int capX = px(9);
+    const int capPad = px(2);
+    const int frameTop = ts.cy / 2;
+
+    // The frame, with a gap on the top edge for the caption.
+    HPEN pen = CreatePen(PS_SOLID, 1, RGB(80, 80, 80));
+    HPEN oldPen = reinterpret_cast<HPEN>(SelectObject(dc, pen));
+    HBRUSH oldBrush = reinterpret_cast<HBRUSH>(SelectObject(dc, GetStockObject(NULL_BRUSH)));
+    Rectangle(dc, 0, frameTop, w, h);
+    SelectObject(dc, oldBrush);
+    SelectObject(dc, oldPen);
+    DeleteObject(pen);
+    RECT gap{capX - capPad, frameTop - 1, capX + ts.cx + capPad, frameTop + 2};
+    FillRect(dc, &gap, theme::bg_brush());
+
+    SetBkMode(dc, TRANSPARENT);
+    SetTextColor(dc, theme::text());
+    TextOutW(dc, capX, 0, caption, lstrlenW(caption));
+
+    if (oldFont) {
+        SelectObject(dc, oldFont);
+    }
+}
+
+LRESULT CALLBACK group_proc(HWND ctrl, UINT message, WPARAM wParam, LPARAM lParam) {
+    if (theme::dark_mode()) {
+        if (message == WM_ERASEBKGND) {
+            return 1;
+        }
+        if (message == WM_PAINT) {
+            PAINTSTRUCT ps{};
+            HDC dc = BeginPaint(ctrl, &ps);
+            RECT rc{};
+            GetClientRect(ctrl, &rc);
+            HDC mem = CreateCompatibleDC(dc);
+            HBITMAP bmp = CreateCompatibleBitmap(dc, rc.right, rc.bottom);
+            HBITMAP oldBmp = reinterpret_cast<HBITMAP>(SelectObject(mem, bmp));
+            draw_group(ctrl, mem);
+            BitBlt(dc, 0, 0, rc.right, rc.bottom, mem, 0, 0, SRCCOPY);
+            SelectObject(mem, oldBmp);
+            DeleteObject(bmp);
+            DeleteDC(mem);
+            EndPaint(ctrl, &ps);
+            return 0;
+        }
+    }
+    return CallWindowProcW(g_groupProc, ctrl, message, wParam, lParam);
+}
+
+void subclass_group(HWND ctrl) {
+    WNDPROC previous = reinterpret_cast<WNDPROC>(
+        SetWindowLongPtrW(ctrl, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(group_proc)));
+    if (!g_groupProc) {
+        g_groupProc = previous;
+    }
+}
+
 LANGID selected_language(HWND dialog) {
     HWND combo = GetDlgItem(dialog, IDC_LAYOUT);
     const int index = static_cast<int>(SendMessageW(combo, CB_GETCURSEL, 0, 0));
@@ -637,6 +718,9 @@ void on_init(HWND dialog, State& state) {
     subclass_list(GetDlgItem(dialog, IDC_RULE_LIST));
     for (const int id : {IDC_ONCE, IDC_DEFAULT_ENABLE, IDC_DEFAULT_ONCE}) {
         subclass_toggle(GetDlgItem(dialog, id));
+    }
+    for (const int id : {IDC_GROUP, IDC_DEFAULT_GROUP}) {
+        subclass_group(GetDlgItem(dialog, id));
     }
 
     if (!state.lastApplication.empty()) {

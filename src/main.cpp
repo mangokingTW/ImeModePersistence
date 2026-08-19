@@ -191,21 +191,61 @@ struct AppState {
 
 AppState g_app;
 
+// Answers WM_CTLCOLOR* on the task dialog with the dark body / light text so the
+// dialog matches the rest of the app in dark mode. Best-effort: the main
+// instruction and icon are drawn by the task dialog itself and may stay light.
+LRESULT CALLBACK task_dialog_subclass(HWND hwnd, UINT message, WPARAM wParam,
+                                      LPARAM lParam, UINT_PTR, DWORD_PTR) {
+    switch (message) {
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+        if (theme::dark_mode()) {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            SetBkColor(dc, theme::bg());
+            SetTextColor(dc, theme::text());
+            return reinterpret_cast<LRESULT>(theme::bg_brush());
+        }
+        break;
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, task_dialog_subclass, 0);
+        break;
+    default:
+        break;
+    }
+    return DefSubclassProc(hwnd, message, wParam, lParam);
+}
+
+// Themes the task dialog dark once it exists, when the user is in dark mode.
+HRESULT CALLBACK task_dialog_callback(HWND hwnd, UINT notification, WPARAM,
+                                      LPARAM, LONG_PTR) {
+    if (notification == TDN_DIALOG_CONSTRUCTED && theme::dark_mode()) {
+        theme::apply_titlebar(hwnd);
+        theme::allow_dark_window(hwnd);
+        theme::apply_dark_controls(hwnd);
+        SetWindowSubclass(hwnd, task_dialog_subclass, 0, 0);
+        InvalidateRect(hwnd, nullptr, TRUE);
+    }
+    return S_OK;
+}
+
 // A task dialog rather than a message box: it carries the current visual style,
 // and unlike MessageBox it centres on the screen instead of on its owner, which
 // matters because this owner is a hidden zero-sized window in the top-left
-// corner. Falls back if comctl32 v6 is somehow unavailable.
+// corner. TaskDialogIndirect (not TaskDialog) so a callback can theme it dark.
+// Falls back if comctl32 v6 is somehow unavailable.
 void show_message(const wchar_t* title, const wchar_t* body, bool error) {
+    TASKDIALOGCONFIG config{};
+    config.cbSize = sizeof(config);
+    config.hwndParent = g_app.hwnd;
+    config.dwCommonButtons = TDCBF_OK_BUTTON;
+    config.pszWindowTitle = title;
+    config.pszContent = body;
+    config.pszMainIcon = error ? TD_ERROR_ICON : TD_INFORMATION_ICON;
+    config.pfCallback = task_dialog_callback;
+
     int pressed = 0;
-    const HRESULT result = TaskDialog(
-        g_app.hwnd,
-        nullptr,
-        title,
-        nullptr,
-        body,
-        TDCBF_OK_BUTTON,
-        error ? TD_ERROR_ICON : TD_INFORMATION_ICON,
-        &pressed);
+    const HRESULT result = TaskDialogIndirect(&config, &pressed, nullptr, nullptr);
 
     if (FAILED(result)) {
         MessageBoxW(g_app.hwnd, body, title,
