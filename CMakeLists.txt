@@ -43,6 +43,8 @@ add_library(ime_core STATIC
     src/autostart.h
     src/layout.cpp
     src/layout.h
+    src/persist.cpp
+    src/persist.h
     src/rules.cpp
     src/rules.h
     src/settings.cpp

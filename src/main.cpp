@@ -13,6 +13,7 @@
 #include "diagnostic.h"
 #include "ime_state.h"
 #include "layout.h"
+#include "persist.h"
 #include "resource.h"
 #include "rules.h"
 #include "settings.h"
@@ -62,31 +63,14 @@ constexpr UINT kObserveIntervalMs = 50;
 // unwanted switch survives before it is put back.
 constexpr UINT kLayoutPollIntervalMs = 15;
 
-// After a successful restore the IME keeps settling for a moment. Anything
-// observed inside this window is our own change echoing back, not the user.
-constexpr ULONGLONG kPostRestoreSuppressMs = 250;
-// A conversion-mode read that differs from the mode we are carrying must hold
-// this long before it is adopted as the new intent. The mode is read
-// cross-process through the IMM32/TSF interop, which intermittently reports a
-// transient wrong value; the debounce filters those blips while still following
-// a real change the user makes and keeps.
-constexpr ULONGLONG kAdoptDebounceMs = 600;
-
-// A mode change is only credited to the user once the input context has been
-// stable for this long, which excludes the churn of a focus transition.
-constexpr ULONGLONG kPromotionDwellMs = 150;
-
+// The conversion-mode persistence decision core (seed / adopt / settling /
+// restore-or-not) lives in persist::Engine so it can be unit-tested without a
+// desktop; see src/persist.h. This message loop feeds it observations and
+// carries out the actions it returns. The post-restore suppress, adopt debounce
+// and promotion dwell constants moved there with it.
 struct AppState {
     HWND hwnd{};
     HWINEVENTHOOK foregroundHook{};
-
-    // The mode the user last selected deliberately. A focus transition must NOT
-    // overwrite this value, because the window being switched to may be carrying
-    // a stale IME state that Windows saved for it earlier.
-    ime::Mode desiredMode{ime::Mode::Unknown};
-
-    // When off, only per-application bindings act; the global carry-over stops.
-    bool persistMode{true};
 
     // When on, a badge showing the current input language and mode is drawn next
     // to the caret. Off by default; the caret worker only runs while it is on.
@@ -100,21 +84,14 @@ struct AppState {
 
     // IME conversion mode is per-thread and per-layout, not per-window: two
     // windows of the same thread share one mode, so identity is the (thread,
-    // layout) pair rather than the HWND.
+    // layout) pair rather than the HWND. The mode itself and the seed/adopt/
+    // settling state that carries it across windows live in persist::Engine
+    // (g_persist); these two are the layout half of that identity.
     DWORD observedThread{};
     HKL observedLayout{};
-    ime::Mode observedMode{ime::Mode::Unknown};
-    ULONGLONG contextSince{};
 
     HWND pendingWindow{};
     int restoreAttempt{};
-    ULONGLONG suppressPromotionUntil{};
-
-    // Debounced conversion-mode adoption: a mode differing from what we carry is
-    // adopted only once it has held for kAdoptDebounceMs, so a transient wrong
-    // read from the IMM32/TSF interop does not flip the carried mode.
-    ime::Mode adoptCandidate{ime::Mode::Unknown};
-    ULONGLONG adoptCandidateSince{};
 
     // What began the current round, which decides how long its waits are.
     schedule::Trigger trigger{schedule::Trigger::FocusChange};
@@ -202,6 +179,11 @@ struct AppState {
 };
 
 AppState g_app;
+
+// The conversion-mode persistence decision core. Holds the carried mode and the
+// seed/adopt/settling state; the message loop feeds it observations and applies
+// the actions it returns.
+persist::Engine g_persist;
 
 // Answers WM_CTLCOLOR* on the task dialog with the dark body / light text so the
 // dialog matches the rest of the app in dark mode. Best-effort: the main
@@ -568,7 +550,7 @@ void schedule_restore_attempt(HWND hwnd) {
             // blocked; the state now describes the new round, not this one.
             return;
         }
-        g_app.observedMode = settled;
+        g_persist.set_observed(settled);
         cancel_restore();
         return;
     }
@@ -584,9 +566,7 @@ void accept_restored_state(HWND hwnd, const ime::State& state) {
     record_snapshot(hwnd, state);
     g_app.observedThread = GetWindowThreadProcessId(hwnd, nullptr);
     g_app.observedLayout = GetKeyboardLayout(g_app.observedThread);
-    g_app.observedMode = state.mode;
-    g_app.contextSince = GetTickCount64();
-    g_app.suppressPromotionUntil = g_app.contextSince + kPostRestoreSuppressMs;
+    g_persist.accept_restored(state.mode, GetTickCount64());
     cancel_restore();
 }
 
@@ -652,7 +632,7 @@ void note_context_switch(HWND hwnd) {
 
     g_app.observedThread = thread;
     g_app.observedLayout = GetKeyboardLayout(thread);
-    g_app.contextSince = GetTickCount64();
+    g_persist.begin_context(GetTickCount64());
 
     g_app.observedExecutable = executable;
     g_app.observedWindowClass = windowClass;
@@ -689,7 +669,7 @@ void note_context_switch(HWND hwnd) {
         // recorded the newer context and scheduled its round.
         return;
     }
-    g_app.observedMode = state.mode;
+    g_persist.set_observed(state.mode);
 
     // write_once: this describes a situation, and the same few applications are
     // switched between all day. The lines that follow describe events and are not
@@ -732,29 +712,21 @@ void note_context_switch(HWND hwnd) {
         return;
     }
 
-    if (!g_app.persistMode) {
-        // Bindings are handled above; without one there is nothing left to do.
+    // No rule: the carried conversion mode. The engine seeds it from the first
+    // readable context and otherwise says whether to restore it onto this window.
+    if (g_persist.decide_context_restore() == persist::Action::ScheduleRestore) {
+        g_app.restoreAttempt = 0;
+        schedule_restore_attempt(hwnd);
+    } else {
         cancel_restore();
-        return;
     }
-
-    if (g_app.desiredMode == ime::Mode::Unknown) {
-        // Nothing to restore yet: seed the desired mode from the first context
-        // we can actually read.
-        g_app.desiredMode = state.mode;
-        cancel_restore();
-        return;
-    }
-
-    g_app.restoreAttempt = 0;
-    schedule_restore_attempt(hwnd);
 }
 
 void restore_tick() {
     KillTimer(g_app.hwnd, TIMER_RESTORE);
 
     const HWND hwnd = g_app.pendingWindow;
-    const ime::Mode desired = g_app.persistMode ? g_app.desiredMode : ime::Mode::Unknown;
+    const ime::Mode desired = g_persist.enabled() ? g_persist.desired() : ime::Mode::Unknown;
     if (!hwnd || !IsWindow(hwnd)) {
         cancel_restore();
         return;
@@ -993,7 +965,7 @@ void observe_tick() {
         // an unchanged badge only refreshes its position, throttled to ~100 ms so
         // the UI-Automation path does not run 20 times a second.
         const std::wstring badge =
-            indicator_badge(GetKeyboardLayout(thread), g_app.observedMode);
+            indicator_badge(GetKeyboardLayout(thread), g_persist.observed());
         static std::wstring lastBadge;
         static ULONGLONG lastRequest = 0;
         const ULONGLONG now = GetTickCount64();
@@ -1023,8 +995,7 @@ void observe_tick() {
 
             // The conversion mode lives on (thread, layout), so whatever was
             // observed on the old layout describes nothing now.
-            g_app.observedMode = ime::Mode::Unknown;
-            g_app.contextSince = GetTickCount64();
+            g_persist.note_layout_drift(GetTickCount64());
             return;
         }
 
@@ -1049,63 +1020,29 @@ void observe_tick() {
     record_snapshot(hwnd, state);
     update_tooltip(hwnd);
 
-    if (!state.valid) {
-        g_app.observedMode = ime::Mode::Unknown;
-        return;
-    }
+    // The persistence engine owns the seed / debounced-adopt / became-readable
+    // decisions; it updates the observed mode and tells us whether to restore.
+    const persist::Outcome outcome = g_persist.observe(
+        state.mode, state.valid, GetTickCount64(), g_app.pendingWindow != nullptr);
 
-    const ULONGLONG now = GetTickCount64();
-    const bool settling = now < g_app.suppressPromotionUntil ||
-                          now - g_app.contextSince < kPromotionDwellMs ||
-                          g_app.pendingWindow != nullptr;
-
-    if (g_app.persistMode && !settling &&
-        g_app.observedMode == ime::Mode::Unknown &&
-        g_app.desiredMode != ime::Mode::Unknown &&
-        state.mode != g_app.desiredMode) {
-        // The context became readable only after the restore attempts ran out,
-        // so start a fresh round now that there is something to write to. This is
-        // a mode restore against an IME that only just became readable, so it
-        // gets the focus-change schedule: a stale LayoutDrift trigger from an
-        // earlier round would fire the first write at 10 ms into an IME still
-        // settling, spending an attempt for nothing.
+    if (outcome.action == persist::Action::ScheduleRestore) {
+        // Became readable only after the attempts ran out: a mode restore against
+        // an IME that only just became readable, so it gets the focus-change
+        // schedule -- a stale LayoutDrift trigger would fire the first write at
+        // 10 ms into an IME still settling, spending an attempt for nothing.
         g_app.trigger = schedule::Trigger::FocusChange;
-        g_app.observedMode = state.mode;
         g_app.restoreAttempt = 0;
         schedule_restore_attempt(hwnd);
         return;
     }
 
-    // The user changing the conversion mode while working in a window is the
-    // signal that it becomes the new global intent. But the mode is read
-    // cross-process through the IMM32/TSF interop, which intermittently reports a
-    // transient wrong value (a one-frame "native" on an alphanumeric window, and
-    // the reverse), and adopting one of those blips flips the carried mode by
-    // mistake -- the misjudgement behind the wrong mode showing up in the next
-    // window. So a value that differs from what we carry must hold for
-    // kAdoptDebounceMs before it is adopted; a genuine change the user keeps
-    // clears that easily, a blip does not.
-    if (g_app.persistMode && !settling && state.valid &&
-        state.mode != ime::Mode::Unknown &&
-        g_app.desiredMode != ime::Mode::Unknown &&
-        state.mode != g_app.desiredMode) {
-        if (g_app.adoptCandidate != state.mode) {
-            g_app.adoptCandidate = state.mode;
-            g_app.adoptCandidateSince = now;
-        } else if (now - g_app.adoptCandidateSince >= kAdoptDebounceMs) {
-            diag::write(L"desiredMode: %s -> %s (user change held %llu ms in %s)",
-                        ime::mode_name(g_app.desiredMode), ime::mode_name(state.mode),
-                        static_cast<unsigned long long>(now - g_app.adoptCandidateSince),
-                        window_identity(hwnd, g_app.observedExecutable).c_str());
-            g_app.desiredMode = state.mode;
-            g_app.adoptCandidate = ime::Mode::Unknown;
-        }
-    } else {
-        // Matches what we carry, or still settling: nothing pending to adopt.
-        g_app.adoptCandidate = ime::Mode::Unknown;
+    if (outcome.adopted) {
+        // A change the user held long enough to be believed becomes the new
+        // global intent, logged with the window it happened in.
+        diag::write(L"desiredMode: adopted %s in %s",
+                    ime::mode_name(g_persist.desired()),
+                    window_identity(hwnd, g_app.observedExecutable).c_str());
     }
-
-    g_app.observedMode = state.mode;
 }
 
 void CALLBACK win_event_proc(
@@ -1186,7 +1123,7 @@ void show_status() {
         body,
         ARRAYSIZE(body),
         t.statusFormat,
-        mode_label(g_app.desiredMode),
+        mode_label(g_persist.desired()),
         mode_label(g_app.snapshot.mode),
         g_app.snapshot.reachable ? t.yes : t.no,
         g_app.snapshot.app.empty() ? t.unknownApplication : g_app.snapshot.app.c_str(),
@@ -1254,7 +1191,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     text::s().menuAutostart);
                 AppendMenuW(
                     menu,
-                    MF_STRING | (g_app.persistMode ? MF_CHECKED : MF_UNCHECKED),
+                    MF_STRING | (g_persist.enabled() ? MF_CHECKED : MF_UNCHECKED),
                     ID_TRAY_PERSIST,
                     text::s().menuPersist);
                 AppendMenuW(
@@ -1337,14 +1274,14 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
         if (LOWORD(wParam) == ID_TRAY_PERSIST) {
-            g_app.persistMode = !g_app.persistMode;
-            settings::set_persist_mode(g_app.persistMode);
-            diag::write(L"user: persist mode -> %s", g_app.persistMode ? L"on" : L"off");
+            g_persist.set_enabled(!g_persist.enabled());
+            settings::set_persist_mode(g_persist.enabled());
+            diag::write(L"user: persist mode -> %s", g_persist.enabled() ? L"on" : L"off");
 
             // Forget the target either way: leaving a stale one would show a
             // desired mode that is not being applied, and re-enabling should pick
             // up whatever the user is doing now rather than something from before.
-            g_app.desiredMode = ime::Mode::Unknown;
+            g_persist.reset_desired();
             cancel_restore();
             return 0;
         }
@@ -1440,7 +1377,7 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     // Apply the saved UI-language choice before any window or menu is built.
     text::set_language(static_cast<text::Language>(settings::ui_language()));
 
-    g_app.persistMode = settings::persist_mode();
+    g_persist.set_enabled(settings::persist_mode());
 
     // Primed before anything reads autostart_label: the cache is the only thing
     // the UI consults, and this one schtasks run at startup is what pays for the
@@ -1453,7 +1390,7 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
                 APP_VERSION_STRING,
                 autostart::elevated() ? L"elevated" : L"not elevated",
                 autostart_label(),
-                g_app.persistMode ? L"on" : L"off",
+                g_persist.enabled() ? L"on" : L"off",
                 kLayoutPollIntervalMs);
 
     // Apply any starting rule the installer dropped, once per user. This process

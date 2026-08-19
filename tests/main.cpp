@@ -10,6 +10,7 @@ void run_presets_tests();
 void run_diagnostic_tests();
 void run_window_identity_tests();
 void run_layout_switch_tests();
+void run_persist_tests();
 
 namespace {
 
@@ -29,6 +30,7 @@ constexpr Suite kSuites[] = {
     {"diagnostic", run_diagnostic_tests},
     {"window-identity", run_window_identity_tests},
     {"layout-switch", run_layout_switch_tests},
+    {"persist", run_persist_tests},
 };
 
 // CTest's SKIP_RETURN_CODE. A suite whose environment cannot support it must not
