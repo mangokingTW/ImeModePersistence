@@ -594,7 +594,7 @@ void update_layout_timer() {
 // Records that the input context changed, without ever inferring a new desired
 // mode from the window being switched to.
 void note_context_switch(HWND hwnd) {
-    if (!hwnd || own_window(hwnd) || ghost_window(hwnd)) {
+    if (!hwnd || own_window(hwnd) || ghost_window(hwnd) || shell_window(hwnd)) {
         return;
     }
 
@@ -603,10 +603,20 @@ void note_context_switch(HWND hwnd) {
         return;
     }
 
-    const unsigned generation = ++g_app.contextGeneration;
-
     const std::wstring executable = rules::executable_of(hwnd);
     const std::wstring windowClass = rules::window_class_of(hwnd);
+
+    // Shell surfaces are never "the application the user switched to": the taskbar
+    // and desktop are caught by shell_window in the guard above (same process as
+    // the shell), and Search / Start / the touch-keyboard host by name here.
+    // Touching the taskbar on the way to the tray must not re-key the context or
+    // carry the persisted mode onto the shell -- which is what forced the IME back
+    // to its native mode on a taskbar tap. Mirrors record_snapshot's guard.
+    if (shell_ui(executable)) {
+        return;
+    }
+
+    const unsigned generation = ++g_app.contextGeneration;
     const rules::Match match = rules::lookup(executable, windowClass);
     const LANGID rule = match.language;
 
@@ -948,9 +958,10 @@ std::wstring indicator_badge(HKL layout, ime::Mode mode) {
 
 void observe_tick() {
     const HWND hwnd = GetForegroundWindow();
-    if (!hwnd || own_window(hwnd) || ghost_window(hwnd)) {
-        // Leaves the last real application's context in place, so neither our own
-        // dialogs nor a dismissed Start menu looks like a context switch.
+    if (!hwnd || own_window(hwnd) || ghost_window(hwnd) || shell_window(hwnd)) {
+        // Leaves the last real application's context in place, so none of our own
+        // dialogs, the taskbar/desktop, or a dismissed Start menu looks like a
+        // context switch.
         if (g_app.indicatorEnabled) {
             overlay::hide();
         }
