@@ -65,6 +65,13 @@ constexpr UINT kLayoutPollIntervalMs = 15;
 // After a successful restore the IME keeps settling for a moment. Anything
 // observed inside this window is our own change echoing back, not the user.
 constexpr ULONGLONG kPostRestoreSuppressMs = 250;
+// After a restore, a change that moves AWAY from the desired mode within this
+// window is an application reverting our write -- Chromium apps (Chrome, Discord)
+// re-assert their own conversion mode when they take focus, tens to hundreds of
+// ms later -- not the user. Such a change is not adopted as new intent; the
+// drift re-assert puts the desired mode back. Longer than the suppress window
+// because the revert routinely arrives after it (a real case: 453 ms).
+constexpr ULONGLONG kRevertGuardMs = 1500;
 
 // A mode change is only credited to the user once the input context has been
 // stable for this long, which excludes the churn of a focus transition.
@@ -110,6 +117,10 @@ struct AppState {
     // is not re-asserted on every observe tick. Reset once the mode holds.
     ULONGLONG modeCooldownUntil{};
     int modeReassertRounds{};
+
+    // When the conversion mode was last successfully restored, so a prompt revert
+    // by the target can be told from a deliberate user change (see kRevertGuardMs).
+    ULONGLONG lastRestoreAt{};
 
     // What began the current round, which decides how long its waits are.
     schedule::Trigger trigger{schedule::Trigger::FocusChange};
@@ -582,6 +593,7 @@ void accept_restored_state(HWND hwnd, const ime::State& state) {
     g_app.observedMode = state.mode;
     g_app.contextSince = GetTickCount64();
     g_app.suppressPromotionUntil = g_app.contextSince + kPostRestoreSuppressMs;
+    g_app.lastRestoreAt = g_app.contextSince;
     cancel_restore();
 }
 
@@ -1127,7 +1139,17 @@ void observe_tick() {
     if (state.mode != ime::Mode::Unknown &&
         g_app.observedMode != ime::Mode::Unknown &&
         state.mode != g_app.observedMode) {
-        if (g_app.persistMode && !settling) {
+        // An application reverting the mode we just restored also shows up as a
+        // change, but it moves away from desiredMode within kRevertGuardMs of the
+        // restore. That is not user intent -- do not adopt it; the stable-drift
+        // re-assert above puts the desired mode back. A deliberate user change
+        // either happens later than that guard, or moves toward a value the user
+        // then keeps, and is adopted.
+        const bool appRevert =
+            g_app.desiredMode != ime::Mode::Unknown &&
+            state.mode != g_app.desiredMode &&
+            now - g_app.lastRestoreAt < kRevertGuardMs;
+        if (g_app.persistMode && !settling && !appRevert) {
             diag::write(L"desiredMode: adopt %s -> %s (user changed in %s)",
                         ime::mode_name(g_app.desiredMode), ime::mode_name(state.mode),
                         window_identity(hwnd, g_app.observedExecutable).c_str());
@@ -1137,7 +1159,7 @@ void observe_tick() {
             // intent, and why -- reveals a persisted choice being dropped.
             diag::write_once(L"desiredMode: change %s -> %s NOT adopted (%s) in %s",
                              ime::mode_name(g_app.observedMode), ime::mode_name(state.mode),
-                             settling ? L"settling" : L"persist-off",
+                             appRevert ? L"app-revert" : settling ? L"settling" : L"persist-off",
                              window_identity(hwnd, g_app.observedExecutable).c_str());
         }
     }
