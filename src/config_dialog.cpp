@@ -52,10 +52,10 @@ void apply_icon(HWND dialog) {
         SendMessageW(dialog, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(large));
     }
 
-    if (HICON small = static_cast<HICON>(LoadImageW(
+    if (HICON smallIcon = static_cast<HICON>(LoadImageW(
             module, MAKEINTRESOURCEW(IDI_APPICON), IMAGE_ICON,
             GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), 0))) {
-        SendMessageW(dialog, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(small));
+        SendMessageW(dialog, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(smallIcon));
     }
 }
 
