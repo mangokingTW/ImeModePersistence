@@ -7,6 +7,15 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.3.1
+
+Fixed: touching the taskbar or desktop could snap the IME back to its native
+conversion mode. The shell taking focus on the way to the tray was treated as an
+app switch and had the carried-over mode applied to it; the shell is now
+excluded, so a taskbar tap leaves your input mode alone.
+
+繁體中文:修正碰到工作列或桌面時,輸入法可能被切回該輸入法的預設(中文)模式。先前殼層搶到焦點(例如去點托盤的途中)被當成切換程式而套用了延續的模式;現在已排除殼層,碰工作列不會再動到你的輸入模式。
+
 ## v1.3.0
 
 App language bindings gained ordering and a default:
