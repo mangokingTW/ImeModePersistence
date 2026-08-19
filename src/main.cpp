@@ -638,6 +638,18 @@ void note_context_switch(HWND hwnd) {
                              : (!windowClass.empty() &&
                                 windowClass == g_app.observedWindowClass));
 
+    // Diagnostic (beta): a same-application focus move -- e.g. a Chromium app
+    // (Chrome, Discord) shuffling the foreground between its own threads -- that
+    // is NOT treated as a continuation. Each one re-keys the context and resets
+    // the dwell, which can keep the observer "settling" and drop the user's mode
+    // change. With no rule, continuation is always false, so this fires on every
+    // such move; the churn is the signal.
+    if (!executable.empty() && executable == g_app.observedExecutable && !continuation) {
+        diag::write(L"re-key: same app %s new thread %lu (rule %s), dwell reset",
+                    rules::file_name_of(executable).c_str(), thread,
+                    rule == 0 ? L"none" : layout::describe(rule).c_str());
+    }
+
     g_app.observedThread = thread;
     g_app.observedLayout = GetKeyboardLayout(thread);
     g_app.contextSince = GetTickCount64();
@@ -729,6 +741,9 @@ void note_context_switch(HWND hwnd) {
     if (g_app.desiredMode == ime::Mode::Unknown) {
         // Nothing to restore yet: seed the desired mode from the first context
         // we can actually read.
+        diag::write(L"desiredMode: seed -> %s (context %s)",
+                    ime::mode_name(state.mode),
+                    window_identity(hwnd, g_app.observedExecutable).c_str());
         g_app.desiredMode = state.mode;
         cancel_restore();
         return;
@@ -1067,11 +1082,22 @@ void observe_tick() {
     // Same input context + a settled mode change is the strongest signal
     // available without injecting into every process: the user changed the mode
     // while working in this window, so it becomes the new global intent.
-    if (g_app.persistMode && !settling &&
-        state.mode != ime::Mode::Unknown &&
+    if (state.mode != ime::Mode::Unknown &&
         g_app.observedMode != ime::Mode::Unknown &&
         state.mode != g_app.observedMode) {
-        g_app.desiredMode = state.mode;
+        if (g_app.persistMode && !settling) {
+            diag::write(L"desiredMode: adopt %s -> %s (user changed in %s)",
+                        ime::mode_name(g_app.desiredMode), ime::mode_name(state.mode),
+                        window_identity(hwnd, g_app.observedExecutable).c_str());
+            g_app.desiredMode = state.mode;
+        } else {
+            // Diagnostic (beta): a same-window mode change we did NOT treat as new
+            // intent, and why -- reveals a persisted choice being dropped.
+            diag::write_once(L"desiredMode: change %s -> %s NOT adopted (%s) in %s",
+                             ime::mode_name(g_app.observedMode), ime::mode_name(state.mode),
+                             settling ? L"settling" : L"persist-off",
+                             window_identity(hwnd, g_app.observedExecutable).c_str());
+        }
     }
 
     g_app.observedMode = state.mode;
