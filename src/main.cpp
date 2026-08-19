@@ -65,13 +65,12 @@ constexpr UINT kLayoutPollIntervalMs = 15;
 // After a successful restore the IME keeps settling for a moment. Anything
 // observed inside this window is our own change echoing back, not the user.
 constexpr ULONGLONG kPostRestoreSuppressMs = 250;
-// After a restore, a change that moves AWAY from the desired mode within this
-// window is an application reverting our write -- Chromium apps (Chrome, Discord)
-// re-assert their own conversion mode when they take focus, tens to hundreds of
-// ms later -- not the user. Such a change is not adopted as new intent; the
-// drift re-assert puts the desired mode back. Longer than the suppress window
-// because the revert routinely arrives after it (a real case: 453 ms).
-constexpr ULONGLONG kRevertGuardMs = 1500;
+// A conversion-mode read that differs from the mode we are carrying must hold
+// this long before it is adopted as the new intent. The mode is read
+// cross-process through the IMM32/TSF interop, which intermittently reports a
+// transient wrong value; the debounce filters those blips while still following
+// a real change the user makes and keeps.
+constexpr ULONGLONG kAdoptDebounceMs = 600;
 
 // A mode change is only credited to the user once the input context has been
 // stable for this long, which excludes the churn of a focus transition.
@@ -111,9 +110,11 @@ struct AppState {
     int restoreAttempt{};
     ULONGLONG suppressPromotionUntil{};
 
-    // When the conversion mode was last successfully restored, so a prompt revert
-    // by the target can be told from a deliberate user change (see kRevertGuardMs).
-    ULONGLONG lastRestoreAt{};
+    // Debounced conversion-mode adoption: a mode differing from what we carry is
+    // adopted only once it has held for kAdoptDebounceMs, so a transient wrong
+    // read from the IMM32/TSF interop does not flip the carried mode.
+    ime::Mode adoptCandidate{ime::Mode::Unknown};
+    ULONGLONG adoptCandidateSince{};
 
     // What began the current round, which decides how long its waits are.
     schedule::Trigger trigger{schedule::Trigger::FocusChange};
@@ -586,7 +587,6 @@ void accept_restored_state(HWND hwnd, const ime::State& state) {
     g_app.observedMode = state.mode;
     g_app.contextSince = GetTickCount64();
     g_app.suppressPromotionUntil = g_app.contextSince + kPostRestoreSuppressMs;
-    g_app.lastRestoreAt = g_app.contextSince;
     cancel_restore();
 }
 
@@ -649,18 +649,6 @@ void note_context_switch(HWND hwnd) {
         (!executable.empty() ? executable == g_app.observedExecutable
                              : (!windowClass.empty() &&
                                 windowClass == g_app.observedWindowClass));
-
-    // Diagnostic (beta): a same-application focus move -- e.g. a Chromium app
-    // (Chrome, Discord) shuffling the foreground between its own threads -- that
-    // is NOT treated as a continuation. Each one re-keys the context and resets
-    // the dwell, which can keep the observer "settling" and drop the user's mode
-    // change. With no rule, continuation is always false, so this fires on every
-    // such move; the churn is the signal.
-    if (!executable.empty() && executable == g_app.observedExecutable && !continuation) {
-        diag::write(L"re-key: same app %s new thread %lu (rule %s), dwell reset",
-                    rules::file_name_of(executable).c_str(), thread,
-                    rule == 0 ? L"none" : layout::describe(rule).c_str());
-    }
 
     g_app.observedThread = thread;
     g_app.observedLayout = GetKeyboardLayout(thread);
@@ -753,9 +741,6 @@ void note_context_switch(HWND hwnd) {
     if (g_app.desiredMode == ime::Mode::Unknown) {
         // Nothing to restore yet: seed the desired mode from the first context
         // we can actually read.
-        diag::write(L"desiredMode: seed -> %s (context %s)",
-                    ime::mode_name(state.mode),
-                    window_identity(hwnd, g_app.observedExecutable).c_str());
         g_app.desiredMode = state.mode;
         cancel_restore();
         return;
@@ -1091,35 +1076,33 @@ void observe_tick() {
         return;
     }
 
-    // Same input context + a settled mode change is the strongest signal
-    // available without injecting into every process: the user changed the mode
-    // while working in this window, so it becomes the new global intent.
-    if (state.mode != ime::Mode::Unknown &&
-        g_app.observedMode != ime::Mode::Unknown &&
-        state.mode != g_app.observedMode) {
-        // An application reverting the mode we just restored also shows up as a
-        // change, but it moves away from desiredMode within kRevertGuardMs of the
-        // restore. That is not user intent -- do not adopt it; the stable-drift
-        // re-assert above puts the desired mode back. A deliberate user change
-        // either happens later than that guard, or moves toward a value the user
-        // then keeps, and is adopted.
-        const bool appRevert =
-            g_app.desiredMode != ime::Mode::Unknown &&
-            state.mode != g_app.desiredMode &&
-            now - g_app.lastRestoreAt < kRevertGuardMs;
-        if (g_app.persistMode && !settling && !appRevert) {
-            diag::write(L"desiredMode: adopt %s -> %s (user changed in %s)",
+    // The user changing the conversion mode while working in a window is the
+    // signal that it becomes the new global intent. But the mode is read
+    // cross-process through the IMM32/TSF interop, which intermittently reports a
+    // transient wrong value (a one-frame "native" on an alphanumeric window, and
+    // the reverse), and adopting one of those blips flips the carried mode by
+    // mistake -- the misjudgement behind the wrong mode showing up in the next
+    // window. So a value that differs from what we carry must hold for
+    // kAdoptDebounceMs before it is adopted; a genuine change the user keeps
+    // clears that easily, a blip does not.
+    if (g_app.persistMode && !settling && state.valid &&
+        state.mode != ime::Mode::Unknown &&
+        g_app.desiredMode != ime::Mode::Unknown &&
+        state.mode != g_app.desiredMode) {
+        if (g_app.adoptCandidate != state.mode) {
+            g_app.adoptCandidate = state.mode;
+            g_app.adoptCandidateSince = now;
+        } else if (now - g_app.adoptCandidateSince >= kAdoptDebounceMs) {
+            diag::write(L"desiredMode: %s -> %s (user change held %llu ms in %s)",
                         ime::mode_name(g_app.desiredMode), ime::mode_name(state.mode),
+                        static_cast<unsigned long long>(now - g_app.adoptCandidateSince),
                         window_identity(hwnd, g_app.observedExecutable).c_str());
             g_app.desiredMode = state.mode;
-        } else {
-            // Diagnostic (beta): a same-window mode change we did NOT treat as new
-            // intent, and why -- reveals a persisted choice being dropped.
-            diag::write_once(L"desiredMode: change %s -> %s NOT adopted (%s) in %s",
-                             ime::mode_name(g_app.observedMode), ime::mode_name(state.mode),
-                             appRevert ? L"app-revert" : settling ? L"settling" : L"persist-off",
-                             window_identity(hwnd, g_app.observedExecutable).c_str());
+            g_app.adoptCandidate = ime::Mode::Unknown;
         }
+    } else {
+        // Matches what we carry, or still settling: nothing pending to adopt.
+        g_app.adoptCandidate = ime::Mode::Unknown;
     }
 
     g_app.observedMode = state.mode;
