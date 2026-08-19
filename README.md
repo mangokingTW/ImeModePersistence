@@ -1,4 +1,6 @@
-# IME Mode Persistence
+<h1>
+  <img src="assets/app_icon_trim.png" alt="" height="36" align="absmiddle">&nbsp;IME Mode Persistence
+</h1>
 
 [![Get it from Microsoft Store](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9P05QQZ2P5XC)
 
@@ -70,7 +72,11 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 常駐在通知區域。右鍵選單：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**以管理員身分重新啟動**（未提權時才出現）、**結束**。
 
+<p align="center"><img src="docs/screenshots/menu-zh-tw-light.png" alt="托盤右鍵選單" width="230"></p>
+
 **把滑鼠停在圖示上**會顯示當前程式、綁定語言、實際語言與上次切換結果 —— 停留不會改變前景視窗，點下去會。左鍵雙擊顯示完整狀態。每個登入工作階段只有一份執行中。
+
+<p align="center"><img src="docs/screenshots/status-zh-tw-light.png" alt="停在圖示上顯示的完整狀態" width="300"></p>
 
 切換沒有如預期作用時，右鍵選單的**開啟診斷記錄**會叫出 `%LocalAppData%\ImeModePersistence\log.txt`，裡面記錄每次上下文切換、規則比對結果、以及切換用了哪個機制與是否成功。回報問題時附上它。
 
@@ -78,12 +84,14 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 把程式綁定到一個輸入語言，例如終端機綁英文、Word 綁中文。
 
+<p align="center"><img src="docs/screenshots/rules-zh-tw-light.png" alt="程式綁定輸入語言對話框" width="620"></p>
+
 - **瀏覽** 選執行檔 → 規則是那個**完整路徑**，同名的兩個執行檔可以分開設定
 - 只填**檔名**（`notepad.exe`）→ 不管裝在哪都套用
 - **用視窗類別** 填 `class:類別名` → 有防作弊的遊戲讀不到路徑（連管理員也讀不到），視窗類別是唯一不碰該程式就能識別它的方式
 - **用剛才的程式** 自動填入你開這個視窗之前用的程式
 
-比對順序：完整路徑 → 檔名 → 視窗類別。綁定的是**語言**，同一語言裝多個輸入法（注音與倉頡都是 zh-TW）時用第一個已安裝的。
+清單可**拖拉排序，第一個符合的規則優先**（預設依精確度：完整路徑 → 檔名 → 視窗類別 → 萬用字元）。每條規則可設**只套用一次**（切到時設一次、之後不強制，不勾則持續維持）；都不符合時可啟用一條**預設語言**（預設關閉）。綁定的是**語言**，同一語言裝多個輸入法（注音與倉頡都是 zh-TW）時用第一個已安裝的。
 
 **已確認可用於有防作弊的全螢幕遊戲** —— Helldivers 2 用 `class:stingray_window` 即可，詳見 [Wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2)。
 
@@ -97,8 +105,8 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 - 寫入是 best-effort 並讀回驗證。IME 仍在啟動中時可能丟棄變更，重試四次後就接受目標視窗的狀態
 - 讀取或修改**提權程式**的視窗需要同等權限，所以控制有防作弊的遊戲必須提權執行
-- 介面依 Windows 顯示語言選繁體中文或英文；沒有簡體版本，安裝程式仍是英文
-- 深色模式只作用於標題列
+- 介面依 Windows 顯示語言選擇：英文、繁體中文、簡體中文、日文、韓文（後三者為機器翻譯）；安裝程式仍是英文
+- 深色模式：程式綁定對話框整個套用；狀態／錯誤這類暫時性小框維持淺底、僅標題列變暗（與 Windows 系統對話框一致）
 - 不注入、不掛勾、不模擬按鍵。切換是向視窗投遞 Windows 標準的「切換輸入語言」通知（視窗可自行忽略），行不通再請 TSF 以公開 API 切換；仍無效就放手，愈輸愈少問
 
 ## 開發
@@ -188,7 +196,11 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start automatically at logon**, **App language bindings...**, **Restart as administrator** (shown only when not elevated) and **Exit**.
 
+<p align="center"><img src="docs/screenshots/menu-en-light.png" alt="Tray right-click menu" width="230"></p>
+
 **Hover** the icon to see the current program, its bound language, the language actually in use, and whether the last switch worked — hovering does not change the foreground window, clicking does. Double-click for full status. One instance runs per logon session.
+
+<p align="center"><img src="docs/screenshots/status-en-light.png" alt="Full status shown on hover" width="300"></p>
 
 When a switch does not do what you expect, **Open diagnostic log** in the tray menu opens `%LocalAppData%\ImeModePersistence\log.txt`, which records every context switch, whether a rule matched, and which mechanism was used with its outcome. Attach it when reporting a problem.
 
@@ -196,12 +208,14 @@ When a switch does not do what you expect, **Open diagnostic log** in the tray m
 
 Bind a program to an input language — a terminal to English, Word to Chinese.
 
+<p align="center"><img src="docs/screenshots/rules-en-light.png" alt="App language bindings dialog" width="620"></p>
+
 - **Browse** for an executable → the rule is that **full path**, so two executables sharing a name can be configured separately
 - A bare **file name** (`notepad.exe`) → applies wherever the program is installed
 - **Use window class** → `class:<name>`, the only way to identify an anti-cheat protected game, whose path cannot be read even by an administrator
 - **Use last app** → fills in the program you were in before opening the dialog
 
-Lookup order: full path, file name, window class. A binding pins a **language**; where one language has several IMEs installed (Bopomofo and Cangjie are both zh-TW) the first is used.
+**Drag** bindings to reorder them; the **first that matches wins** (by default they are ordered by specificity: full path, file name, window class, then wildcards). A binding can **apply once** — set on the switch, then left alone rather than held — and an opt-in **default** (off by default) supplies a language when none match. A binding pins a **language**; where one language has several IMEs installed (Bopomofo and Cangjie are both zh-TW) the first is used.
 
 **Confirmed working for anti-cheat protected fullscreen games** — Helldivers 2 needs `class:stingray_window`; see the [wiki](https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2-English).
 
@@ -215,8 +229,8 @@ It stays out of its own windows and follows the caret. In fields where the repor
 
 - Writes are best-effort and verified by reading back. An IME still activating can discard one; after four attempts the utility accepts whatever the target settled on
 - Reading or changing the windows of an **elevated** program requires equal privileges, so controlling an anti-cheat protected game means running elevated
-- The interface follows Windows' display language, Traditional Chinese or English. No Simplified translation; the installer is English only
-- Dark mode applies to the title bar only
+- The interface follows Windows' display language — English, Traditional Chinese, Simplified Chinese, Japanese or Korean (the last three machine-translated); the installer is English only
+- Dark mode themes the App-language-bindings dialog fully; the transient status and error boxes keep a light body with a dark title bar, as Windows' own system dialogs do
 - Nothing is injected, hooked or synthesised. Switching posts the window Windows' standard input-language-change notification (which it is free to ignore), then falls back to TSF's public API; where neither takes, the utility backs off, asking less the more it loses
 
 ## Development

@@ -32,6 +32,33 @@ namespace rules {
 struct Rule {
     std::wstring executable;   // lower-cased full path, or bare file name
     LANGID language{};
+    // When set, the binding is applied once each time its window comes to the
+    // foreground and then left alone, so a manual change the user makes while in
+    // the application sticks. When clear (the default), the layout is kept
+    // enforced by the fast poll. Stored in the high bits of the registry value,
+    // so a rule written by an older version reads back as clear.
+    bool applyOnce{};
+    // The user's chosen position in the match order, 1-based; 0 means "not placed
+    // by hand", which falls back to the old specificity precedence. Stored in the
+    // top bits of the registry value, so a rule written by an older version reads
+    // back as 0. See load_ordered() and reorder().
+    unsigned order{};
+};
+
+// The resolved binding for a window: the language to switch to and whether to
+// apply it once (see Rule::applyOnce). language is zero when no rule matched.
+struct Match {
+    LANGID language{};
+    bool applyOnce{};
+};
+
+// The catch-all applied when no rule matches. It is stored separately from the
+// rule list -- it is never a list item and never draggable -- and is disabled
+// unless the user turns it on. language is zero when disabled.
+struct Default {
+    bool enabled{};
+    LANGID language{};
+    bool applyOnce{};
 };
 
 // Subkey of HKCU the rules are stored under, and a way to point it elsewhere.
@@ -43,11 +70,27 @@ void set_storage_key(const std::wstring& subkey);
 
 std::vector<Rule> load();
 
-bool set(const std::wstring& executable, LANGID language);
+// The rules in the order lookup tries them: user-placed rules (order > 0) first
+// by their order, then any un-placed rules by the old specificity precedence.
+// The dialog lists them in this order, and dragging rewrites it via reorder().
+std::vector<Rule> load_ordered();
+
+bool set(const std::wstring& executable, LANGID language, bool applyOnce = false,
+         unsigned order = 0);
 bool clear(const std::wstring& executable);
 
-// Zero when none of the three forms has a rule. windowClass may be empty.
-LANGID lookup(const std::wstring& path, const std::wstring& windowClass);
+// Rewrites every listed rule's order to its 1-based position, so the list becomes
+// exactly this sequence. Names not currently stored are ignored.
+bool reorder(const std::vector<std::wstring>& executablesInOrder);
+
+// The catch-all, read from / written to a reserved value that never collides with
+// a real pattern. set_default with enabled == false removes it.
+Default default_binding();
+bool set_default(bool enabled, LANGID language, bool applyOnce);
+
+// language is zero when nothing -- no rule and no enabled default -- matches.
+// windowClass may be empty.
+Match lookup(const std::wstring& path, const std::wstring& windowClass);
 
 // Prefix that marks a key as naming a window class.
 extern const wchar_t* const kClassPrefix;

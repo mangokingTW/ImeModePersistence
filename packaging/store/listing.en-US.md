@@ -20,7 +20,7 @@ A small tray utility that controls how input methods behave across programs. It 
 
 **Keep the conversion mode consistent across windows.** Windows keeps IME state **per thread**, so when you move to another window the conversion mode reverts to that IME's default — for a Chinese keyboard, that means Chinese. Press Shift for alphanumeric, switch window, and you're typing Chinese again. The setting *Let me use a different input method for each app window* (Settings → Time & language → Typing → Advanced keyboard settings) does **not** fix this: it governs *which* input method is active, not whether that method is in native or alphanumeric mode. No Windows setting covers the conversion mode. This utility does — the native/alphanumeric mode you chose follows you to the next window, and you can turn it off from the tray menu. Confirmed working with Microsoft Bopomofo on real hardware.
 
-**Bind a program to an input language.** Pin a terminal to English and Word to Chinese, and each one stays put. Rules match by **full path** (browse for an executable, so two programs sharing a name are configured separately), by bare **file name** (`notepad.exe`, wherever it's installed), or by **window class** (`class:<name>`). Window class is the only way to reach a fullscreen game that reads raw input: it takes the keyboard directly, doesn't participate in IME state at all, and its path can't be read even by an administrator — so it can only be handled from outside. Confirmed working for anti-cheat protected fullscreen games (Helldivers 2 uses `class:stingray_window`).
+**Bind a program to an input language.** Pin a terminal to English and Word to Chinese, and each one stays put. Rules match by **full path** (browse for an executable, so two programs sharing a name are configured separately), by bare **file name** (`notepad.exe`, wherever it's installed), or by **window class** (`class:<name>`). Window class is the only way to reach a fullscreen game that reads raw input: it takes the keyboard directly, doesn't participate in IME state at all, and its path can't be read even by an administrator — so it can only be handled from outside. Confirmed working for anti-cheat protected fullscreen games (Helldivers 2 uses `class:stingray_window`). Drag rules to set precedence — the first match wins — mark any rule *apply once on switch*, or set a default language for anything unmatched.
 
 **Caret input indicator.** An optional small badge beside the text caret shows what you'll actually type — `中` / `あ` / `한` (that language's native mode), `Ａ` (the IME switched to alphanumeric), or a language code such as `EN`. It's off by default, and the choice is remembered.
 
@@ -28,7 +28,7 @@ A small tray utility that controls how input methods behave across programs. It 
 
 **About this Store build.** The Microsoft Store (MSIX) build **can't elevate**, so it can't control programs run as administrator or anti-cheat games. For those targets, use the **desktop build** (installer / Scoop / winget) run as administrator. **Start at logon is available** in this Store build.
 
-Nothing is injected, hooked, or synthesized — no key simulation. Switching posts Windows' standard input-language-change notification (which a window is free to ignore) and falls back to TSF's public API; it's best-effort and verified by reading the state back. The interface follows your Windows display language, English or Traditional Chinese (Taiwan).
+Nothing is injected, hooked, or synthesized — no key simulation. Switching posts Windows' standard input-language-change notification (which a window is free to ignore) and falls back to TSF's public API; it's best-effort and verified by reading the state back. The interface follows your Windows display language — English, Traditional Chinese, Simplified Chinese, Japanese, or Korean.
 
 **Highlights**
 
@@ -39,7 +39,7 @@ Nothing is injected, hooked, or synthesized — no key simulation. Switching pos
 - Prompts for elevation and offers "Restart as administrator" when a target needs admin rights.
 - Store build can't elevate (use the desktop build for admin / anti-cheat targets); "Start at logon" works in the Store build.
 - No injection, hooking, or key simulation — best-effort with read-back verification.
-- English and Traditional Chinese (Taiwan) interface, chosen by your Windows display language.
+- English, Traditional Chinese, Simplified Chinese, Japanese, and Korean interface, chosen by your Windows display language.
 
 ---
 

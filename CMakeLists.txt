@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 # Single source of truth for the version. The release workflow reads it and
 # refuses to publish a tag that disagrees, so the number stamped into the
 # executable always matches the release it shipped in.
-project(ImeModePersistence VERSION 1.2.0 LANGUAGES CXX)
+project(ImeModePersistence VERSION 1.3.0 LANGUAGES CXX)
 
 set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable")
 
@@ -82,6 +82,7 @@ target_link_libraries(ime_core PUBLIC
     gdi32
     comctl32
     dwmapi
+    uxtheme
     ole32
     taskschd
     windowsapp
@@ -112,7 +113,7 @@ add_executable(ImeModePersistence WIN32
 
 # oleaut32 for the SafeArray helpers the caret's UI-Automation path uses; ole32
 # and the rest propagate from ime_core.
-target_link_libraries(ImeModePersistence PRIVATE ime_core oleaut32)
+target_link_libraries(ImeModePersistence PRIVATE ime_core oleaut32 gdiplus)
 
 target_compile_definitions(ImeModePersistence PRIVATE
     APP_VERSION_STRING="${APP_VERSION}"

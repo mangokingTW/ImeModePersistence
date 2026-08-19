@@ -7,6 +7,23 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.3.0
+
+App language bindings gained ordering and a default:
+
+- Each binding can be set to **apply once** when you switch to the window,
+  instead of being continuously enforced, so a manual change afterwards sticks.
+- **Drag** bindings in the list to reorder them; the first one that matches wins,
+  so you decide precedence.
+- A new **default** (used when no binding matches) — off by default, with its own
+  language and the same once / continuous choice.
+
+繁體中文:程式綁定輸入語言新增排序與預設:
+
+- 每條綁定可設為**切換到該視窗時只套用一次**,而非持續強制,之後你手動改就會保留。
+- 在清單中**拖曳**綁定即可調整順序;由上到下第一個符合的優先,先後順序由你決定。
+- 新增**預設**(所有綁定都不符合時套用)——預設不啟用,有自己的語言與同樣的一次性／持續選項。
+
 ## v1.2.0
 
 The app interface is now available in Simplified Chinese, Japanese and Korean, on

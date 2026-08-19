@@ -64,6 +64,11 @@ struct Strings {
     const wchar_t* buttonAdd;
     const wchar_t* buttonRemove;
     const wchar_t* buttonClose;
+    const wchar_t* ruleApplyOnce;      // "apply once on switch" checkbox
+    const wchar_t* ruleOnceSuffix;     // list marker on an apply-once rule
+    const wchar_t* ruleReorderHint;    // drag-to-reorder hint on the list header
+    const wchar_t* defaultGroup;       // "Default (when no rule matches)" group
+    const wchar_t* defaultEnable;      // "use a default language" checkbox
 
     const wchar_t* hintIntro;
     const wchar_t* hintNeedExecutable;

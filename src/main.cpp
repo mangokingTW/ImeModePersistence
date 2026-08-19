@@ -114,6 +114,12 @@ struct AppState {
     HKL requiredLayout{};
     HWND ruleWindow{};
 
+    // When the active rule is "apply once", the layout is set as the window comes
+    // to the foreground and then left alone: no enforcement poll, and an internal
+    // focus move within the same application does not reassert it, so a manual
+    // change the user makes afterwards sticks.
+    bool ruleApplyOnce{};
+
     // Set when a round gave up, so a target that refuses is left alone rather
     // than asked again on the very next poll.
     ULONGLONG layoutCooldownUntil{};
@@ -185,21 +191,61 @@ struct AppState {
 
 AppState g_app;
 
+// Answers WM_CTLCOLOR* on the task dialog with the dark body / light text so the
+// dialog matches the rest of the app in dark mode. Best-effort: the main
+// instruction and icon are drawn by the task dialog itself and may stay light.
+LRESULT CALLBACK task_dialog_subclass(HWND hwnd, UINT message, WPARAM wParam,
+                                      LPARAM lParam, UINT_PTR, DWORD_PTR) {
+    switch (message) {
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+        if (theme::dark_mode()) {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            SetBkColor(dc, theme::bg());
+            SetTextColor(dc, theme::text());
+            return reinterpret_cast<LRESULT>(theme::bg_brush());
+        }
+        break;
+    case WM_NCDESTROY:
+        RemoveWindowSubclass(hwnd, task_dialog_subclass, 0);
+        break;
+    default:
+        break;
+    }
+    return DefSubclassProc(hwnd, message, wParam, lParam);
+}
+
+// Themes the task dialog dark once it exists, when the user is in dark mode.
+HRESULT CALLBACK task_dialog_callback(HWND hwnd, UINT notification, WPARAM,
+                                      LPARAM, LONG_PTR) {
+    if (notification == TDN_DIALOG_CONSTRUCTED && theme::dark_mode()) {
+        theme::apply_titlebar(hwnd);
+        theme::allow_dark_window(hwnd);
+        theme::apply_dark_controls(hwnd);
+        SetWindowSubclass(hwnd, task_dialog_subclass, 0, 0);
+        InvalidateRect(hwnd, nullptr, TRUE);
+    }
+    return S_OK;
+}
+
 // A task dialog rather than a message box: it carries the current visual style,
 // and unlike MessageBox it centres on the screen instead of on its owner, which
 // matters because this owner is a hidden zero-sized window in the top-left
-// corner. Falls back if comctl32 v6 is somehow unavailable.
+// corner. TaskDialogIndirect (not TaskDialog) so a callback can theme it dark.
+// Falls back if comctl32 v6 is somehow unavailable.
 void show_message(const wchar_t* title, const wchar_t* body, bool error) {
+    TASKDIALOGCONFIG config{};
+    config.cbSize = sizeof(config);
+    config.hwndParent = g_app.hwnd;
+    config.dwCommonButtons = TDCBF_OK_BUTTON;
+    config.pszWindowTitle = title;
+    config.pszContent = body;
+    config.pszMainIcon = error ? TD_ERROR_ICON : TD_INFORMATION_ICON;
+    config.pfCallback = task_dialog_callback;
+
     int pressed = 0;
-    const HRESULT result = TaskDialog(
-        g_app.hwnd,
-        nullptr,
-        title,
-        nullptr,
-        body,
-        TDCBF_OK_BUTTON,
-        error ? TD_ERROR_ICON : TD_INFORMATION_ICON,
-        &pressed);
+    const HRESULT result = TaskDialogIndirect(&config, &pressed, nullptr, nullptr);
 
     if (FAILED(result)) {
         MessageBoxW(g_app.hwnd, body, title,
@@ -536,7 +582,9 @@ void accept_restored_state(HWND hwnd, const ime::State& state) {
 // the foreground window it would wake the process sixty-six times a second to
 // check a null. Started and stopped as bindings come and go with the foreground.
 void update_layout_timer() {
-    if (g_app.ruleWindow && g_app.ruleLanguage != 0) {
+    // An apply-once rule is set on the switch and then left alone, so it never
+    // arms the enforcement poll.
+    if (g_app.ruleWindow && g_app.ruleLanguage != 0 && !g_app.ruleApplyOnce) {
         SetTimer(g_app.hwnd, TIMER_LAYOUT, kLayoutPollIntervalMs, nullptr);
     } else {
         KillTimer(g_app.hwnd, TIMER_LAYOUT);
@@ -559,7 +607,8 @@ void note_context_switch(HWND hwnd) {
 
     const std::wstring executable = rules::executable_of(hwnd);
     const std::wstring windowClass = rules::window_class_of(hwnd);
-    const LANGID rule = rules::lookup(executable, windowClass);
+    const rules::Match match = rules::lookup(executable, windowClass);
+    const LANGID rule = match.language;
 
     // The same application under the same rule, seen again. Chromium-style
     // applications move the foreground between their own threads constantly, and
@@ -586,6 +635,7 @@ void note_context_switch(HWND hwnd) {
     g_app.observedExecutable = executable;
     g_app.observedWindowClass = windowClass;
     g_app.ruleLanguage = rule;
+    g_app.ruleApplyOnce = match.applyOnce;
 
     // Resolved here rather than on every attempt: this is the one place the rule
     // itself can change, and the fast poll needs an answer it can compare against
@@ -630,6 +680,19 @@ void note_context_switch(HWND hwnd) {
                 state.valid ? L"readable" : L"unreadable");
 
     if (g_app.ruleLanguage != 0) {
+        if (g_app.ruleApplyOnce) {
+            // Apply once on a genuine switch to this window, then stop: no
+            // enforcement poll, and an internal focus move within the same
+            // application (a continuation) is not re-applied, so a manual change
+            // the user makes afterwards sticks. Switching away and back is a
+            // fresh context and applies it again.
+            if (!continuation) {
+                g_app.restoreAttempt = 0;
+                schedule_restore_attempt(hwnd);
+            }
+            return;
+        }
+
         if (continuation && GetTickCount64() < g_app.layoutCooldownUntil) {
             // Still backing off from this application; its internal focus moves
             // do not reopen the argument. The fast poll resumes when the

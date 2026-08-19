@@ -66,6 +66,11 @@ const Strings kEnglish{
     .buttonAdd = L"&Add / update",
     .buttonRemove = L"&Remove selected",
     .buttonClose = L"Close",
+    .ruleApplyOnce = L"Apply once on switch (don't keep enforcing)",
+    .ruleOnceSuffix = L"  (once)",
+    .ruleReorderHint = L"Drag a rule to reorder — the topmost match wins",
+    .defaultGroup = L"Default (when no rule matches)",
+    .defaultEnable = L"Use a default language",
 
     .hintIntro = L"An application bound to a language switches to it when you "
                  L"activate that application. Where one language has several IMEs "
@@ -156,6 +161,11 @@ const Strings kTraditionalChinese{
     .buttonAdd = L"新增／更新(&A)",
     .buttonRemove = L"刪除選取的規則(&R)",
     .buttonClose = L"關閉",
+    .ruleApplyOnce = L"切換時只套用一次（不持續強制）",
+    .ruleOnceSuffix = L"（一次）",
+    .ruleReorderHint = L"拖曳規則可調整順序，最上方符合者優先",
+    .defaultGroup = L"預設（無規則符合時）",
+    .defaultEnable = L"使用預設語言",
 
     .hintIntro = L"綁定後，切到該程式就會自動切換到綁定的輸入語言。同一語言裝了多個輸入法（例如注音與倉頡）時，會使用第一個已安裝的。",
     .hintNeedExecutable = L"請輸入路徑、執行檔名稱（例如 notepad.exe），或 class: 開頭的類別鍵值。"
@@ -244,6 +254,11 @@ const Strings kSimplifiedChinese{
     .buttonAdd = L"新增／更新(&A)",
     .buttonRemove = L"删除选中的规则(&R)",
     .buttonClose = L"关闭",
+    .ruleApplyOnce = L"切换时只应用一次（不持续强制）",
+    .ruleOnceSuffix = L"（一次）",
+    .ruleReorderHint = L"拖动规则可调整顺序，最上方符合者优先",
+    .defaultGroup = L"默认（无规则符合时）",
+    .defaultEnable = L"使用默认语言",
 
     .hintIntro = L"绑定后，切到该程序就会自动切换到绑定的输入语言。同一语言装了多个输入法（例如拼音与五笔）时，会使用第一个已安装的。",
     .hintNeedExecutable = L"请输入路径、可执行文件名（例如 notepad.exe），或 class: 开头的类别键值。"
@@ -332,6 +347,11 @@ const Strings kJapanese{
     .buttonAdd = L"追加／更新(&A)",
     .buttonRemove = L"選択したルールを削除(&R)",
     .buttonClose = L"閉じる",
+    .ruleApplyOnce = L"切り替え時に一度だけ適用（以降は強制しない）",
+    .ruleOnceSuffix = L"（一度）",
+    .ruleReorderHint = L"ドラッグで並べ替え。上にあるものほど優先",
+    .defaultGroup = L"既定（ルールに一致しないとき）",
+    .defaultEnable = L"既定の言語を使う",
 
     .hintIntro = L"アプリを言語にバインドすると、そのアプリをアクティブにしたときにその言語へ切り替わります。1つの言語に複数の IME がある場合は最初のものが使われます。",
     .hintNeedExecutable = L"パス、実行ファイル名（例：notepad.exe）、または class: で始まるクラスキーを入力してください。"
@@ -420,6 +440,11 @@ const Strings kKorean{
     .buttonAdd = L"추가／업데이트(&A)",
     .buttonRemove = L"선택한 규칙 삭제(&R)",
     .buttonClose = L"닫기",
+    .ruleApplyOnce = L"전환 시 한 번만 적용(계속 강제하지 않음)",
+    .ruleOnceSuffix = L" (한 번)",
+    .ruleReorderHint = L"드래그하여 순서 변경 — 위쪽이 우선",
+    .defaultGroup = L"기본값(규칙이 일치하지 않을 때)",
+    .defaultEnable = L"기본 언어 사용",
 
     .hintIntro = L"앱을 언어에 바인딩하면 해당 앱을 활성화할 때 그 언어로 전환됩니다. 한 언어에 여러 IME가 설치된 경우 첫 번째 것이 사용됩니다.",
     .hintNeedExecutable = L"경로, 실행 파일 이름(예: notepad.exe), 또는 class: 로 시작하는 클래스 키를 입력하세요. "
