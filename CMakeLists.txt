@@ -82,6 +82,7 @@ target_link_libraries(ime_core PUBLIC
     gdi32
     comctl32
     dwmapi
+    uxtheme
     ole32
     taskschd
     windowsapp

@@ -343,13 +343,6 @@ void subclass_list(HWND list) {
 ULONG_PTR g_gdiplusToken = 0;
 WNDPROC g_toggleProc = nullptr;
 
-// Light vs dark is read from the actual dialog background, not the system
-// dark-mode flag: the dialog body is not themed dark (only its title bar is), so
-// the toggle must match whatever colour the body really is.
-bool is_dark(COLORREF c) {
-    return (GetRValue(c) * 299u + GetGValue(c) * 587u + GetBValue(c) * 114u) / 1000u < 128u;
-}
-
 void draw_toggle(HWND ctrl, HDC dc) {
     RECT rc{};
     GetClientRect(ctrl, &rc);
@@ -372,7 +365,7 @@ void draw_toggle(HWND ctrl, HDC dc) {
     }
     FillRect(dc, &rc, bg);
 
-    const bool dark = is_dark(GetSysColor(COLOR_3DFACE));
+    const bool dark = theme::dark_mode();
     const BYTE alpha = enabled ? 255 : 110;
     const auto col = [alpha](BYTE r, BYTE g, BYTE b) { return Gdiplus::Color(alpha, r, g, b); };
 
@@ -414,7 +407,11 @@ void draw_toggle(HWND ctrl, HDC dc) {
     HFONT font = reinterpret_cast<HFONT>(SendMessageW(ctrl, WM_GETFONT, 0, 0));
     HFONT old = font ? reinterpret_cast<HFONT>(SelectObject(dc, font)) : nullptr;
     SetBkMode(dc, TRANSPARENT);
-    SetTextColor(dc, GetSysColor(enabled ? COLOR_BTNTEXT : COLOR_GRAYTEXT));
+    if (dark) {
+        SetTextColor(dc, enabled ? theme::text() : RGB(140, 140, 140));
+    } else {
+        SetTextColor(dc, GetSysColor(enabled ? COLOR_BTNTEXT : COLOR_GRAYTEXT));
+    }
     wchar_t label[256]{};
     GetWindowTextW(ctrl, label, ARRAYSIZE(label));
     RECT text{tx + trackW + px(8), 0, width, height};
@@ -647,6 +644,11 @@ void on_init(HWND dialog, State& state) {
     }
 
     set_hint(dialog, text::s().hintIntro);
+
+    // Dark mode: opt the dialog and its controls into the app's dark visuals when
+    // the user is in dark mode. A no-op (light body) on Windows before 1809.
+    theme::allow_dark_window(dialog);
+    theme::apply_dark_controls(dialog);
 }
 
 INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -661,19 +663,41 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
         return TRUE;
     }
 
+    case WM_CTLCOLORDLG:
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+        if (theme::dark_mode()) {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            SetBkColor(dc, theme::bg());
+            SetTextColor(dc, theme::text());
+            return reinterpret_cast<INT_PTR>(theme::bg_brush());
+        }
+        break;
+
+    case WM_CTLCOLOREDIT:
+    case WM_CTLCOLORLISTBOX:
+        if (theme::dark_mode()) {
+            HDC dc = reinterpret_cast<HDC>(wParam);
+            SetBkColor(dc, theme::control_bg());
+            SetTextColor(dc, theme::text());
+            return reinterpret_cast<INT_PTR>(theme::control_bg_brush());
+        }
+        break;
+
     case WM_SETTINGCHANGE:
-        // Following the user switching light/dark while the dialog is open costs
-        // one comparison and avoids a title bar that contradicts the rest of the
-        // desktop until the dialog is reopened.
+        // Follow a light/dark switch made while the dialog is open: re-theme the
+        // title bar, controls and toggles, and repaint the body.
         if (theme::is_colour_change(lParam)) {
+            theme::free_brushes();
             theme::apply_titlebar(dialog);
-            for (const int id : {IDC_ONCE, IDC_DEFAULT_ENABLE, IDC_DEFAULT_ONCE}) {
-                InvalidateRect(GetDlgItem(dialog, id), nullptr, FALSE);
-            }
+            theme::allow_dark_window(dialog);
+            theme::apply_dark_controls(dialog);
+            InvalidateRect(dialog, nullptr, TRUE);
         }
         break;
 
     case WM_DESTROY:
+        theme::free_brushes();
         if (g_gdiplusToken) {
             Gdiplus::GdiplusShutdown(g_gdiplusToken);
             g_gdiplusToken = 0;
