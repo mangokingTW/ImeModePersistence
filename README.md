@@ -78,6 +78,11 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 把程式綁定到一個輸入語言，例如終端機綁英文、Word 綁中文。
 
+<p align="center">
+  <img src="docs/screenshots/rules-zh-tw-light.png" alt="程式綁定輸入語言對話框（淺色）" width="49%">
+  <img src="docs/screenshots/rules-zh-tw-dark.png" alt="程式綁定輸入語言對話框（深色）" width="49%">
+</p>
+
 - **瀏覽** 選執行檔 → 規則是那個**完整路徑**，同名的兩個執行檔可以分開設定
 - 只填**檔名**（`notepad.exe`）→ 不管裝在哪都套用
 - **用視窗類別** 填 `class:類別名` → 有防作弊的遊戲讀不到路徑（連管理員也讀不到），視窗類別是唯一不碰該程式就能識別它的方式
@@ -195,6 +200,11 @@ When a switch does not do what you expect, **Open diagnostic log** in the tray m
 ### App language bindings
 
 Bind a program to an input language — a terminal to English, Word to Chinese.
+
+<p align="center">
+  <img src="docs/screenshots/rules-en-light.png" alt="App language bindings dialog (light)" width="49%">
+  <img src="docs/screenshots/rules-en-dark.png" alt="App language bindings dialog (dark)" width="49%">
+</p>
 
 - **Browse** for an executable → the rule is that **full path**, so two executables sharing a name can be configured separately
 - A bare **file name** (`notepad.exe`) → applies wherever the program is installed
