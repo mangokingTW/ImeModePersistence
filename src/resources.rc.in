@@ -20,7 +20,7 @@ IDI_APPICON ICON "@CMAKE_CURRENT_SOURCE_DIR@/assets/ImeModePersistence.ico"
 // Every string here is replaced at runtime from src/strings.cpp, so the text in
 // this template only matters if that ever fails. Widths are sized for the
 // English strings, which are the longer of the two.
-IDD_RULES DIALOGEX 0, 0, 440, 276
+IDD_RULES DIALOGEX 0, 0, 440, 326
 STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU |
       WS_MINIMIZEBOX
 // WS_EX_APPWINDOW because the taskbar omits owned windows, and this dialog's
@@ -51,8 +51,14 @@ BEGIN
     DEFPUSHBUTTON   "&Add / update", IDC_ADD, 320, 195, 104, 14
     AUTOCHECKBOX    "", IDC_ONCE, 96, 210, 328, 10
 
-    LTEXT           "", IDC_HINT, 8, 228, 424, 24
-    PUSHBUTTON      "Close", IDOK, 366, 256, 58, 14
+    GROUPBOX        "Default (when no rule matches)", IDC_DEFAULT_GROUP, 8, 226, 424, 46
+    AUTOCHECKBOX    "", IDC_DEFAULT_ENABLE, 16, 240, 170, 10
+    COMBOBOX        IDC_DEFAULT_LANG, 190, 238, 234, 100,
+                    CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    AUTOCHECKBOX    "", IDC_DEFAULT_ONCE, 16, 256, 408, 10
+
+    LTEXT           "", IDC_HINT, 8, 278, 424, 24
+    PUSHBUTTON      "Close", IDOK, 366, 306, 58, 14
 END
 
 VS_VERSION_INFO VERSIONINFO

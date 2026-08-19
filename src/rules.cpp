@@ -1,5 +1,8 @@
 #include "rules.h"
 
+#include <algorithm>
+#include <cwchar>
+
 namespace rules {
 namespace {
 
@@ -9,6 +12,16 @@ std::wstring g_key = L"Software\\ImeModePersistence\\Rules";
 // carries Rule::applyOnce. A value written before the flag existed has it clear,
 // so an older rule reads back as "keep enforcing".
 constexpr DWORD kApplyOnceFlag = 0x10000u;
+
+// The 1-based order sits in the bits above the flag; 0 (an older rule, or one the
+// user never dragged) means "unplaced", sorted by the old specificity precedence.
+constexpr int kOrderShift = 17;
+constexpr DWORD kOrderMask = 0x7FFFu;
+
+// Reserved value name for the catch-all default. The leading \x01 is a control
+// character no real pattern (a path, class or glob) can start with, so it never
+// collides with a rule; load() skips any name beginning with it.
+constexpr wchar_t kDefaultName[] = L"\x01""default";
 
 std::wstring lower(std::wstring text) {
     if (!text.empty()) {
@@ -68,33 +81,45 @@ bool matches_glob(const std::wstring& pattern, const std::wstring& text) {
     return *p == L'\0';
 }
 
-// First matching glob under the given prefix, most specific (longest pattern)
-// first. Ties break by ordinal comparison so the answer never depends on the
-// order the registry happens to enumerate values in.
-Match best_glob(const std::vector<Rule>& all, const std::wstring& prefix,
-                const std::wstring& subject) {
-    if (subject.empty()) {
-        return {};
+// Specificity rank for an unplaced (order 0) rule; higher is tried first, exactly
+// reproducing the old precedence: exact path > exact name > exact class > longer
+// path-glob > longer class-glob.
+long long specificity_rank(const Rule& rule) {
+    auto starts = [&](const wchar_t* prefix) {
+        const size_t n = wcslen(prefix);
+        return rule.executable.size() >= n && rule.executable.compare(0, n, prefix) == 0;
+    };
+    const long long length = static_cast<long long>(rule.executable.size());
+    if (starts(kClassGlobPrefix)) return 1000000 + length;
+    if (starts(kGlobPrefix))      return 2000000 + length;
+    if (starts(kClassPrefix))     return 3000000;
+    if (rule.executable.find_first_of(L"\\/") != std::wstring::npos) return 5000000;
+    return 4000000;  // bare file name
+}
+
+// Whether a rule's pattern matches this window's (already lower-cased) identity.
+bool rule_matches(const Rule& rule, const std::wstring& loweredPath,
+                  const std::wstring& loweredName, const std::wstring& loweredClass) {
+    auto starts = [&](const wchar_t* prefix) {
+        const size_t n = wcslen(prefix);
+        return rule.executable.size() >= n && rule.executable.compare(0, n, prefix) == 0;
+    };
+    if (starts(kClassGlobPrefix)) {
+        return !loweredClass.empty() &&
+               matches_glob(rule.executable.substr(wcslen(kClassGlobPrefix)), loweredClass);
     }
-    const size_t plen = prefix.size();
-    Match result{};
-    std::wstring bestPattern;
-    for (const Rule& rule : all) {
-        if (rule.executable.size() <= plen ||
-            rule.executable.compare(0, plen, prefix) != 0) {
-            continue;
-        }
-        const std::wstring pattern = rule.executable.substr(plen);
-        if (!matches_glob(pattern, subject)) {
-            continue;
-        }
-        if (result.language == 0 || pattern.size() > bestPattern.size() ||
-            (pattern.size() == bestPattern.size() && pattern < bestPattern)) {
-            bestPattern = pattern;
-            result = {rule.language, rule.applyOnce};
-        }
+    if (starts(kGlobPrefix)) {
+        return !loweredPath.empty() &&
+               matches_glob(rule.executable.substr(wcslen(kGlobPrefix)), loweredPath);
     }
-    return result;
+    if (starts(kClassPrefix)) {
+        return !loweredClass.empty() &&
+               rule.executable == std::wstring(kClassPrefix) + loweredClass;
+    }
+    if (rule.executable.find_first_of(L"\\/") != std::wstring::npos) {
+        return !loweredPath.empty() && rule.executable == loweredPath;
+    }
+    return !loweredName.empty() && rule.executable == loweredName;
 }
 
 const std::wstring& storage_key() {
@@ -146,6 +171,10 @@ std::vector<Rule> load() {
             // A single unreadable value should not hide the rest.
             continue;
         }
+        // The reserved catch-all default is stored here but is not a rule.
+        if (nameChars > 0 && name[0] == L'\x01') {
+            continue;
+        }
         const LANGID language = static_cast<LANGID>(value & 0xFFFF);
         if (type != REG_DWORD || language == 0) {
             continue;
@@ -155,6 +184,7 @@ std::vector<Rule> load() {
         rule.executable.assign(name, nameChars);
         rule.language = language;
         rule.applyOnce = (value & kApplyOnceFlag) != 0;
+        rule.order = (static_cast<unsigned>(value) >> kOrderShift) & kOrderMask;
         result.push_back(rule);
     }
 
@@ -162,7 +192,28 @@ std::vector<Rule> load() {
     return result;
 }
 
-bool set(const std::wstring& executable, LANGID language, bool applyOnce) {
+std::vector<Rule> load_ordered() {
+    std::vector<Rule> ordered = load();
+    std::stable_sort(ordered.begin(), ordered.end(), [](const Rule& a, const Rule& b) {
+        const bool aPlaced = a.order != 0;
+        const bool bPlaced = b.order != 0;
+        if (aPlaced != bPlaced) {
+            return aPlaced;  // hand-placed rules first
+        }
+        if (aPlaced) {
+            return a.order < b.order;  // in the position the user gave them
+        }
+        const long long ra = specificity_rank(a);
+        const long long rb = specificity_rank(b);
+        if (ra != rb) {
+            return ra > rb;  // more specific first, reproducing the old precedence
+        }
+        return a.executable < b.executable;  // stable ordinal tiebreak
+    });
+    return ordered;
+}
+
+bool set(const std::wstring& executable, LANGID language, bool applyOnce, unsigned order) {
     if (executable.empty() || language == 0) {
         return false;
     }
@@ -173,7 +224,9 @@ bool set(const std::wstring& executable, LANGID language, bool applyOnce) {
         return false;
     }
 
-    const DWORD value = static_cast<DWORD>(language) | (applyOnce ? kApplyOnceFlag : 0u);
+    const DWORD value = static_cast<DWORD>(language) |
+                        (applyOnce ? kApplyOnceFlag : 0u) |
+                        ((static_cast<DWORD>(order) & kOrderMask) << kOrderShift);
     const LSTATUS status = RegSetValueExW(
         key, lower(executable).c_str(), 0, REG_DWORD,
         reinterpret_cast<const BYTE*>(&value), sizeof(value));
@@ -191,44 +244,68 @@ bool clear(const std::wstring& executable) {
     return status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND;
 }
 
-Match lookup(const std::wstring& path, const std::wstring& windowClass) {
-    const std::wstring loweredPath = lower(path);
-    const std::wstring loweredClass = lower(windowClass);
-
-    // Most specific first, so a rule naming one particular copy of an application
-    // wins over one naming its file name, which in turn wins over a class rule
-    // that could match several unrelated windows.
-    if (!loweredPath.empty()) {
-        if (const Match byPath = read(loweredPath); byPath.language != 0) {
-            return byPath;
-        }
-
-        const std::wstring name = file_name_of(loweredPath);
-        if (name != loweredPath) {
-            if (const Match byName = read(name); byName.language != 0) {
-                return byName;
+bool reorder(const std::vector<std::wstring>& executablesInOrder) {
+    // Re-read each rule's language / apply-once so only its position changes.
+    const std::vector<Rule> current = load();
+    bool ok = true;
+    for (size_t i = 0; i < executablesInOrder.size(); ++i) {
+        const std::wstring lowered = lower(executablesInOrder[i]);
+        for (const Rule& rule : current) {
+            if (rule.executable == lowered) {
+                ok = set(rule.executable, rule.language, rule.applyOnce,
+                         static_cast<unsigned>(i + 1)) && ok;
+                break;
             }
         }
     }
+    return ok;
+}
 
-    if (!loweredClass.empty()) {
-        if (const Match byClass = read(kClassPrefix + loweredClass); byClass.language != 0) {
-            return byClass;
+Default default_binding() {
+    const Match match = read(kDefaultName);
+    return {match.language != 0, match.language, match.applyOnce};
+}
+
+bool set_default(bool enabled, LANGID language, bool applyOnce) {
+    if (!enabled || language == 0) {
+        const LSTATUS status =
+            RegDeleteKeyValueW(HKEY_CURRENT_USER, g_key.c_str(), kDefaultName);
+        return status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND;
+    }
+
+    HKEY key{};
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, g_key.c_str(), 0, nullptr, 0,
+                        KEY_SET_VALUE, nullptr, &key, nullptr) != ERROR_SUCCESS) {
+        return false;
+    }
+    const DWORD value = static_cast<DWORD>(language) | (applyOnce ? kApplyOnceFlag : 0u);
+    const LSTATUS status = RegSetValueExW(
+        key, kDefaultName, 0, REG_DWORD,
+        reinterpret_cast<const BYTE*>(&value), sizeof(value));
+    RegCloseKey(key);
+    return status == ERROR_SUCCESS;
+}
+
+Match lookup(const std::wstring& path, const std::wstring& windowClass) {
+    const std::wstring loweredPath = lower(path);
+    const std::wstring loweredClass = lower(windowClass);
+    const std::wstring loweredName = file_name_of(loweredPath);
+
+    // The first rule that matches, in the list's order, wins. Loading and sorting
+    // the whole set is affordable because lookup runs on a focus change, never on
+    // the fast tooltip poll.
+    for (const Rule& rule : load_ordered()) {
+        if (rule_matches(rule, loweredPath, loweredName, loweredClass)) {
+            return {rule.language, rule.applyOnce};
         }
     }
 
-    // No literal rule matched. Wildcard rules are the fallback: they need the
-    // whole set loaded and scanned, which is affordable only because lookup runs
-    // on a focus change, never on the fast tooltip poll. Path globs are more
-    // specific than class globs, so try them first.
-    if (loweredPath.empty() && loweredClass.empty()) {
-        return {};
+    // Nothing matched: the catch-all default is the last resort, if enabled.
+    const Default fallback = default_binding();
+    if (fallback.enabled) {
+        return {fallback.language, fallback.applyOnce};
     }
-    const std::vector<Rule> all = load();
-    if (const Match byPathGlob = best_glob(all, kGlobPrefix, loweredPath); byPathGlob.language != 0) {
-        return byPathGlob;
-    }
-    return best_glob(all, kClassGlobPrefix, loweredClass);
+    return {};
 }
 
 std::wstring executable_of(HWND hwnd) {

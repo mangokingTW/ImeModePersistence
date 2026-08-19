@@ -345,6 +345,75 @@ void apply_once_round_trips() {
     wipe();
 }
 
+void explicit_order_overrides_specificity() {
+    wipe();
+
+    const std::wstring glob = std::wstring(rules::kGlobPrefix) + L"*";
+    CHECK(rules::set(glob, kEnglish));
+    CHECK(rules::set(L"c:\\a\\thing.exe", kChinese));
+
+    // Unplaced: the old specificity precedence stands -- the exact path wins.
+    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"").language == kChinese);
+
+    // Placing the broad glob first makes it win despite being less specific.
+    std::vector<std::wstring> order = {glob, L"c:\\a\\thing.exe"};
+    CHECK(rules::reorder(order));
+    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"").language == kEnglish);
+
+    // Reversing the order flips the winner back.
+    std::swap(order[0], order[1]);
+    CHECK(rules::reorder(order));
+    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"").language == kChinese);
+
+    wipe();
+}
+
+void catch_all_glob_placed_last_is_a_default() {
+    wipe();
+
+    const std::wstring glob = std::wstring(rules::kGlobPrefix) + L"*";
+    CHECK(rules::set(L"c:\\a\\thing.exe", kChinese));
+    CHECK(rules::set(glob, kEnglish));
+    CHECK(rules::reorder({L"c:\\a\\thing.exe", glob}));  // specific first, glob last
+
+    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"").language == kChinese);  // the specific rule
+    CHECK(rules::lookup(L"c:\\other.exe", L"").language == kEnglish);     // falls to the glob
+
+    wipe();
+}
+
+void default_binding_is_the_final_fallback() {
+    wipe();
+
+    // No default: an unmatched target is "no rule".
+    CHECK(rules::lookup(L"c:\\a\\nothing.exe", L"").language == 0);
+
+    // Enabling a default makes it the fallback, apply-once and all.
+    CHECK(rules::set_default(true, kJapanese, true));
+    const rules::Default d = rules::default_binding();
+    CHECK(d.enabled);
+    CHECK(d.language == kJapanese);
+    CHECK(d.applyOnce == true);
+    {
+        const rules::Match m = rules::lookup(L"c:\\a\\nothing.exe", L"");
+        CHECK(m.language == kJapanese);
+        CHECK(m.applyOnce == true);
+    }
+
+    // A matching rule still beats the default, and the default is never a list item.
+    CHECK(rules::set(L"thing.exe", kChinese));
+    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"").language == kChinese);
+    const std::vector<rules::Rule> loaded = rules::load();
+    CHECK_MSG(loaded.size() == 1, "default must not appear as a rule, got %zu", loaded.size());
+
+    // Disabling removes the fallback.
+    CHECK(rules::set_default(false, 0, false));
+    CHECK(!rules::default_binding().enabled);
+    CHECK(rules::lookup(L"c:\\a\\nothing.exe", L"").language == 0);
+
+    wipe();
+}
+
 } // namespace
 
 void run_rules_tests() {
@@ -374,6 +443,9 @@ void run_rules_tests() {
     longest_glob_is_most_specific();
     globs_are_case_insensitive();
     apply_once_round_trips();
+    explicit_order_overrides_specificity();
+    catch_all_glob_placed_last_is_a_default();
+    default_binding_is_the_final_fallback();
 
     wipe();
 }

@@ -2,8 +2,10 @@
 
 #include <commdlg.h>
 #include <strsafe.h>
+#include <windowsx.h>
 
 #include <algorithm>
+#include <string>
 #include <vector>
 
 #include "layout.h"
@@ -62,6 +64,9 @@ void apply_language(HWND dialog) {
     SetDlgItemTextW(dialog, IDC_ADD, t.buttonAdd);
     SetDlgItemTextW(dialog, IDC_REMOVE, t.buttonRemove);
     SetDlgItemTextW(dialog, IDC_ONCE, t.ruleApplyOnce);
+    SetDlgItemTextW(dialog, IDC_DEFAULT_GROUP, t.defaultGroup);
+    SetDlgItemTextW(dialog, IDC_DEFAULT_ENABLE, t.defaultEnable);
+    SetDlgItemTextW(dialog, IDC_DEFAULT_ONCE, t.ruleApplyOnce);
     SetDlgItemTextW(dialog, IDOK, t.buttonClose);
 
     // The static labels share IDC_STATIC, so they are addressed by position
@@ -74,7 +79,13 @@ void apply_language(HWND dialog) {
         if (CompareStringOrdinal(className, -1, L"Static", -1, TRUE) == CSTR_EQUAL &&
             GetDlgCtrlID(child) == IDC_STATIC) {
             switch (statics++) {
-            case 0: SetWindowTextW(child, t.rulesHeader); break;
+            case 0: {
+                std::wstring header = t.rulesHeader;
+                header += L"    ";
+                header += t.ruleReorderHint;
+                SetWindowTextW(child, header.c_str());
+                break;
+            }
             case 1: SetWindowTextW(child, t.labelExecutable); break;
             case 2: SetWindowTextW(child, t.labelLayout); break;
             default: break;
@@ -122,32 +133,71 @@ void update_horizontal_extent(HWND list) {
 }
 
 void fill_layouts(HWND dialog, State& state) {
-    HWND combo = GetDlgItem(dialog, IDC_LAYOUT);
     state.layouts = layout::installed();
 
-    for (const layout::Installed& entry : state.layouts) {
-        std::wstring label = entry.name;
-        if (entry.is_ime) {
-            label += text::s().suffixIme;
+    // Both the per-rule combo and the default-language combo offer the same list.
+    for (const int id : {IDC_LAYOUT, IDC_DEFAULT_LANG}) {
+        HWND combo = GetDlgItem(dialog, id);
+        for (const layout::Installed& entry : state.layouts) {
+            std::wstring label = entry.name;
+            if (entry.is_ime) {
+                label += text::s().suffixIme;
+            }
+            const int index = static_cast<int>(
+                SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str())));
+            if (index >= 0) {
+                SendMessageW(combo, CB_SETITEMDATA, static_cast<WPARAM>(index), entry.language);
+            }
         }
-
-        const int index = static_cast<int>(
-            SendMessageW(combo, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(label.c_str())));
-        if (index >= 0) {
-            SendMessageW(combo, CB_SETITEMDATA, static_cast<WPARAM>(index), entry.language);
+        if (!state.layouts.empty()) {
+            SendMessageW(combo, CB_SETCURSEL, 0, 0);
         }
     }
+}
 
-    if (!state.layouts.empty()) {
-        SendMessageW(combo, CB_SETCURSEL, 0, 0);
+void select_language(HWND combo, LANGID language) {
+    const int count = static_cast<int>(SendMessageW(combo, CB_GETCOUNT, 0, 0));
+    for (int i = 0; i < count; ++i) {
+        if (static_cast<LANGID>(
+                SendMessageW(combo, CB_GETITEMDATA, static_cast<WPARAM>(i), 0)) == language) {
+            SendMessageW(combo, CB_SETCURSEL, static_cast<WPARAM>(i), 0);
+            return;
+        }
     }
+}
+
+void update_default_enabled(HWND dialog) {
+    const BOOL on = IsDlgButtonChecked(dialog, IDC_DEFAULT_ENABLE) == BST_CHECKED;
+    EnableWindow(GetDlgItem(dialog, IDC_DEFAULT_LANG), on);
+    EnableWindow(GetDlgItem(dialog, IDC_DEFAULT_ONCE), on);
+}
+
+void load_default(HWND dialog) {
+    const rules::Default d = rules::default_binding();
+    CheckDlgButton(dialog, IDC_DEFAULT_ENABLE, d.enabled ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(dialog, IDC_DEFAULT_ONCE, d.applyOnce ? BST_CHECKED : BST_UNCHECKED);
+    if (d.enabled) {
+        select_language(GetDlgItem(dialog, IDC_DEFAULT_LANG), d.language);
+    }
+    update_default_enabled(dialog);
+}
+
+void save_default(HWND dialog) {
+    const bool enabled = IsDlgButtonChecked(dialog, IDC_DEFAULT_ENABLE) == BST_CHECKED;
+    HWND combo = GetDlgItem(dialog, IDC_DEFAULT_LANG);
+    const int index = static_cast<int>(SendMessageW(combo, CB_GETCURSEL, 0, 0));
+    const LANGID language = index == CB_ERR
+        ? 0
+        : static_cast<LANGID>(SendMessageW(combo, CB_GETITEMDATA, static_cast<WPARAM>(index), 0));
+    const bool once = IsDlgButtonChecked(dialog, IDC_DEFAULT_ONCE) == BST_CHECKED;
+    rules::set_default(enabled, language, once);
 }
 
 void fill_rules(HWND dialog, State& state) {
     HWND list = GetDlgItem(dialog, IDC_RULE_LIST);
     SendMessageW(list, LB_RESETCONTENT, 0, 0);
 
-    state.rules = rules::load();
+    state.rules = rules::load_ordered();
 
     for (const rules::Rule& rule : state.rules) {
         // Layout first, path second: layout names have a bounded length, so the
@@ -174,6 +224,104 @@ void fill_rules(HWND dialog, State& state) {
     }
 
     update_horizontal_extent(list);
+}
+
+// Classic subclass of the rule list so items can be dragged into a new order.
+// One dialog is open at a time, so a file-scope original proc is safe.
+WNDPROC g_listProc = nullptr;
+int g_dragFrom = -1;
+
+void perform_drag(HWND list, int from, int to) {
+    HWND dialog = GetParent(list);
+    State* state = state_of(dialog);
+    if (!state) {
+        return;
+    }
+    const int count = static_cast<int>(state->rules.size());
+    if (from < 0 || from >= count) {
+        return;
+    }
+    if (to >= count) {
+        to = count - 1;
+    }
+    if (to < 0 || from == to) {
+        return;
+    }
+
+    std::vector<rules::Rule> reordered = state->rules;
+    const rules::Rule moved = reordered[static_cast<size_t>(from)];
+    reordered.erase(reordered.begin() + from);
+    reordered.insert(reordered.begin() + to, moved);
+
+    std::vector<std::wstring> order;
+    order.reserve(reordered.size());
+    for (const rules::Rule& rule : reordered) {
+        order.push_back(rule.executable);
+    }
+    rules::reorder(order);
+
+    fill_rules(dialog, *state);
+    SendMessageW(list, LB_SETCURSEL, static_cast<WPARAM>(to), 0);
+}
+
+LRESULT CALLBACK list_proc(HWND list, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_LBUTTONDOWN: {
+        const DWORD hit = static_cast<DWORD>(SendMessageW(list, LB_ITEMFROMPOINT, 0, lParam));
+        if (HIWORD(hit) == 0) {
+            g_dragFrom = static_cast<int>(LOWORD(hit));
+            SendMessageW(list, LB_SETCURSEL, static_cast<WPARAM>(g_dragFrom), 0);
+            SetFocus(list);
+            SetCapture(list);
+            // Notify the dialog so the composer loads the picked rule, as a
+            // normal click-selection would.
+            SendMessageW(GetParent(list), WM_COMMAND,
+                         MAKEWPARAM(static_cast<WORD>(GetDlgCtrlID(list)), LBN_SELCHANGE),
+                         reinterpret_cast<LPARAM>(list));
+            return 0;
+        }
+        break;
+    }
+    case WM_MOUSEMOVE:
+        if (g_dragFrom >= 0 && GetCapture() == list) {
+            SetCursor(LoadCursorW(nullptr, IDC_SIZENS));
+            return 0;
+        }
+        break;
+    case WM_LBUTTONUP:
+        if (g_dragFrom >= 0) {
+            ReleaseCapture();
+            const DWORD hit = static_cast<DWORD>(SendMessageW(list, LB_ITEMFROMPOINT, 0, lParam));
+            const int count = static_cast<int>(SendMessageW(list, LB_GETCOUNT, 0, 0));
+            int to = static_cast<int>(LOWORD(hit));
+            if (HIWORD(hit) != 0) {
+                // Dropped past the items: clamp to the nearer end.
+                to = GET_Y_LPARAM(lParam) < 0 ? 0 : count - 1;
+            }
+            const int from = g_dragFrom;
+            g_dragFrom = -1;
+            perform_drag(list, from, to);
+            return 0;
+        }
+        break;
+    case WM_CAPTURECHANGED:
+        g_dragFrom = -1;
+        break;
+    default:
+        break;
+    }
+    return CallWindowProcW(g_listProc, list, message, wParam, lParam);
+}
+
+void subclass_list(HWND list) {
+    // g_listProc holds the standard list box's own procedure. It is captured once
+    // (the class is the same for every instance) so a re-open never chains
+    // list_proc onto itself.
+    WNDPROC previous = reinterpret_cast<WNDPROC>(
+        SetWindowLongPtrW(list, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(list_proc)));
+    if (!g_listProc) {
+        g_listProc = previous;
+    }
 }
 
 LANGID selected_language(HWND dialog) {
@@ -229,8 +377,24 @@ void on_add(HWND dialog, State& state) {
         return;
     }
 
+    // Keep an existing rule where it is; send a brand-new rule to the bottom of a
+    // hand-ordered list (or leave it unplaced when nothing has been dragged yet).
+    unsigned order = 0;
+    unsigned maxOrder = 0;
+    bool existing = false;
+    for (const rules::Rule& rule : state.rules) {
+        maxOrder = std::max(maxOrder, rule.order);
+        if (CompareStringOrdinal(rule.executable.c_str(), -1, executable, -1, TRUE) == CSTR_EQUAL) {
+            order = rule.order;
+            existing = true;
+        }
+    }
+    if (!existing && maxOrder > 0) {
+        order = maxOrder + 1;
+    }
+
     const bool applyOnce = IsDlgButtonChecked(dialog, IDC_ONCE) == BST_CHECKED;
-    if (!rules::set(executable, language, applyOnce)) {
+    if (!rules::set(executable, language, applyOnce, order)) {
         set_hint(dialog, text::s().hintWriteFailed);
         return;
     }
@@ -325,6 +489,8 @@ void on_init(HWND dialog, State& state) {
 
     fill_layouts(dialog, state);
     fill_rules(dialog, state);
+    load_default(dialog);
+    subclass_list(GetDlgItem(dialog, IDC_RULE_LIST));
 
     if (!state.lastApplication.empty()) {
         SetDlgItemTextW(dialog, IDC_EXECUTABLE, state.lastApplication.c_str());
@@ -381,8 +547,12 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
         case IDC_USE_CLASS:
             on_use_class(dialog, *state);
             return TRUE;
+        case IDC_DEFAULT_ENABLE:
+            update_default_enabled(dialog);
+            return TRUE;
         case IDOK:
         case IDCANCEL:
+            save_default(dialog);
             EndDialog(dialog, LOWORD(wParam));
             return TRUE;
         default:
