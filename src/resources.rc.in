@@ -49,6 +49,7 @@ BEGIN
                     CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     // Default button, so Enter in the field commits rather than closing the dialog.
     DEFPUSHBUTTON   "&Add / update", IDC_ADD, 320, 195, 104, 14
+    AUTOCHECKBOX    "", IDC_ONCE, 96, 210, 328, 10
 
     LTEXT           "", IDC_HINT, 8, 228, 424, 24
     PUSHBUTTON      "Close", IDOK, 366, 256, 58, 14

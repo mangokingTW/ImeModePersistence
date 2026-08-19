@@ -18,3 +18,4 @@
 #define IDC_BROWSE 1008
 #define IDC_USE_CLASS 1009
 #define IDC_GROUP 1010
+#define IDC_ONCE 1011

@@ -5,6 +5,11 @@ namespace {
 
 std::wstring g_key = L"Software\\ImeModePersistence\\Rules";
 
+// The stored DWORD is the LANGID in its low 16 bits; this bit, above them,
+// carries Rule::applyOnce. A value written before the flag existed has it clear,
+// so an older rule reads back as "keep enforcing".
+constexpr DWORD kApplyOnceFlag = 0x10000u;
+
 std::wstring lower(std::wstring text) {
     if (!text.empty()) {
         // CharLowerBuffW rather than towlower per character: it follows the
@@ -14,14 +19,18 @@ std::wstring lower(std::wstring text) {
     return text;
 }
 
-LANGID read(const std::wstring& key) {
+Match read(const std::wstring& key) {
     DWORD value = 0;
     DWORD bytes = sizeof(value);
     if (RegGetValueW(HKEY_CURRENT_USER, g_key.c_str(), key.c_str(),
                      RRF_RT_REG_DWORD, nullptr, &value, &bytes) != ERROR_SUCCESS) {
-        return 0;
+        return {};
     }
-    return (value != 0 && value <= 0xFFFF) ? static_cast<LANGID>(value) : 0;
+    const LANGID language = static_cast<LANGID>(value & 0xFFFF);
+    if (language == 0) {
+        return {};
+    }
+    return {language, (value & kApplyOnceFlag) != 0};
 }
 
 } // namespace
@@ -62,13 +71,13 @@ bool matches_glob(const std::wstring& pattern, const std::wstring& text) {
 // First matching glob under the given prefix, most specific (longest pattern)
 // first. Ties break by ordinal comparison so the answer never depends on the
 // order the registry happens to enumerate values in.
-LANGID best_glob(const std::vector<Rule>& all, const std::wstring& prefix,
-                 const std::wstring& subject) {
+Match best_glob(const std::vector<Rule>& all, const std::wstring& prefix,
+                const std::wstring& subject) {
     if (subject.empty()) {
-        return 0;
+        return {};
     }
     const size_t plen = prefix.size();
-    LANGID result = 0;
+    Match result{};
     std::wstring bestPattern;
     for (const Rule& rule : all) {
         if (rule.executable.size() <= plen ||
@@ -79,10 +88,10 @@ LANGID best_glob(const std::vector<Rule>& all, const std::wstring& prefix,
         if (!matches_glob(pattern, subject)) {
             continue;
         }
-        if (result == 0 || pattern.size() > bestPattern.size() ||
+        if (result.language == 0 || pattern.size() > bestPattern.size() ||
             (pattern.size() == bestPattern.size() && pattern < bestPattern)) {
             bestPattern = pattern;
-            result = rule.language;
+            result = {rule.language, rule.applyOnce};
         }
     }
     return result;
@@ -137,13 +146,15 @@ std::vector<Rule> load() {
             // A single unreadable value should not hide the rest.
             continue;
         }
-        if (type != REG_DWORD || value == 0 || value > 0xFFFF) {
+        const LANGID language = static_cast<LANGID>(value & 0xFFFF);
+        if (type != REG_DWORD || language == 0) {
             continue;
         }
 
         Rule rule;
         rule.executable.assign(name, nameChars);
-        rule.language = static_cast<LANGID>(value);
+        rule.language = language;
+        rule.applyOnce = (value & kApplyOnceFlag) != 0;
         result.push_back(rule);
     }
 
@@ -151,7 +162,7 @@ std::vector<Rule> load() {
     return result;
 }
 
-bool set(const std::wstring& executable, LANGID language) {
+bool set(const std::wstring& executable, LANGID language, bool applyOnce) {
     if (executable.empty() || language == 0) {
         return false;
     }
@@ -162,7 +173,7 @@ bool set(const std::wstring& executable, LANGID language) {
         return false;
     }
 
-    const DWORD value = language;
+    const DWORD value = static_cast<DWORD>(language) | (applyOnce ? kApplyOnceFlag : 0u);
     const LSTATUS status = RegSetValueExW(
         key, lower(executable).c_str(), 0, REG_DWORD,
         reinterpret_cast<const BYTE*>(&value), sizeof(value));
@@ -180,7 +191,7 @@ bool clear(const std::wstring& executable) {
     return status == ERROR_SUCCESS || status == ERROR_FILE_NOT_FOUND;
 }
 
-LANGID lookup(const std::wstring& path, const std::wstring& windowClass) {
+Match lookup(const std::wstring& path, const std::wstring& windowClass) {
     const std::wstring loweredPath = lower(path);
     const std::wstring loweredClass = lower(windowClass);
 
@@ -188,20 +199,20 @@ LANGID lookup(const std::wstring& path, const std::wstring& windowClass) {
     // wins over one naming its file name, which in turn wins over a class rule
     // that could match several unrelated windows.
     if (!loweredPath.empty()) {
-        if (const LANGID byPath = read(loweredPath); byPath != 0) {
+        if (const Match byPath = read(loweredPath); byPath.language != 0) {
             return byPath;
         }
 
         const std::wstring name = file_name_of(loweredPath);
         if (name != loweredPath) {
-            if (const LANGID byName = read(name); byName != 0) {
+            if (const Match byName = read(name); byName.language != 0) {
                 return byName;
             }
         }
     }
 
     if (!loweredClass.empty()) {
-        if (const LANGID byClass = read(kClassPrefix + loweredClass); byClass != 0) {
+        if (const Match byClass = read(kClassPrefix + loweredClass); byClass.language != 0) {
             return byClass;
         }
     }
@@ -211,10 +222,10 @@ LANGID lookup(const std::wstring& path, const std::wstring& windowClass) {
     // on a focus change, never on the fast tooltip poll. Path globs are more
     // specific than class globs, so try them first.
     if (loweredPath.empty() && loweredClass.empty()) {
-        return 0;
+        return {};
     }
     const std::vector<Rule> all = load();
-    if (const LANGID byPathGlob = best_glob(all, kGlobPrefix, loweredPath); byPathGlob != 0) {
+    if (const Match byPathGlob = best_glob(all, kGlobPrefix, loweredPath); byPathGlob.language != 0) {
         return byPathGlob;
     }
     return best_glob(all, kClassGlobPrefix, loweredClass);

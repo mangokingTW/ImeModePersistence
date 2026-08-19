@@ -53,11 +53,11 @@ void full_path_rules_match_one_copy() {
     wipe();
 
     CHECK(rules::set(L"C:\\tools\\a\\thing.exe", kEnglish));
-    CHECK(rules::lookup(L"c:\\tools\\a\\thing.exe", L"") == kEnglish);
+    CHECK(rules::lookup(L"c:\\tools\\a\\thing.exe", L"").language == kEnglish);
 
     // The point of a path rule: another copy of the same executable elsewhere is
     // a different application as far as the rule is concerned.
-    CHECK(rules::lookup(L"c:\\tools\\b\\thing.exe", L"") == 0);
+    CHECK(rules::lookup(L"c:\\tools\\b\\thing.exe", L"").language == 0);
 
     wipe();
 }
@@ -66,11 +66,11 @@ void bare_name_rules_match_anywhere() {
     wipe();
 
     CHECK(rules::set(L"thing.exe", kChinese));
-    CHECK(rules::lookup(L"c:\\tools\\a\\thing.exe", L"") == kChinese);
-    CHECK(rules::lookup(L"d:\\elsewhere\\thing.exe", L"") == kChinese);
+    CHECK(rules::lookup(L"c:\\tools\\a\\thing.exe", L"").language == kChinese);
+    CHECK(rules::lookup(L"d:\\elsewhere\\thing.exe", L"").language == kChinese);
 
     // A name rule must not match a different executable that merely contains it.
-    CHECK(rules::lookup(L"c:\\tools\\other-thing.exe", L"") == 0);
+    CHECK(rules::lookup(L"c:\\tools\\other-thing.exe", L"").language == 0);
 
     wipe();
 }
@@ -82,11 +82,11 @@ void class_rules_apply_when_the_path_is_unreadable() {
 
     // The case this exists for: an anti-cheat-protected process refuses
     // OpenProcess, so executable_of returns nothing and the class is all there is.
-    CHECK(rules::lookup(L"", L"stingray_window") == kEnglish);
+    CHECK(rules::lookup(L"", L"stingray_window").language == kEnglish);
 
     // And the class must not be consulted under its bare name, or a rule for a
     // window class would collide with one for an executable.
-    CHECK(rules::lookup(L"stingray_window", L"") == 0);
+    CHECK(rules::lookup(L"stingray_window", L"").language == 0);
 
     wipe();
 }
@@ -100,19 +100,19 @@ void lookup_goes_from_most_specific_to_least() {
     CHECK(rules::set(L"thing.exe", kChinese));
     CHECK(rules::set(std::wstring(rules::kClassPrefix) + L"ThingClass", kJapanese));
 
-    const LANGID all = rules::lookup(L"c:\\tools\\a\\thing.exe", L"ThingClass");
+    const LANGID all = rules::lookup(L"c:\\tools\\a\\thing.exe", L"ThingClass").language;
     CHECK_MSG(all == kEnglish, "path rule should win, got 0x%04X",
               static_cast<unsigned>(all));
 
     // With the path rule gone, the name rule takes over -- not the class rule.
     CHECK(rules::clear(L"C:\\tools\\a\\thing.exe"));
-    const LANGID byName = rules::lookup(L"c:\\tools\\a\\thing.exe", L"ThingClass");
+    const LANGID byName = rules::lookup(L"c:\\tools\\a\\thing.exe", L"ThingClass").language;
     CHECK_MSG(byName == kChinese, "name rule should win over class, got 0x%04X",
               static_cast<unsigned>(byName));
 
     // Only with neither does the class rule apply.
     CHECK(rules::clear(L"thing.exe"));
-    const LANGID byClass = rules::lookup(L"c:\\tools\\a\\thing.exe", L"ThingClass");
+    const LANGID byClass = rules::lookup(L"c:\\tools\\a\\thing.exe", L"ThingClass").language;
     CHECK_MSG(byClass == kJapanese, "class rule should apply last, got 0x%04X",
               static_cast<unsigned>(byClass));
 
@@ -126,10 +126,10 @@ void keys_are_case_insensitive() {
     // from different places: the rule is typed or picked by the user, the lookup
     // key comes from QueryFullProcessImageNameW. They will not agree on case.
     CHECK(rules::set(L"C:\\Tools\\A\\Thing.EXE", kEnglish));
-    CHECK(rules::lookup(L"c:\\tools\\a\\thing.exe", L"") == kEnglish);
+    CHECK(rules::lookup(L"c:\\tools\\a\\thing.exe", L"").language == kEnglish);
 
     CHECK(rules::set(std::wstring(rules::kClassPrefix) + L"Stingray_Window", kChinese));
-    CHECK(rules::lookup(L"", L"STINGRAY_WINDOW") == kChinese);
+    CHECK(rules::lookup(L"", L"STINGRAY_WINDOW").language == kChinese);
 
     wipe();
 }
@@ -139,7 +139,7 @@ void clearing_is_idempotent() {
 
     CHECK(rules::set(L"thing.exe", kEnglish));
     CHECK(rules::clear(L"thing.exe"));
-    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"") == 0);
+    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"").language == 0);
 
     // Removing a rule that is already absent is the state the caller asked for,
     // so it reports success rather than an error the dialog would have to explain.
@@ -185,15 +185,17 @@ void garbage_in_the_registry_is_ignored() {
         return;
     }
 
-    // A string where a DWORD belongs, and a DWORD too large to be a LANGID. Both
-    // are reachable by hand-editing, and neither should take the list with it.
+    // A string where a DWORD belongs, and a DWORD whose language half (the low 16
+    // bits) is zero -- only the apply-once flag is set, so there is no layout to
+    // apply. Both are reachable by hand-editing, and neither should take the list
+    // with it.
     const wchar_t text[] = L"not a langid";
     RegSetValueExW(key, L"bad-type.exe", 0, REG_SZ,
                    reinterpret_cast<const BYTE*>(text), sizeof(text));
 
-    const DWORD tooLarge = 0x00010409;
+    const DWORD noLanguage = 0x00010000;  // apply-once flag, language 0
     RegSetValueExW(key, L"bad-range.exe", 0, REG_DWORD,
-                   reinterpret_cast<const BYTE*>(&tooLarge), sizeof(tooLarge));
+                   reinterpret_cast<const BYTE*>(&noLanguage), sizeof(noLanguage));
 
     const DWORD zero = 0;
     RegSetValueExW(key, L"zero.exe", 0, REG_DWORD,
@@ -208,9 +210,9 @@ void garbage_in_the_registry_is_ignored() {
         CHECK(loaded[0].executable == L"good.exe");
     }
 
-    CHECK(rules::lookup(L"c:\\a\\bad-type.exe", L"") == 0);
-    CHECK(rules::lookup(L"c:\\a\\bad-range.exe", L"") == 0);
-    CHECK(rules::lookup(L"c:\\a\\zero.exe", L"") == 0);
+    CHECK(rules::lookup(L"c:\\a\\bad-type.exe", L"").language == 0);
+    CHECK(rules::lookup(L"c:\\a\\bad-range.exe", L"").language == 0);
+    CHECK(rules::lookup(L"c:\\a\\zero.exe", L"").language == 0);
 
     wipe();
 }
@@ -244,11 +246,11 @@ void path_globs_match_variable_locations() {
     // The point of a path glob: the same game installed on any drive or Steam
     // library, without one rule per copy.
     CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"*\\helldivers2.exe", kEnglish));
-    CHECK(rules::lookup(L"c:\\steam\\common\\hd2\\helldivers2.exe", L"") == kEnglish);
-    CHECK(rules::lookup(L"d:\\games\\helldivers2.exe", L"") == kEnglish);
+    CHECK(rules::lookup(L"c:\\steam\\common\\hd2\\helldivers2.exe", L"").language == kEnglish);
+    CHECK(rules::lookup(L"d:\\games\\helldivers2.exe", L"").language == kEnglish);
 
     // Still anchored: a different executable is not swept up.
-    CHECK(rules::lookup(L"c:\\steam\\common\\other.exe", L"") == 0);
+    CHECK(rules::lookup(L"c:\\steam\\common\\other.exe", L"").language == 0);
 
     wipe();
 }
@@ -259,9 +261,9 @@ void class_globs_match_generated_suffixes() {
     // A window class with a generated numeric suffix -- the shape Chromium and
     // Unity windows take -- matched without knowing the exact number.
     CHECK(rules::set(std::wstring(rules::kClassGlobPrefix) + L"chrome_widgetwin_*", kChinese));
-    CHECK(rules::lookup(L"", L"chrome_widgetwin_1") == kChinese);
-    CHECK(rules::lookup(L"", L"chrome_widgetwin_2") == kChinese);
-    CHECK(rules::lookup(L"", L"notepad") == 0);
+    CHECK(rules::lookup(L"", L"chrome_widgetwin_1").language == kChinese);
+    CHECK(rules::lookup(L"", L"chrome_widgetwin_2").language == kChinese);
+    CHECK(rules::lookup(L"", L"notepad").language == 0);
 
     wipe();
 }
@@ -273,13 +275,13 @@ void exact_rules_beat_globs() {
     // must win, so a broad glob never overrides a deliberately specific binding.
     CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"*\\thing.exe", kChinese));
     CHECK(rules::set(L"thing.exe", kEnglish));
-    const LANGID both = rules::lookup(L"c:\\a\\thing.exe", L"");
+    const LANGID both = rules::lookup(L"c:\\a\\thing.exe", L"").language;
     CHECK_MSG(both == kEnglish, "exact name should win over glob, got 0x%04X",
               static_cast<unsigned>(both));
 
     // With the exact rule gone, the glob is what remains.
     CHECK(rules::clear(L"thing.exe"));
-    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"") == kChinese);
+    CHECK(rules::lookup(L"c:\\a\\thing.exe", L"").language == kChinese);
 
     wipe();
 }
@@ -291,7 +293,7 @@ void longest_glob_is_most_specific() {
     // pattern wins, and the result does not depend on registry order.
     CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"*.exe", kChinese));
     CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"c:\\games\\*\\game.exe", kEnglish));
-    const LANGID picked = rules::lookup(L"c:\\games\\hd2\\game.exe", L"");
+    const LANGID picked = rules::lookup(L"c:\\games\\hd2\\game.exe", L"").language;
     CHECK_MSG(picked == kEnglish, "longer glob should win, got 0x%04X",
               static_cast<unsigned>(picked));
 
@@ -305,7 +307,40 @@ void globs_are_case_insensitive() {
     // whatever case it likes. set() lower-cases the key, lookup lower-cases the
     // subject, so the two always meet.
     CHECK(rules::set(std::wstring(rules::kGlobPrefix) + L"*\\Game.EXE", kEnglish));
-    CHECK(rules::lookup(L"C:\\Games\\HD2\\GAME.exe", L"") == kEnglish);
+    CHECK(rules::lookup(L"C:\\Games\\HD2\\GAME.exe", L"").language == kEnglish);
+
+    wipe();
+}
+
+void apply_once_round_trips() {
+    wipe();
+
+    // A binding is continuous unless asked otherwise.
+    CHECK(rules::set(L"cont.exe", kEnglish));
+    CHECK(rules::lookup(L"c:\\a\\cont.exe", L"").language == kEnglish);
+    CHECK(rules::lookup(L"c:\\a\\cont.exe", L"").applyOnce == false);
+
+    // The apply-once flag survives a write / read round-trip.
+    CHECK(rules::set(L"once.exe", kChinese, true));
+    {
+        const rules::Match m = rules::lookup(L"c:\\a\\once.exe", L"");
+        CHECK(m.language == kChinese);
+        CHECK(m.applyOnce == true);
+    }
+
+    // A value written before the flag existed -- a bare LANGID -- reads as
+    // continuous, so an old rule is never silently turned into apply-once.
+    HKEY key{};
+    if (RegCreateKeyExW(HKEY_CURRENT_USER, kTestKey, 0, nullptr, 0,
+                        KEY_SET_VALUE, nullptr, &key, nullptr) == ERROR_SUCCESS) {
+        const DWORD legacy = kJapanese;
+        RegSetValueExW(key, L"legacy.exe", 0, REG_DWORD,
+                       reinterpret_cast<const BYTE*>(&legacy), sizeof(legacy));
+        RegCloseKey(key);
+        const rules::Match m = rules::lookup(L"c:\\a\\legacy.exe", L"");
+        CHECK(m.language == kJapanese);
+        CHECK(m.applyOnce == false);
+    }
 
     wipe();
 }
@@ -338,6 +373,7 @@ void run_rules_tests() {
     exact_rules_beat_globs();
     longest_glob_is_most_specific();
     globs_are_case_insensitive();
+    apply_once_round_trips();
 
     wipe();
 }

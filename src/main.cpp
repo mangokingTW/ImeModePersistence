@@ -114,6 +114,12 @@ struct AppState {
     HKL requiredLayout{};
     HWND ruleWindow{};
 
+    // When the active rule is "apply once", the layout is set as the window comes
+    // to the foreground and then left alone: no enforcement poll, and an internal
+    // focus move within the same application does not reassert it, so a manual
+    // change the user makes afterwards sticks.
+    bool ruleApplyOnce{};
+
     // Set when a round gave up, so a target that refuses is left alone rather
     // than asked again on the very next poll.
     ULONGLONG layoutCooldownUntil{};
@@ -536,7 +542,9 @@ void accept_restored_state(HWND hwnd, const ime::State& state) {
 // the foreground window it would wake the process sixty-six times a second to
 // check a null. Started and stopped as bindings come and go with the foreground.
 void update_layout_timer() {
-    if (g_app.ruleWindow && g_app.ruleLanguage != 0) {
+    // An apply-once rule is set on the switch and then left alone, so it never
+    // arms the enforcement poll.
+    if (g_app.ruleWindow && g_app.ruleLanguage != 0 && !g_app.ruleApplyOnce) {
         SetTimer(g_app.hwnd, TIMER_LAYOUT, kLayoutPollIntervalMs, nullptr);
     } else {
         KillTimer(g_app.hwnd, TIMER_LAYOUT);
@@ -559,7 +567,8 @@ void note_context_switch(HWND hwnd) {
 
     const std::wstring executable = rules::executable_of(hwnd);
     const std::wstring windowClass = rules::window_class_of(hwnd);
-    const LANGID rule = rules::lookup(executable, windowClass);
+    const rules::Match match = rules::lookup(executable, windowClass);
+    const LANGID rule = match.language;
 
     // The same application under the same rule, seen again. Chromium-style
     // applications move the foreground between their own threads constantly, and
@@ -586,6 +595,7 @@ void note_context_switch(HWND hwnd) {
     g_app.observedExecutable = executable;
     g_app.observedWindowClass = windowClass;
     g_app.ruleLanguage = rule;
+    g_app.ruleApplyOnce = match.applyOnce;
 
     // Resolved here rather than on every attempt: this is the one place the rule
     // itself can change, and the fast poll needs an answer it can compare against
@@ -630,6 +640,19 @@ void note_context_switch(HWND hwnd) {
                 state.valid ? L"readable" : L"unreadable");
 
     if (g_app.ruleLanguage != 0) {
+        if (g_app.ruleApplyOnce) {
+            // Apply once on a genuine switch to this window, then stop: no
+            // enforcement poll, and an internal focus move within the same
+            // application (a continuation) is not re-applied, so a manual change
+            // the user makes afterwards sticks. Switching away and back is a
+            // fresh context and applies it again.
+            if (!continuation) {
+                g_app.restoreAttempt = 0;
+                schedule_restore_attempt(hwnd);
+            }
+            return;
+        }
+
         if (continuation && GetTickCount64() < g_app.layoutCooldownUntil) {
             // Still backing off from this application; its internal focus moves
             // do not reopen the argument. The fast poll resumes when the

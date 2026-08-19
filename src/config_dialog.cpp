@@ -61,6 +61,7 @@ void apply_language(HWND dialog) {
     SetDlgItemTextW(dialog, IDC_USE_CLASS, t.buttonUseClass);
     SetDlgItemTextW(dialog, IDC_ADD, t.buttonAdd);
     SetDlgItemTextW(dialog, IDC_REMOVE, t.buttonRemove);
+    SetDlgItemTextW(dialog, IDC_ONCE, t.ruleApplyOnce);
     SetDlgItemTextW(dialog, IDOK, t.buttonClose);
 
     // The static labels share IDC_STATIC, so they are addressed by position
@@ -165,6 +166,9 @@ void fill_rules(HWND dialog, State& state) {
         }
         text += L"\t";
         text += rule.executable;
+        if (rule.applyOnce) {
+            text += text::s().ruleOnceSuffix;
+        }
 
         SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(text.c_str()));
     }
@@ -225,7 +229,8 @@ void on_add(HWND dialog, State& state) {
         return;
     }
 
-    if (!rules::set(executable, language)) {
+    const bool applyOnce = IsDlgButtonChecked(dialog, IDC_ONCE) == BST_CHECKED;
+    if (!rules::set(executable, language, applyOnce)) {
         set_hint(dialog, text::s().hintWriteFailed);
         return;
     }
@@ -282,6 +287,31 @@ void on_use_class(HWND dialog, const State& state) {
     set_hint(dialog, text::s().hintClassRule);
 }
 
+// Selecting a rule loads it into the composer so it can be edited: the
+// executable, its language, and its apply-once choice. Re-adding overwrites the
+// rule, since the executable key is the same.
+void on_select(HWND dialog, const State& state) {
+    HWND list = GetDlgItem(dialog, IDC_RULE_LIST);
+    const int index = static_cast<int>(SendMessageW(list, LB_GETCURSEL, 0, 0));
+    if (index == LB_ERR || static_cast<size_t>(index) >= state.rules.size()) {
+        return;
+    }
+    const rules::Rule& rule = state.rules[static_cast<size_t>(index)];
+
+    SetDlgItemTextW(dialog, IDC_EXECUTABLE, rule.executable.c_str());
+    CheckDlgButton(dialog, IDC_ONCE, rule.applyOnce ? BST_CHECKED : BST_UNCHECKED);
+
+    HWND combo = GetDlgItem(dialog, IDC_LAYOUT);
+    const int count = static_cast<int>(SendMessageW(combo, CB_GETCOUNT, 0, 0));
+    for (int i = 0; i < count; ++i) {
+        if (static_cast<LANGID>(
+                SendMessageW(combo, CB_GETITEMDATA, static_cast<WPARAM>(i), 0)) == rule.language) {
+            SendMessageW(combo, CB_SETCURSEL, static_cast<WPARAM>(i), 0);
+            break;
+        }
+    }
+}
+
 void on_init(HWND dialog, State& state) {
     apply_language(dialog);
     apply_icon(dialog);
@@ -331,6 +361,11 @@ INT_PTR CALLBACK dialog_proc(HWND dialog, UINT message, WPARAM wParam, LPARAM lP
         }
 
         switch (LOWORD(wParam)) {
+        case IDC_RULE_LIST:
+            if (HIWORD(wParam) == LBN_SELCHANGE) {
+                on_select(dialog, *state);
+            }
+            return TRUE;
         case IDC_BROWSE:
             on_browse(dialog);
             return TRUE;

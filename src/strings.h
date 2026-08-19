@@ -64,6 +64,8 @@ struct Strings {
     const wchar_t* buttonAdd;
     const wchar_t* buttonRemove;
     const wchar_t* buttonClose;
+    const wchar_t* ruleApplyOnce;      // "apply once on switch" checkbox
+    const wchar_t* ruleOnceSuffix;     // list marker on an apply-once rule
 
     const wchar_t* hintIntro;
     const wchar_t* hintNeedExecutable;

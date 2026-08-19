@@ -32,6 +32,19 @@ namespace rules {
 struct Rule {
     std::wstring executable;   // lower-cased full path, or bare file name
     LANGID language{};
+    // When set, the binding is applied once each time its window comes to the
+    // foreground and then left alone, so a manual change the user makes while in
+    // the application sticks. When clear (the default), the layout is kept
+    // enforced by the fast poll. Stored in the high bits of the registry value,
+    // so a rule written by an older version reads back as clear.
+    bool applyOnce{};
+};
+
+// The resolved binding for a window: the language to switch to and whether to
+// apply it once (see Rule::applyOnce). language is zero when no rule matched.
+struct Match {
+    LANGID language{};
+    bool applyOnce{};
 };
 
 // Subkey of HKCU the rules are stored under, and a way to point it elsewhere.
@@ -43,11 +56,12 @@ void set_storage_key(const std::wstring& subkey);
 
 std::vector<Rule> load();
 
-bool set(const std::wstring& executable, LANGID language);
+bool set(const std::wstring& executable, LANGID language, bool applyOnce = false);
 bool clear(const std::wstring& executable);
 
-// Zero when none of the three forms has a rule. windowClass may be empty.
-LANGID lookup(const std::wstring& path, const std::wstring& windowClass);
+// language is zero when none of the three forms has a rule. windowClass may be
+// empty.
+Match lookup(const std::wstring& path, const std::wstring& windowClass);
 
 // Prefix that marks a key as naming a window class.
 extern const wchar_t* const kClassPrefix;
