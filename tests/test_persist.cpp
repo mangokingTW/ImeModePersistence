@@ -15,14 +15,16 @@ using ime::Mode;
 using persist::Action;
 
 // Seed the engine into a settled "carrying `carried`, observing `carried`" state
-// well past the promotion dwell, so a test can go straight to the behaviour it
-// means to exercise. Returns the time it left the clock at.
+// past the post-switch enforcement window (and so past the shorter promotion
+// dwell), so a test can go straight to the adoption behaviour it means to
+// exercise without the enforcement window re-forcing instead. Returns the time it
+// left the clock at.
 unsigned long long settle_carrying(persist::Engine& e, Mode carried,
                                    unsigned long long now) {
     e.begin_context(now);
     e.set_observed(carried);
     e.decide_context_restore();  // seeds desired from the observation
-    return now + persist::kPromotionDwellMs + 1;  // past the dwell
+    return now + persist::kEnforceWindowMs + 1;  // past the enforcement window
 }
 
 // 1. The first readable context seeds the carried mode; a later switch to a
@@ -143,6 +145,44 @@ void the_post_restore_ripple_is_suppressed() {
     CHECK(e.desired() == Mode::Native);
 }
 
+// 7. Within a short window after the switch, a mode that drifted from the carried
+//    one -- Windows applying the layout's default a beat after focus, clobbering
+//    the restore -- is re-forced (ScheduleRestore), not adopted. The window is
+//    measured from the switch, so a re-accepting restore does not extend it: the
+//    same drift after the window is the user's and is adopted.
+void a_post_switch_clobber_is_re_forced() {
+    persist::Engine e;
+
+    // Carry alphanumeric; switch at t = 0; a restore lands at t = 60.
+    e.begin_context(0);
+    e.set_observed(Mode::Alphanumeric);
+    e.decide_context_restore();               // seeds desired = Alphanumeric
+    e.accept_restored(Mode::Alphanumeric, 60);
+
+    // Windows flips it native at t = 200, inside the enforcement window and inside
+    // the post-restore suppress window: re-force it rather than adopt.
+    const persist::Outcome clobber = e.observe(Mode::Native, true, 200, false);
+    CHECK_MSG(clobber.action == Action::ScheduleRestore,
+              "a clobber inside the enforcement window was not re-forced");
+    CHECK(!clobber.adopted);
+    CHECK(e.desired() == Mode::Alphanumeric);
+
+    // The re-corrected restore re-accepts, but the window is measured from the
+    // switch, not the restore, so it does not slide.
+    e.accept_restored(Mode::Alphanumeric, 250);
+
+    // Past the window (and the suppress window): a sustained native read is the
+    // user's, and is adopted rather than fought.
+    const unsigned long long t = persist::kEnforceWindowMs + 400;  // 700
+    const persist::Outcome open = e.observe(Mode::Native, true, t, false);
+    CHECK_MSG(open.action == Action::None, "still re-forcing after the window");
+    CHECK(!open.adopted);
+    const persist::Outcome held =
+        e.observe(Mode::Native, true, t + persist::kAdoptDebounceMs, false);
+    CHECK_MSG(held.adopted, "a change after the enforcement window was not adopted");
+    CHECK(e.desired() == Mode::Native);
+}
+
 } // namespace
 
 void run_persist_tests() {
@@ -152,4 +192,5 @@ void run_persist_tests() {
     settling_suppresses_adoption();
     becoming_readable_re_forces_the_carried_mode();
     the_post_restore_ripple_is_suppressed();
+    a_post_switch_clobber_is_re_forced();
 }

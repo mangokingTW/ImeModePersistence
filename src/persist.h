@@ -25,6 +25,14 @@ constexpr unsigned long long kAdoptDebounceMs = 600;
 // stable for this long, which excludes the churn of a focus transition.
 constexpr unsigned long long kPromotionDwellMs = 150;
 
+// For this long after a window switch, a mode that has drifted from the carried
+// one is Windows applying the layout's default a beat after focus -- clobbering
+// our restore -- rather than the user, so it is re-corrected instead of adopted.
+// Measured from the switch itself (never reset by a restore), so re-correcting
+// cannot slide into an endless fight; kept short because that clobber lands
+// within a few hundred ms and nobody toggles the mode this soon after switching.
+constexpr unsigned long long kEnforceWindowMs = 300;
+
 // What the caller should do about the carried mode after an observation.
 enum class Action {
     None,            // nothing to schedule; caller cancels any pending restore
@@ -58,8 +66,11 @@ public:
     bool settling(unsigned long long now, bool restore_pending) const;
 
     // A context switch was noticed at `now`, before the (possibly blocking) mode
-    // read. Starts the dwell.
-    void begin_context(unsigned long long now) { context_since_ = now; }
+    // read. Starts the dwell and the (non-sliding) post-switch enforcement window.
+    void begin_context(unsigned long long now) {
+        context_since_ = now;
+        switch_at_ = now;
+    }
 
     // The no-rule tail of a context switch: seed the carried mode from the
     // current observation when nothing is carried yet, and report whether the
@@ -90,6 +101,7 @@ private:
     ime::Mode desired_{ime::Mode::Unknown};
     ime::Mode observed_{ime::Mode::Unknown};
     unsigned long long context_since_{};
+    unsigned long long switch_at_{};
     unsigned long long suppress_until_{};
     ime::Mode adopt_candidate_{ime::Mode::Unknown};
     unsigned long long adopt_candidate_since_{};

@@ -44,6 +44,22 @@ Outcome Engine::observe(ime::Mode mode, bool valid, unsigned long long now,
         return {Action::ScheduleRestore, false};
     }
 
+    // Within a short window after the switch, a mode that has drifted from the
+    // carried one is Windows (or the app) applying the layout's default a beat
+    // after focus and clobbering our restore -- re-correct it rather than adopt
+    // it. Measured from switch_at_, which a restore never resets, so this cannot
+    // slide into an endless fight; after the window a change is the user's and
+    // falls through to the debounce below. Fires even while settling, because the
+    // clobber often lands inside the post-restore suppress window; skipped while a
+    // restore round is already in flight (the ladder is re-correcting).
+    if (enabled_ && !restore_pending && mode != ime::Mode::Unknown &&
+        desired_ != ime::Mode::Unknown && mode != desired_ &&
+        now - switch_at_ < kEnforceWindowMs) {
+        adopt_candidate_ = ime::Mode::Unknown;
+        observed_ = mode;
+        return {Action::ScheduleRestore, false};
+    }
+
     // A value differing from the carried mode is credited to the user only once
     // it has held for kAdoptDebounceMs, so a transient interop misread does not
     // flip the carried mode.
