@@ -101,6 +101,16 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 它會避開自己的視窗、跟著游標走。在**瀏覽器網址列**這類程式,因為 Chromium 對外回報的游標位置不可靠,徽章改顯示在該行**上方**、不遮住文字。
 
+## ⚠️ 已知問題
+
+**現代 TSF/WinUI 程式（新版記事本等封裝程式）需以系統管理員執行，才能維持輸入模式。**
+
+這類程式真正的輸入欄位在焦點子視窗、受 Windows 的 UIPI 保護，只有提權（高完整性）程式搆得到。
+
+- 未提權時：傳統程式與 Chromium（Chrome、Discord）照常運作；新版記事本這類則不受控。
+- 解法：以系統管理員執行（工具列 →「以系統管理員重新啟動」）。
+- **Microsoft Store 版無法做到** —— 封裝程式被系統拒絕所需權限；這些程式請改用桌面版並以系統管理員執行。
+
 ## 限制
 
 - 寫入是 best-effort 並讀回驗證。IME 仍在啟動中時可能丟棄變更，重試四次後就接受目標視窗的狀態
@@ -108,7 +118,6 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 - 介面依 Windows 顯示語言選擇：英文、繁體中文、簡體中文、日文、韓文（後三者為機器翻譯）；安裝程式仍是英文
 - 深色模式：程式綁定對話框整個套用；狀態／錯誤這類暫時性小框維持淺底、僅標題列變暗（與 Windows 系統對話框一致）
 - 不注入、不掛勾、不模擬按鍵。切換是向視窗投遞 Windows 標準的「切換輸入語言」通知（視窗可自行忽略），行不通再請 TSF 以公開 API 切換；仍無效就放手，愈輸愈少問
-- 現代 TSF/WinUI 程式（新版記事本等封裝程式）要維持輸入模式，需**以系統管理員執行**：它們真正的輸入欄位在焦點子視窗、受 Windows 的 UIPI 保護，只有提權（高完整性）程式搆得到。未提權時傳統程式與 Chromium（Chrome、Discord）照常運作，這類程式則不受控。**Microsoft Store 版無法做到**（封裝程式被系統拒絕所需權限），這些程式請改用桌面版並以系統管理員執行
 
 ## 開發
 
@@ -226,6 +235,16 @@ Bind a program to an input language — a terminal to English, Word to Chinese.
 
 It stays out of its own windows and follows the caret. In fields where the reported caret position is unreliable — a browser address bar, because of a Chromium limitation — the badge is drawn above the line instead, so it does not cover the text.
 
+## ⚠️ Known issues
+
+**Modern TSF/WinUI apps (the packaged Windows 11 Notepad and similar) need the utility run as administrator to hold their input mode.**
+
+Their real edit field sits in a focused child window behind Windows' UIPI, reachable only by an elevated (high-integrity) process.
+
+- Unelevated: classic and Chromium apps (Chrome, Discord) still work; these do not.
+- Fix: run as administrator (tray → "Restart as administrator").
+- The **Microsoft Store build cannot do this at all** — the OS denies packaged apps the required privilege; use the desktop build for those apps.
+
 ## Limitations
 
 - Writes are best-effort and verified by reading back. An IME still activating can discard one; after four attempts the utility accepts whatever the target settled on
@@ -233,7 +252,6 @@ It stays out of its own windows and follows the caret. In fields where the repor
 - The interface follows Windows' display language — English, Traditional Chinese, Simplified Chinese, Japanese or Korean (the last three machine-translated); the installer is English only
 - Dark mode themes the App-language-bindings dialog fully; the transient status and error boxes keep a light body with a dark title bar, as Windows' own system dialogs do
 - Nothing is injected, hooked or synthesised. Switching posts the window Windows' standard input-language-change notification (which it is free to ignore), then falls back to TSF's public API; where neither takes, the utility backs off, asking less the more it loses
-- Modern TSF/WinUI apps (the packaged Windows 11 Notepad and similar) need the utility **run as administrator** to hold their input mode: their real edit field sits in a focused child window behind Windows' UIPI, reachable only by an elevated (high-integrity) process. Run unelevated, classic and Chromium apps (Chrome, Discord) still work; these do not. The **Microsoft Store build cannot do this at all** (the OS denies packaged apps the required privilege) — use the desktop build run as administrator for those apps
 
 ## Development
 
