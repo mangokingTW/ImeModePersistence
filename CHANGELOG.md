@@ -9,12 +9,29 @@ tag has no section here, the workflow falls back to auto-generated notes.
 
 ## v1.3.1
 
-Fixed: touching the taskbar or desktop could snap the IME back to its native
-conversion mode. The shell taking focus on the way to the tray was treated as an
-app switch and had the carried-over mode applied to it; the shell is now
-excluded, so a taskbar tap leaves your input mode alone.
+Cross-window input-mode persistence is more reliable:
 
-繁體中文:修正碰到工作列或桌面時,輸入法可能被切回該輸入法的預設(中文)模式。先前殼層搶到焦點(例如去點托盤的途中)被當成切換程式而套用了延續的模式;現在已排除殼層,碰工作列不會再動到你的輸入模式。
+- Fixed: touching the taskbar or desktop, or clicking through it to the tray, no
+  longer snaps the IME back to its native (e.g. Chinese) mode -- the shell is no
+  longer mistaken for the app you switched to.
+- Fixed: File Explorer windows are kept in sync like any other app (they were
+  wrongly grouped with the taskbar/desktop and left alone).
+- The mode you last chose now holds through the moment right after a switch, when
+  Windows re-applies the layout's default a beat late; and a brief misread of the
+  input mode no longer flips what is carried.
+
+Known limitation: apps that drive the Text Services Framework themselves --
+Chromium browsers (Chrome, Discord, Electron) and packaged apps such as the
+modern Notepad -- cannot have their input mode read or set reliably from outside
+the process, so persistence there is best-effort. Classic apps are unaffected.
+
+繁體中文:跨視窗維持輸入模式更可靠了:
+
+- 修正:碰到工作列或桌面、或穿過它去點托盤,不會再把輸入法切回預設(例如中文)模式——殼層不再被誤當成你切換到的程式。
+- 修正:檔案總管視窗現在會和其他程式一樣正常維持(先前被和工作列/桌面歸為一類而略過)。
+- 你最後選的模式,現在能撐過「剛切換視窗、Windows 慢一拍套用版面預設」的那一刻;輸入模式的短暫誤讀也不會再翻掉維持中的模式。
+
+已知限制:自行驅動 TSF(文字服務框架)的程式——Chromium 系瀏覽器(Chrome、Discord、Electron)與封裝版程式(如新版記事本)——無法從行程外可靠讀寫其輸入模式,那些情況為 best-effort;傳統程式不受影響。
 
 ## v1.3.0
 
