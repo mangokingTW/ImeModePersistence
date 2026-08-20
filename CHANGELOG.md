@@ -7,7 +7,10 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
-## v1.3.2
+## v1.4.1
+
+(v1.4.0 was an experimental in-process TSF text-service beta; it was withdrawn as
+unnecessary. This is the next stable release, built on v1.3.1.)
 
 Input-mode persistence now reaches modern (TSF/WinUI) apps when run elevated:
 
