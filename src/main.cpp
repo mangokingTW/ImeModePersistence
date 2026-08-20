@@ -325,16 +325,17 @@ bool shell_ui(const std::wstring& executable) {
 // exactly what happens on the way to the tray icon. Compared by process id
 // rather than by executable name so a renamed or replaced shell still counts.
 bool shell_window(HWND hwnd) {
-    HWND shell = GetShellWindow();
-    if (!shell) {
-        return false;
-    }
-
-    DWORD shellPid = 0;
-    DWORD pid = 0;
-    GetWindowThreadProcessId(shell, &shellPid);
-    GetWindowThreadProcessId(hwnd, &pid);
-    return shellPid != 0 && shellPid == pid;
+    // By window class, not by process id. The taskbar and the desktop are
+    // explorer.exe, but so is a File Explorer window -- and that is a real
+    // application the user works in. Comparing the process id (an earlier attempt)
+    // swept File Explorer up with the shell and froze mode observation and the
+    // caret indicator there; the class names below are only the taskbar and the
+    // desktop host, so File Explorer (CabinetWClass) is left alone.
+    const std::wstring cls = rules::window_class_of(hwnd);  // lower-cased
+    return cls == L"shell_traywnd" ||           // the primary taskbar
+           cls == L"shell_secondarytraywnd" ||  // taskbars on other monitors
+           cls == L"progman" ||                 // the classic desktop host
+           cls == L"workerw";                   // the desktop while wallpaper/web content is active
 }
 
 // LoadImageW picks the image of the requested size out of the .ico rather than
