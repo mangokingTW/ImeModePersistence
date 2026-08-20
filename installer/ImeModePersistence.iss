@@ -110,6 +110,10 @@ TaskHelldivers=Bind Helldivers 2 to English input (adds a rule on first run)
 [Files]
 Source: "..\build-x64\Release\{#AppExeName}"; DestDir: "{app}"; DestName: "{#AppExeName}"; \
     Flags: ignoreversion
+; The in-process TSF helper (beta). Shipped in both variants so the tray can load
+; and register it when run elevated; the admin installer also registers it below.
+Source: "..\build-x64\Release\ImeModePersistenceTip.dll"; DestDir: "{app}"; \
+    Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 ; Only when the Helldivers task is ticked. The utility reads it once per user and
@@ -140,6 +144,17 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; \
     Flags: dontcreatekey uninsdeletevalue
 
 [Run]
+#ifndef UserInstall
+; Register the in-process TSF helper (beta). Machine-wide COM + TSF entries, so it
+; needs elevation -- which this admin installer has, and which the exe would not if
+; launched runasoriginaluser below. waituntilterminated so registration finishes
+; before the app is started. Not runasoriginaluser, so it inherits Setup's
+; elevation. Absent from the user installer, which has no rights to register it;
+; there the tray registers on demand via "Restart as administrator".
+Filename: "{app}\{#AppExeName}"; Parameters: "--register-tip"; \
+    Flags: runhidden waituntilterminated
+#endif
+
 ; runasoriginaluser: launch as the non-elevated user who started Setup. The admin
 ; installer runs elevated, and without this the app would inherit that elevation
 ; -- so the just-installed tray would already be elevated and hide "Restart as
@@ -157,6 +172,14 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; \
     Flags: nowait postinstall skipifsilent runasoriginaluser; Check: not WasRunning
 
 [UninstallRun]
+#ifndef UserInstall
+; Reverse the TSF helper registration before the files are removed (admin
+; installer only, matching where it was registered). Failure is ignored: an
+; install that never registered it has nothing to undo.
+Filename: "{app}\{#AppExeName}"; Parameters: "--unregister-tip"; \
+    Flags: runhidden waituntilterminated; RunOnceId: "UnregisterTip"
+#endif
+
 ; Removed whether or not this install created it, so a task left behind by an
 ; earlier install does not survive. Failure is ignored: having nothing to delete
 ; is the normal case.

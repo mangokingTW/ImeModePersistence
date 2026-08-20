@@ -1,0 +1,9 @@
+; The COM in-process server's exports. Named in a .def so they are exported
+; undecorated (DllRegisterServer, not ?DllRegisterServer@@...), which is what
+; regsvr32 and the COM loader look up by name.
+LIBRARY ImeModePersistenceTip
+EXPORTS
+    DllGetClassObject   PRIVATE
+    DllCanUnloadNow     PRIVATE
+    DllRegisterServer   PRIVATE
+    DllUnregisterServer PRIVATE

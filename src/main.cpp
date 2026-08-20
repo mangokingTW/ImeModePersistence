@@ -6,6 +6,7 @@
 #include <shellapi.h>
 #include <strsafe.h>
 
+#include <optional>
 #include <string>
 
 #include "autostart.h"
@@ -23,6 +24,7 @@
 #include "presets.h"
 #include "schedule.h"
 #include "theme.h"
+#include "tipbridge.h"
 #include "tsf.h"
 
 namespace {
@@ -584,6 +586,35 @@ void update_layout_timer() {
     }
 }
 
+// Prefer the in-process TIP's reading of the conversion mode when one is
+// connected for this thread. The TIP reads the TSF compartment from inside the
+// target, which is authoritative for the TSF/packaged apps (Chromium, the
+// packaged Notepad) that the IMM32 interop reads stale or not at all. When no TIP
+// is present, or it cannot read the compartment, this falls straight back to the
+// interop, so every classic application behaves exactly as before.
+ime::State read_mode_state(HWND hwnd, DWORD thread) {
+    const std::optional<ime::Mode> tip = tipbridge::mode_for(thread);
+    if (tip && *tip != ime::Mode::Unknown) {
+        ime::State state;
+        state.valid = true;
+        state.mode = *tip;
+        state.open = (*tip == ime::Mode::Native);
+        return state;
+    }
+    return ime::query_state(hwnd);
+}
+
+// The TIP DLL sits next to the executable. Registration (machine-wide COM + TSF
+// entries) and loading both need its full path.
+std::wstring tip_dll_path() {
+    const std::wstring exe = autostart::module_path();
+    const size_t slash = exe.find_last_of(L"\\/");
+    if (slash == std::wstring::npos) {
+        return std::wstring();
+    }
+    return exe.substr(0, slash + 1) + L"ImeModePersistenceTip.dll";
+}
+
 // Records that the input context changed, without ever inferring a new desired
 // mode from the window being switched to.
 void note_context_switch(HWND hwnd) {
@@ -664,7 +695,7 @@ void note_context_switch(HWND hwnd) {
         g_app.layoutSatisfied = false;
     }
 
-    const ime::State state = ime::query_state(hwnd);
+    const ime::State state = read_mode_state(hwnd, thread);
     if (g_app.contextGeneration != generation) {
         // The read blocked and the foreground moved on; a nested call has already
         // recorded the newer context and scheduled its round.
@@ -814,7 +845,9 @@ void restore_tick() {
         return;
     }
 
-    const ime::State before = ime::query_state(hwnd);
+    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
+
+    const ime::State before = read_mode_state(hwnd, thread);
     if (g_app.pendingWindow != hwnd) {
         // The cross-process read blocked long enough for a foreground change to
         // re-key the round; scheduling from here would clobber the new one.
@@ -831,11 +864,17 @@ void restore_tick() {
         return;
     }
 
-    ime::set_mode(hwnd, desired);
+    // Prefer the in-process TIP for the write too: it sets the compartment from
+    // inside the target, which takes on a TSF/packaged app that discards the
+    // interop's WM_IME_CONTROL write. Falls back to the interop when no TIP is
+    // connected for this thread, so classic apps are written exactly as before.
+    if (!tipbridge::set_mode(thread, desired)) {
+        ime::set_mode(hwnd, desired);
+    }
 
     // Verify instead of trusting the write: an IME that is still activating can
     // overwrite our change with the state Windows had saved for this thread.
-    const ime::State after = ime::query_state(hwnd);
+    const ime::State after = read_mode_state(hwnd, thread);
     if (g_app.pendingWindow != hwnd) {
         return;
     }
@@ -1007,7 +1046,7 @@ void observe_tick() {
     }
 
     const unsigned generation = g_app.contextGeneration;
-    const ime::State state = ime::query_state(hwnd);
+    const ime::State state = read_mode_state(hwnd, thread);
     if (g_app.contextGeneration != generation) {
         // The read blocked across a context switch; everything below would mix
         // the old window's identity with the new one's state.
@@ -1378,6 +1417,24 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     // Apply the saved UI-language choice before any window or menu is built.
     text::set_language(static_cast<text::Language>(settings::ui_language()));
 
+    // Registration hooks for the installer/uninstaller, run elevated: do only the
+    // TIP (un)registration and exit, so the machine-wide COM + TSF entries can be
+    // written without a full tray instance. Handled before the single-instance
+    // check so it works while the tray is already running.
+    {
+        const wchar_t* raw = GetCommandLineW();
+        const bool unregister = wcsstr(raw, L"--unregister-tip") != nullptr;
+        if (unregister || wcsstr(raw, L"--register-tip") != nullptr) {
+            const std::wstring dll = tip_dll_path();
+            if (dll.empty()) {
+                return 1;
+            }
+            const bool ok =
+                unregister ? tipbridge::unregister_tip(dll) : tipbridge::register_tip(dll);
+            return ok ? 0 : 1;
+        }
+    }
+
     g_persist.set_enabled(settings::persist_mode());
 
     // Primed before anything reads autostart_label: the cache is the only thing
@@ -1410,6 +1467,23 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
         // Not fatal, but it removes the one mechanism that reaches a protected
         // process, so it is worth knowing when a binding mysteriously stops.
         diag::write(L"TSF initialisation failed; the session-level switch is unavailable");
+    }
+
+    // The in-process TIP bridge: start the pipe server so any registered/loaded
+    // TIP can report and be commanded, then (only when elevated, since the entries
+    // are machine-wide) make sure the service is registered. Both are best-effort
+    // and additive -- with no TIP connected, every read and write falls back to
+    // the IMM32 interop, so an unelevated or unregistered run behaves as before.
+    tipbridge::start();
+    {
+        const std::wstring dll = tip_dll_path();
+        if (!dll.empty() && autostart::elevated()) {
+            const bool ok = tipbridge::register_tip(dll);
+            diag::write(L"tip: registration %s", ok ? L"succeeded" : L"failed");
+        } else if (!dll.empty()) {
+            diag::write_once(L"tip: not registered (needs administrator); use "
+                             L"\"Restart as administrator\" to enable the TSF sync helper");
+        }
     }
 
     INITCOMMONCONTROLSEX controls{};
@@ -1509,6 +1583,7 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     }
 
     diag::write(L"---- exiting");
+    tipbridge::stop();
     diag::shutdown();
     tsf::shutdown();
     return static_cast<int>(msg.wParam);
