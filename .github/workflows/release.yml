@@ -131,9 +131,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           foreach ($arch in @('x64')) {
             Compress-Archive `
-              -Path "build-$arch/Release/ImeModePersistence.exe", `
-                    "build-$arch/Release/ImeModePersistenceTip.dll", `
-                    'README.md', 'LICENSE' `
+              -Path "build-$arch/Release/ImeModePersistence.exe", 'README.md', 'LICENSE' `
               -DestinationPath "dist/ImeModePersistence-$env:FILEVER-$arch.zip"
           }
 
