@@ -713,6 +713,19 @@ void note_context_switch(HWND hwnd) {
                 ime::mode_name(state.mode),
                 state.valid ? L"readable" : L"unreadable");
 
+    // A non-deduplicated companion to the context line above: exactly one line per
+    // switch, always written, so the log reflects every switch. The context line
+    // is write_once and is suppressed on a repeat with identical state, which reads
+    // as "the switch was missed" when it was not. This also surfaces a read blocked
+    // by UIPI: a packaged/WinUI target (modern Notepad) read from an unelevated
+    // process comes back unreadable, and running elevated is what unblocks it.
+    diag::write(L"switch: %s | mode %s | %s%s",
+                window_identity(hwnd, g_app.observedExecutable).c_str(),
+                ime::mode_name(state.mode),
+                state.valid ? L"readable" : L"unreadable",
+                (!state.valid && !autostart::elevated()) ? L" -- try Run as administrator"
+                                                         : L"");
+
     if (g_app.ruleLanguage != 0) {
         if (g_app.ruleApplyOnce) {
             // Apply once on a genuine switch to this window, then stop: no
