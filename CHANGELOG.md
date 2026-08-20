@@ -7,34 +7,31 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
-## v1.4.0-beta.1
+## v1.4.1
 
-Beta: an opt-in in-process helper that makes input-mode sync reliable for apps
-that the previous, purely external, method could not read or write.
+(v1.4.0 was an experimental in-process TSF text-service beta; it was withdrawn as
+unnecessary. This is the next stable release, built on v1.3.1.)
 
-- New (beta): a Text Services Framework helper that Windows loads inside other
-  apps, so their input mode can be read and set from within the process. This is
-  what finally reaches TSF/packaged apps -- Chromium (Chrome, Discord) and the
-  packaged Notepad -- whose mode the external method read stale or could not
-  change. Classic apps are untouched: when the helper is not present, everything
-  falls back to the existing behaviour exactly as before.
-- The helper needs to be registered once, which requires administrator rights.
-  Install the desktop build as administrator, or use the tray's "Restart as
-  administrator"; without it the app runs as it did in v1.3.1.
-- Not signed yet and not in the Store build in this beta -- expect SmartScreen /
-  antivirus to be cautious, and please report anything the helper misbehaves on.
+Input-mode persistence now reaches modern (TSF/WinUI) apps when run elevated:
 
-繁體中文:此為 beta,新增一個「行程內」的輸入法同步小幫手,補足先前純外部方式讀不到／
-寫不進的程式。
+- Fixed: the mode you carry is now applied to packaged/WinUI apps such as the
+  modern Notepad. Their real text control ignores a mode written to the
+  top-level window (the write "verified" but typing stayed in the wrong mode);
+  the mode is now written to the focused control's input context, which actually
+  takes. This needs the app to run **as administrator** -- that input context is
+  reachable only from a high-integrity process (the same reason a protected game
+  needs it). Run unelevated, behaviour is unchanged from v1.3.1: classic and
+  Chromium apps keep working, and modern-Notepad-class apps are simply left as
+  they were (no hang, no change).
 
-- 新功能(beta):一個 TSF 文字服務,由 Windows 載入到其他程式行程內,因此能從
-  程式「內部」讀取與設定輸入模式。這正是先前外部方式搆不到的 TSF／封裝程式 ——
-  Chromium(Chrome、Discord)與封裝版記事本 —— 它們的模式外部讀到的是舊值、也無法
-  變更。傳統程式不受影響:小幫手未載入時,一切完全回退成先前行為。
-- 小幫手需註冊一次,需要系統管理員權限。請以系統管理員安裝桌面版,或用工具列的
-  「以系統管理員重新啟動」;沒有註冊時,App 的行為與 v1.3.1 相同。
-- 此 beta 尚未簽章、也未納入 Store 版 —— SmartScreen／防毒可能較敏感,若小幫手在
-  某些程式上有異常,請回報。
+繁體中文:提升權限執行時,輸入模式維持現在能作用到現代(TSF/WinUI)程式:
+
+- 修正:維持的模式現在能套用到 packaged/WinUI 程式(如新版記事本)。這類程式
+  的真實文字控制項會忽略寫到「最上層視窗」的模式(先前寫入「看似成功」但打字
+  仍是錯的模式);現在改寫到「被焦點的控制項」的輸入 context,才會真正生效。
+  此功能需**以系統管理員執行** —— 該 context 只有高完整性行程搆得到(與受保護
+  遊戲需要提權同理)。未提權時行為與 v1.3.1 相同:傳統與 Chromium 程式照常,
+  新版記事本這類則維持原樣(不卡頓、不改變)。
 
 ## v1.3.1
 
