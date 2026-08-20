@@ -26,9 +26,11 @@ enum class Trigger {
     LayoutDrift,
 };
 
-// Four, for both triggers: the escalation in layout::method_for_attempt has three
-// mechanisms and repeats the last, and the budget is what stops a losing argument
-// from running forever.
+// Six, for both triggers: three closely spaced early attempts (front-loaded to
+// catch a write that takes but needs a moment, or a quick revert right after the
+// switch) followed by an escalating tail. The escalation in
+// layout::method_for_attempt has three mechanisms and repeats the last; the
+// budget is what stops a losing argument from running forever.
 int max_attempts();
 
 // Milliseconds before the given zero-based attempt. Attempts outside the budget

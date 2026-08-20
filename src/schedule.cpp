@@ -3,20 +3,24 @@
 namespace schedule {
 namespace {
 
-// Unchanged from the original schedule. The first wait is for the new thread's
-// IME to become usable, and shortening it made the first attempt land before
-// there was anything to write to -- which cost an attempt out of the budget
-// rather than saving time.
-constexpr UINT kFocusDelaysMs[] = {60, 120, 250, 500};
+// The first wait is for the new thread's IME to become usable; shortening it
+// made the first attempt land before there was anything to write to -- which
+// cost an attempt rather than saving time -- so it stays at 60 ms. The next two
+// are also 60 ms rather than escalating: an app whose write DOES take but needs
+// a moment (or flips the mode back once right after focus) is caught within the
+// first ~200 ms by three closely spaced attempts (at 60/120/180 ms) instead of
+// waiting out one long gap. Only after that do the waits grow, for a target that
+// is genuinely refusing -- there, more haste is just a heavier flood.
+constexpr UINT kFocusDelaysMs[] = {60, 60, 60, 120, 250, 500};
 
 // The application is already in front and its IME is already running, so the
 // first attempt goes out as soon as SetTimer can deliver it. USER_TIMER_MINIMUM
 // is 10 ms and SetTimer clamps to it, so 10 is the honest value rather than 0.
 //
-// The later waits stay close to the focus case on purpose: if the first, fastest
-// attempt did not take, the target is not merely slow to start and hurrying the
-// rest only adds traffic.
-constexpr UINT kDriftDelaysMs[] = {10, 60, 200, 500};
+// Front-loaded like the focus case: a few closely spaced early attempts catch a
+// layout that flips back right after the change, then the waits grow so a target
+// that keeps refusing is not flooded.
+constexpr UINT kDriftDelaysMs[] = {10, 30, 60, 120, 250, 500};
 
 static_assert(ARRAYSIZE(kFocusDelaysMs) == ARRAYSIZE(kDriftDelaysMs),
               "both triggers share one attempt budget and one escalation");

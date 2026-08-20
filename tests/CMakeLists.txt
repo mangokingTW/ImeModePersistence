@@ -13,6 +13,7 @@ add_executable(ime_tests
     test_presets.cpp
     test_diagnostic.cpp
     test_windows.cpp
+    test_persist.cpp
 )
 
 target_link_libraries(ime_tests PRIVATE ime_core)
@@ -31,6 +32,7 @@ set(IME_TEST_SUITES
     diagnostic
     window-identity
     layout-switch
+    persist
 )
 
 foreach(suite IN LISTS IME_TEST_SUITES)
