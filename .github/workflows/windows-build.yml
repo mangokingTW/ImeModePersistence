@@ -74,7 +74,13 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ImeModePersistence-${{ matrix.name }}
-          path: build/Release/ImeModePersistence.exe
+          # The TIP DLL travels with the exe: the installer job downloads this
+          # artifact and iscc reads both from the recreated build-x64/Release, so
+          # a missing DLL would fail the installer compile. Common root
+          # build/Release keeps them side by side in the artifact.
+          path: |
+            build/Release/ImeModePersistence.exe
+            build/Release/ImeModePersistenceTip.dll
           if-no-files-found: error
 
   # Compiling the Inno Setup script on every change is the only way to catch a

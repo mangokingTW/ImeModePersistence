@@ -7,6 +7,35 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.4.0-beta.1
+
+Beta: an opt-in in-process helper that makes input-mode sync reliable for apps
+that the previous, purely external, method could not read or write.
+
+- New (beta): a Text Services Framework helper that Windows loads inside other
+  apps, so their input mode can be read and set from within the process. This is
+  what finally reaches TSF/packaged apps -- Chromium (Chrome, Discord) and the
+  packaged Notepad -- whose mode the external method read stale or could not
+  change. Classic apps are untouched: when the helper is not present, everything
+  falls back to the existing behaviour exactly as before.
+- The helper needs to be registered once, which requires administrator rights.
+  Install the desktop build as administrator, or use the tray's "Restart as
+  administrator"; without it the app runs as it did in v1.3.1.
+- Not signed yet and not in the Store build in this beta -- expect SmartScreen /
+  antivirus to be cautious, and please report anything the helper misbehaves on.
+
+繁體中文:此為 beta,新增一個「行程內」的輸入法同步小幫手,補足先前純外部方式讀不到／
+寫不進的程式。
+
+- 新功能(beta):一個 TSF 文字服務,由 Windows 載入到其他程式行程內,因此能從
+  程式「內部」讀取與設定輸入模式。這正是先前外部方式搆不到的 TSF／封裝程式 ——
+  Chromium(Chrome、Discord)與封裝版記事本 —— 它們的模式外部讀到的是舊值、也無法
+  變更。傳統程式不受影響:小幫手未載入時,一切完全回退成先前行為。
+- 小幫手需註冊一次,需要系統管理員權限。請以系統管理員安裝桌面版,或用工具列的
+  「以系統管理員重新啟動」;沒有註冊時,App 的行為與 v1.3.1 相同。
+- 此 beta 尚未簽章、也未納入 Store 版 —— SmartScreen／防毒可能較敏感,若小幫手在
+  某些程式上有異常,請回報。
+
 ## v1.3.1
 
 Cross-window input-mode persistence is more reliable:

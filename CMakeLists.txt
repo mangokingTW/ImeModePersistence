@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.21)
 # Single source of truth for the version. The release workflow reads it and
 # refuses to publish a tag that disagrees, so the number stamped into the
 # executable always matches the release it shipped in.
-project(ImeModePersistence VERSION 1.3.1 LANGUAGES CXX)
+project(ImeModePersistence VERSION 1.4.0 LANGUAGES CXX)
 
 set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable")
 
@@ -53,6 +53,8 @@ add_library(ime_core STATIC
     src/schedule.h
     src/presets.cpp
     src/presets.h
+    src/tipbridge.cpp
+    src/tipbridge.h
     src/diagnostic.cpp
     src/diagnostic.h
     src/strings.cpp
@@ -134,6 +136,40 @@ endif()
 set_target_properties(ImeModePersistence PROPERTIES
     OUTPUT_NAME "ImeModePersistence"
 )
+
+# The in-process Text Input Processor: a COM/TSF keyboard text service Windows
+# loads into other applications so their conversion mode can be read and set from
+# inside the process (what the IMM32 interop cannot do for TSF/packaged apps). A
+# standalone SHARED library -- deliberately not linked against ime_core -- because
+# it is mapped into every application that loads a keyboard service and must stay
+# tiny. It talks to the exe over the named pipe in src/tip/tip_protocol.h.
+add_library(ImeModePersistenceTip SHARED
+    src/tip/tip.cpp
+    src/tip/tip_protocol.h
+    src/tip/tip.def
+)
+
+target_include_directories(ImeModePersistenceTip PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+target_compile_definitions(ImeModePersistenceTip PRIVATE
+    UNICODE
+    _UNICODE
+    WIN32_LEAN_AND_MEAN
+    NOMINMAX
+    _WIN32_WINNT=0x0A00
+)
+
+# ole32/oleaut32 for COM + VARIANT; uuid.lib (a default MSVC library) carries the
+# TSF GUIDs the same way ime_core relies on for src/tsf.cpp.
+target_link_libraries(ImeModePersistenceTip PRIVATE ole32 oleaut32 user32 advapi32)
+
+if(MSVC)
+    # Default warning level only (not the /W4 the rest of the tree uses): a COM
+    # in-process server is mostly SDK-shaped boilerplate, and the release build
+    # compiles with warnings-as-error, so the stricter level would turn the
+    # framework's own idioms into build failures for no safety gained here.
+    target_compile_options(ImeModePersistenceTip PRIVATE /utf-8)
+endif()
 
 option(BUILD_TESTING "Build the test suite" ON)
 if(BUILD_TESTING)
