@@ -32,6 +32,18 @@ struct Conversion {
 // not be mistaken for the user changing conversion mode.
 bool has_ime(HWND hwnd);
 
+// When enabled, read/write target the *focused child window's* IME context first,
+// falling back to the top-level window. That child context is the real one for
+// TSF/WinUI apps (modern Notepad, packaged apps), which ignore writes aimed at the
+// top-level window -- the write "verifies" but typing does not change.
+//
+// Enable this ONLY in an elevated process. Reaching the child context needs high
+// integrity (UIPI); from a medium-IL process the send is refused (ERROR_ACCESS_
+// DENIED) and can stall the caller, so an unelevated run must stay on the
+// top-level path, which is byte-for-byte the previous behaviour. Set once at
+// startup from the process's own elevation state.
+void set_focus_child_targeting(bool enabled);
+
 Conversion read(HWND hwnd);
 
 bool write_open(HWND hwnd, bool open);

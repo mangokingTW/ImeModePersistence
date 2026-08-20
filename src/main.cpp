@@ -11,6 +11,7 @@
 #include "autostart.h"
 #include "config_dialog.h"
 #include "diagnostic.h"
+#include "ime_interop.h"
 #include "ime_state.h"
 #include "layout.h"
 #include "persist.h"
@@ -1393,6 +1394,15 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
                 autostart_label(),
                 g_persist.enabled() ? L"on" : L"off",
                 kLayoutPollIntervalMs);
+
+    // Only an elevated process may target the focused child window's IME context
+    // (the real one for TSF/WinUI apps like modern Notepad). Unelevated, reaching
+    // it is refused and can stall, so the read/write path stays on the top-level
+    // window exactly as before. Set once, from this process's elevation state.
+    ime::interop::set_focus_child_targeting(autostart::elevated());
+    if (autostart::elevated()) {
+        diag::write(L"ime: focus-child targeting on (reaches TSF/WinUI apps e.g. modern Notepad)");
+    }
 
     // Apply any starting rule the installer dropped, once per user. This process
     // is what the logon task or Run key started, so it runs as the actual user

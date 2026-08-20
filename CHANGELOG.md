@@ -7,6 +7,29 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.3.2
+
+Input-mode persistence now reaches modern (TSF/WinUI) apps when run elevated:
+
+- Fixed: the mode you carry is now applied to packaged/WinUI apps such as the
+  modern Notepad. Their real text control ignores a mode written to the
+  top-level window (the write "verified" but typing stayed in the wrong mode);
+  the mode is now written to the focused control's input context, which actually
+  takes. This needs the app to run **as administrator** -- that input context is
+  reachable only from a high-integrity process (the same reason a protected game
+  needs it). Run unelevated, behaviour is unchanged from v1.3.1: classic and
+  Chromium apps keep working, and modern-Notepad-class apps are simply left as
+  they were (no hang, no change).
+
+繁體中文:提升權限執行時,輸入模式維持現在能作用到現代(TSF/WinUI)程式:
+
+- 修正:維持的模式現在能套用到 packaged/WinUI 程式(如新版記事本)。這類程式
+  的真實文字控制項會忽略寫到「最上層視窗」的模式(先前寫入「看似成功」但打字
+  仍是錯的模式);現在改寫到「被焦點的控制項」的輸入 context,才會真正生效。
+  此功能需**以系統管理員執行** —— 該 context 只有高完整性行程搆得到(與受保護
+  遊戲需要提權同理)。未提權時行為與 v1.3.1 相同:傳統與 Chromium 程式照常,
+  新版記事本這類則維持原樣(不卡頓、不改變)。
+
 ## v1.3.1
 
 Cross-window input-mode persistence is more reliable:
