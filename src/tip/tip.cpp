@@ -609,6 +609,10 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID) {
     return TRUE;
 }
 
+// _Use_decl_annotations_ adopts the SAL contract combaseapi.h already declares
+// for these exports, so the analyzer stops flagging the definition as an
+// inconsistently annotated instance of the header's prototype.
+_Use_decl_annotations_
 STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, void** ppv) {
     if (IsEqualCLSID(rclsid, CLSID_ImeModePersistenceTip)) {
         return g_factory.QueryInterface(riid, ppv);
@@ -619,6 +623,7 @@ STDAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, void** ppv) {
     return CLASS_E_CLASSNOTAVAILABLE;
 }
 
+_Use_decl_annotations_
 STDAPI DllCanUnloadNow() {
     return g_refs == 0 ? S_OK : S_FALSE;
 }

@@ -116,6 +116,16 @@ void server_loop() {
 
         OVERLAPPED ov{};
         ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+        if (!ov.hEvent) {
+            // No event to wait the overlapped connect on; drop this instance and
+            // retry unless we are stopping. (Also settles the analyzer, which
+            // otherwise sees a possibly-null handle reach CloseHandle below.)
+            CloseHandle(pipe);
+            if (WaitForSingleObject(g_stopEvent, 500) == WAIT_OBJECT_0) {
+                return;
+            }
+            continue;
+        }
         const BOOL pending = ConnectNamedPipe(pipe, &ov);
         const DWORD err = GetLastError();
 
