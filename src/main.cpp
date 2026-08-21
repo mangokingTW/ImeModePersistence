@@ -1418,8 +1418,14 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ int) {
     const wchar_t* cmdline = GetCommandLineW();
-    if (wcsstr(cmdline, L"--helper")) {
-        return helper::run_server();
+    if (const wchar_t* helperFlag = wcsstr(cmdline, L"--helper")) {
+        DWORD parentPid = 0;
+        const wchar_t* p = helperFlag + 8;
+        while (*p == L' ' || *p == L'\t') ++p;
+        if (*p >= L'0' && *p <= L'9') {
+            parentPid = static_cast<DWORD>(wcstoul(p, nullptr, 10));
+        }
+        return helper::run_server(parentPid);
     }
     if (wcsstr(cmdline, L"--stop-helper")) {
         return helper::stop_server() ? 0 : 1;
