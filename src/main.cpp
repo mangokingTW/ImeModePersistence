@@ -92,6 +92,7 @@ struct AppState {
     // (g_persist); these two are the layout half of that identity.
     DWORD observedThread{};
     HKL observedLayout{};
+    HWND observedFocusWindow{};
 
     HWND pendingWindow{};
     int restoreAttempt{};
@@ -566,10 +567,23 @@ void schedule_restore_attempt(HWND hwnd) {
     SetTimer(g_app.hwnd, TIMER_RESTORE, delay, nullptr);
 }
 
+HWND current_focus_window(HWND hwnd, DWORD thread) {
+    if (!hwnd || !IsWindow(hwnd)) {
+        return nullptr;
+    }
+    GUITHREADINFO gti{};
+    gti.cbSize = sizeof(gti);
+    if (thread && GetGUIThreadInfo(thread, &gti) && gti.hwndFocus && IsWindow(gti.hwndFocus)) {
+        return gti.hwndFocus;
+    }
+    return hwnd;
+}
+
 void accept_restored_state(HWND hwnd, const ime::State& state) {
     record_snapshot(hwnd, state);
     g_app.observedThread = GetWindowThreadProcessId(hwnd, nullptr);
     g_app.observedLayout = GetKeyboardLayout(g_app.observedThread);
+    g_app.observedFocusWindow = current_focus_window(hwnd, g_app.observedThread);
     g_persist.accept_restored(state.mode, GetTickCount64());
     cancel_restore();
 }
@@ -632,10 +646,11 @@ void note_context_switch(HWND hwnd) {
         rule != 0 && rule == g_app.ruleLanguage &&
         (!executable.empty() ? executable == g_app.observedExecutable
                              : (!windowClass.empty() &&
-                                windowClass == g_app.observedWindowClass));
+                                 windowClass == g_app.observedWindowClass));
 
     g_app.observedThread = thread;
     g_app.observedLayout = GetKeyboardLayout(thread);
+    g_app.observedFocusWindow = current_focus_window(hwnd, thread);
     g_persist.begin_context(GetTickCount64());
 
     g_app.observedExecutable = executable;
@@ -985,6 +1000,13 @@ void observe_tick() {
         return;
     }
 
+    const HWND focusNow = current_focus_window(hwnd, thread);
+    if (focusNow && focusNow != g_app.observedFocusWindow) {
+        g_app.observedFocusWindow = focusNow;
+        note_context_switch(hwnd);
+        return;
+    }
+
     const HKL layoutNow = GetKeyboardLayout(thread);
     if (layoutNow != g_app.observedLayout) {
         // A layout change inside the same thread. In a bound window this is
@@ -1053,14 +1075,22 @@ void CALLBACK win_event_proc(
     HWINEVENTHOOK,
     DWORD event,
     HWND hwnd,
-    LONG,
+    LONG idObject,
     LONG,
     DWORD,
     DWORD) {
-    if (event != EVENT_SYSTEM_FOREGROUND || !hwnd) {
-        return;
+    if (event == EVENT_SYSTEM_FOREGROUND && hwnd) {
+        note_context_switch(hwnd);
+    } else if (event == EVENT_OBJECT_FOCUS && idObject == OBJID_CLIENT && hwnd) {
+        HWND fg = GetForegroundWindow();
+        if (fg && (hwnd == fg || IsChild(fg, hwnd))) {
+            const DWORD thread = GetWindowThreadProcessId(fg, nullptr);
+            const HWND focusNow = current_focus_window(fg, thread);
+            if (focusNow && focusNow != g_app.observedFocusWindow) {
+                note_context_switch(fg);
+            }
+        }
     }
-    note_context_switch(hwnd);
 }
 
 // Elevation cannot be added to a running process, so this hands over to a fresh
@@ -1486,7 +1516,7 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
 
     g_app.foregroundHook = SetWinEventHook(
         EVENT_SYSTEM_FOREGROUND,
-        EVENT_SYSTEM_FOREGROUND,
+        EVENT_OBJECT_FOCUS,
         nullptr,
         win_event_proc,
         0,
