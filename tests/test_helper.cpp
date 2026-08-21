@@ -4,7 +4,7 @@
 void run_helper_tests() {
     // 1. Packet structure integrity
     CHECK(sizeof(helper::Request) >= 16);
-    CHECK(sizeof(helper::Response) >= 8);
+    CHECK(sizeof(helper::Response) >= 16);
 
     helper::Request req{};
     req.type = helper::CommandType::WriteConversion;
@@ -13,6 +13,12 @@ void run_helper_tests() {
     CHECK(req.type == helper::CommandType::WriteConversion);
     CHECK(req.targetTopHwnd == reinterpret_cast<HWND>(0x1234));
     CHECK(req.conversionBits == 1);
+
+    helper::Response resp{};
+    resp.success = TRUE;
+    resp.targetHwnd = reinterpret_cast<HWND>(0x5678);
+    CHECK(resp.success);
+    CHECK(resp.targetHwnd == reinterpret_cast<HWND>(0x5678));
 
     // 2. Client fallback when helper is offline
     // When helper server is not running, client calls must return false quickly without blocking or crashing.

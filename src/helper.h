@@ -25,13 +25,13 @@ struct Request {
 
 struct Response {
     BOOL success{FALSE};
-    DWORD writtenToHwnd{0};
+    HWND targetHwnd{nullptr};
     BOOL openStatus{FALSE};
     DWORD conversionBits{0};
 };
 
-// Server (Runs in elevated helper process via --helper)
-int run_server();
+// Server (Runs in elevated helper process via --helper <parent_pid>)
+int run_server(DWORD parentPid = 0);
 
 // Client (Used by main Store / unelevated process)
 bool is_running();
