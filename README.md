@@ -36,12 +36,11 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 
 ## 安裝
 
-**最簡單：從 [Microsoft Store](https://apps.microsoft.com/detail/9P05QQZ2P5XC) 安裝**（自動更新）。商店版以一般權限執行，無法控制提權程式——有防作弊的遊戲請改用下方 `setup-admin`。或到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載：
+**最簡單：從 [Microsoft Store](https://apps.microsoft.com/detail/9P05QQZ2P5XC) 安裝**（自動更新）。或到 [Releases](https://github.com/mangokingTW/ImeModePersistence/releases) 下載：
 
 | 檔案 | 說明 |
 |---|---|
-| `...-setup-admin.exe` | 需要管理員權限，裝在 Program Files。**有防作弊的遊戲需要這個版本** |
-| `...-setup-user.exe` | 不需要管理員權限，裝在使用者目錄。無法控制提權的程式 |
+| `...-setup.exe` | **推薦**：標準安裝檔（安裝時可選擇為目前使用者或全機安裝） |
 | `...-x64.zip` | 免安裝，解壓即用 |
 
 > **防毒軟體可能刪除安裝檔。** 未簽章的安裝檔常被啟發式誤判 —— 遇到時改用免安裝的 zip，功能完全相同。
@@ -170,12 +169,11 @@ Its **second** purpose is pinning a specific program to an input language, inclu
 
 ## Install
 
-**Easiest: get it from the [Microsoft Store](https://apps.microsoft.com/detail/9P05QQZ2P5XC)** (auto-updates). The Store build runs unelevated and cannot control elevated programs — for anti-cheat games use the `setup-admin` installer below instead. Or from [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
+**Easiest: get it from the [Microsoft Store](https://apps.microsoft.com/detail/9P05QQZ2P5XC)** (auto-updates). Or from [Releases](https://github.com/mangokingTW/ImeModePersistence/releases):
 
 | File | What it is |
 |---|---|
-| `...-setup-admin.exe` | Needs administrator rights, installs to Program Files. **Required for anti-cheat protected games** |
-| `...-setup-user.exe` | No administrator rights, installs into your user directory. Cannot control elevated programs |
+| `...-setup.exe` | **Recommended**: standard installer (supports per-user or all-users installation) |
 | `...-x64.zip` | Portable; unzip and run |
 
 > **Antivirus may delete the installer.** Unsigned installers are frequently caught by heuristics — use the portable archive, which is functionally identical.

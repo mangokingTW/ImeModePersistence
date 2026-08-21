@@ -19,14 +19,6 @@
   #define AppVersionFull AppVersion
 #endif
 
-; Compiled twice from this one file, and both outputs say which they are: an
-; unqualified "-setup" would leave the reader to guess which variant they have.
-#ifdef UserInstall
-  #define SetupSuffix "-user"
-#else
-  #define SetupSuffix "-admin"
-#endif
-
 #define AppName "IME Mode Persistence"
 ; Unspaced slug for the setup filename, install folder, the Run value name (must
 ; match kValueName in src/autostart.cpp), and the legacy scheduled-task name.
@@ -50,37 +42,24 @@ AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
 VersionInfoVersion={#AppVersion}
 
-; Administrator, because this variant installs into Program Files and, usefully,
-; only an elevated Setup can close a running elevated copy when updating. The
-; utility itself starts unelevated at logon (a normal Run entry); controlling an
-; elevated anti-cheat game is done on demand via the tray's "Restart as
-; administrator", not by a silent elevated logon task.
-#ifdef UserInstall
-; No administrator rights anywhere. Cannot run the utility elevated, so it cannot
-; reach anti-cheat protected games -- fine for someone who only wants the ordinary
-; behaviour, or who has no administrator rights to give.
+; Unified installer: default to per-user (no UAC required), but allow the user
+; or package manager to choose all-users (Program Files, elevated) via dialog
+; or commandline switches (/CURRENTUSER or /ALLUSERS).
 PrivilegesRequired=lowest
-DefaultDirName={localappdata}\Programs\{#AppSlug}
-#else
-; Setup elevates so it can install into Program Files and close a running elevated
-; copy when updating. The utility still starts unelevated at logon; elevation is
-; on demand via the tray.
-PrivilegesRequired=admin
+PrivilegesRequiredOverridesAllowed=dialog commandline
 DefaultDirName={autopf}\{#AppSlug}
-#endif
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExeName}
 
 ; Last-resort guard against overwriting a running executable. [Code] closes the
 ; utility itself before Setup gets this far, so the prompt this would otherwise
-; raise only appears when that graceful close fails. Setup is elevated too, so it
-; can close an elevated copy -- which an unelevated Setup could not.
+; raise only appears when that graceful close fails.
 AppMutex={#AppMutexName}
 CloseApplications=yes
 
 OutputDir=..\dist
-OutputBaseFilename={#AppSlug}-{#AppVersionFull}-setup{#SetupSuffix}
+OutputBaseFilename={#AppSlug}-{#AppVersionFull}-setup
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern

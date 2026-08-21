@@ -14,7 +14,7 @@ does the rest.
 | Scoop | `mango/ImeModePersistence` | manifest in [`packaging/scoop`](../packaging/scoop), updated separately |
 | winget | `mangokingTW.ImeModePersistence` | manifest in [`packaging/winget`](../packaging/winget), updated separately |
 
-Release assets: two installers (`-setup-admin.exe`, `-setup-user.exe`), portable
+Release assets: unified installer (`-setup.exe`), portable
 `-x64.zip`, the Store `.msix`, `SHA256SUMS.txt`, and the SLSA provenance bundle
 (`multiple.intoto.jsonl`).
 

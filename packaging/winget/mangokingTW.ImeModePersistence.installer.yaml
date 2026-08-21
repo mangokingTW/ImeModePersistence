@@ -14,9 +14,11 @@ ReleaseDate: 2026-08-11
 # The Inno installer is x64 only -- it refuses to run on 32-bit Windows.
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/mangokingTW/ImeModePersistence/releases/download/v1.0.0/ImeModePersistence-1.0.0-setup-user.exe
+    InstallerUrl: https://github.com/mangokingTW/ImeModePersistence/releases/download/v1.0.0/ImeModePersistence-1.0.0-setup.exe
     InstallerSha256: A0FB350AFD179A6F6D9285D26002845DBB3ED53316A476C13AFF1E4975CEA8AC
     ProductCode: '{609AC807-6D9F-4D06-8F8D-AC65E29869D5}_is1'
+    InstallerSwitches:
+      Custom: /CURRENTUSER
     AppsAndFeaturesEntries:
       - DisplayName: ImeModePersistence
         Publisher: mangokingTW
