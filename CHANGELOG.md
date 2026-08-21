@@ -7,6 +7,18 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.5.2
+
+Reliability fixes for Sidecar Helper IPC and shutdown lifecycle:
+
+- Synchronous IPC pipe: Reverted named pipe from overlapped I/O to fully synchronous I/O, guaranteeing accurate byte counts for `ReadFile`/`WriteFile` and resolving intermittent IME state persistence failures on modern/WinUI applications.
+- Clean shutdown watchdog: Upgraded parent process watchdog thread to listen on both parent process termination and internal shutdown events, eliminating potential join deadlocks on normal application exit or manual helper stop.
+
+繁體中文:Sidecar Helper IPC 通訊與關閉生命週期可靠度修正：
+
+- 同步 IPC 管道：具名管道回歸純同步 I/O，確保 `ReadFile`/`WriteFile` 傳輸位元組精確可靠，解決現代 / WinUI 應用程式（如記事本）偶發性 IME 狀態維持失效問題。
+- 乾淨關閉守護執行緒：父行程監聽執行緒改為同時等待父行程終止與內部關閉事件，徹底消除手動停止或正常關閉時的執行緒卡死問題。
+
 ## v1.5.1
 
 Security hardening and lifecycle improvements for Sidecar Helper:
