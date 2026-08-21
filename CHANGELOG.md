@@ -7,16 +7,18 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
-## v1.5.3-beta.1
+## v1.5.3-beta.2
 
-Beta release for Sidecar Helper layout switching support:
+Beta release for Sidecar Helper layout switching & desktop menu availability:
 
-- Layout switching via Sidecar Helper: Extended Helper IPC protocol with `SwitchLayout` command, allowing unelevated desktop and Microsoft Store packaged builds to switch keyboard layouts for elevated or anti-cheat protected fullscreen games (such as Helldivers 2 with `class:stingray_window`) across UIPI boundaries.
+- Desktop build Helper menu item: Made "Enable WinUI/Admin support..." (Sidecar Helper) available across all unelevated builds (both Desktop installer/portable and Microsoft Store packages), with toggle stop support.
+- Layout switching via Sidecar Helper: Extended Helper IPC protocol with `SwitchLayout` command, allowing unelevated builds to switch keyboard layouts for elevated or anti-cheat protected fullscreen games (such as Helldivers 2 with `class:stingray_window`) across UIPI boundaries.
 - Automatic delegation: `layout::request` seamlessly delegates to the Sidecar Helper when active, falling back to direct local delivery if inactive.
 
-繁體中文:Sidecar Helper 鍵盤配置切換支援測試版：
+繁體中文:Sidecar Helper 鍵盤配置切換支援與桌面版選單測試版：
 
-- 跨 UIPI 鍵盤配置切換：擴充 Sidecar Helper IPC 協定支援 `SwitchLayout` 指令，使 Microsoft Store 商店版與一般權限桌面版在啟用 Helper 輔助服務後，能跨越 UIPI 屏障為高權限 / 反作弊全螢幕遊戲（如 Helldivers 2 搭配 `class:stingray_window`）自動切換與綁定語言。
+- 桌面版選單支援 Helper：所有未提權版本（包含一般桌面安裝版、免安裝版與 Store 版）皆一律顯示「啟用現代視窗 (WinUI) 支援…」選單項目，並支援再次點擊關閉。
+- 跨 UIPI 鍵盤配置切換：擴充 Sidecar Helper IPC 協定支援 `SwitchLayout` 指令，使一般權限與 Store 版在啟用 Helper 輔助服務後，能跨越 UIPI 屏障為高權限 / 反作弊全螢幕遊戲（如 Helldivers 2 搭配 `class:stingray_window`）自動切換與綁定語言。
 - 自動委派：`layout::request` 於 Helper 啟動時自動轉發請求，未啟動時無縫退回本機切換。
 
 ## v1.5.2
