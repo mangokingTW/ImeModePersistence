@@ -49,9 +49,9 @@ jobs:
           # The installer checksum is the release's own published value, so the
           # package can never disagree with what it downloads.
           gh release download $env:TAG --repo $env:GITHUB_REPOSITORY --pattern SHA256SUMS.txt --dir .
-          $match = Select-String -Path SHA256SUMS.txt -Pattern 'setup-admin\.exe'
+          $match = Select-String -Path SHA256SUMS.txt -Pattern 'setup\.exe'
           $sha = (($match.Line -split '\s+')[0]).ToUpper()
-          if ($sha -notmatch '^[A-F0-9]{64}$') { throw "could not read setup-admin checksum from SHA256SUMS.txt" }
+          if ($sha -notmatch '^[A-F0-9]{64}$') { throw "could not read setup checksum from SHA256SUMS.txt" }
           Write-Host "version=$version checksum=$sha"
 
           $dir = 'packaging/chocolatey'
@@ -77,7 +77,7 @@ jobs:
             'The SHA256 pinned in tools\chocolateyInstall.ps1 matches the value',
             "published in that release's SHA256SUMS.txt:",
             '',
-            "  ImeModePersistence-$version-setup-admin.exe",
+            "  ImeModePersistence-$version-setup.exe",
             "  $shaLower",
             '',
             'Every release also publishes build provenance, checkable with:',

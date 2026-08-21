@@ -8,7 +8,7 @@ entry, so no uninstall script is needed.
 ## Automated publishing
 
 `.github/workflows/chocolatey.yml` packs and pushes automatically when a **stable**
-release is published: it reads the version from the tag and the `setup-admin.exe`
+release is published: it reads the version from the tag and the `setup.exe`
 checksum from the release's `SHA256SUMS.txt`, injects them, and `choco push`es. It
 is a no-op until the **`CHOCO_API_KEY`** repository secret is set, and it skips
 pre-releases. So after adding the secret, no manual step is needed per release;
@@ -18,7 +18,7 @@ the steps below are for the first submission or a manual push.
 
 1. Update `imemodepersistence.nuspec` `<version>` and `<releaseNotes>`.
 2. In `tools/chocolateyInstall.ps1`, bump `$version` and set `$checksum` to the
-   new `setup-admin.exe` SHA256 (from the release's `SHA256SUMS.txt`, uppercased).
+   new `setup.exe` SHA256 (from the release's `SHA256SUMS.txt`, uppercased).
    Update `tools/VERIFICATION.txt` to match.
 3. Pack and push (needs a chocolatey.org account + API key):
 

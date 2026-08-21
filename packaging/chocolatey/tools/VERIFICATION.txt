@@ -8,12 +8,12 @@ rather than embedding a binary:
 The SHA256 pinned in tools\chocolateyInstall.ps1 matches the value published in
 that release's SHA256SUMS.txt:
 
-  ImeModePersistence-1.0.0-setup-admin.exe
+  ImeModePersistence-1.0.0-setup.exe
   939c1f6237c514fb24d50b9f1720c461b46bf031e2131421871e2df923511dad
 
 To verify a download yourself:
 
-  Get-FileHash .\ImeModePersistence-1.0.0-setup-admin.exe -Algorithm SHA256
+  Get-FileHash .\ImeModePersistence-1.0.0-setup.exe -Algorithm SHA256
 
 Every release also publishes build provenance, checkable with:
 

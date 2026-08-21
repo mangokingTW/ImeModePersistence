@@ -115,14 +115,8 @@ jobs:
           choco install innosetup --no-progress -y
           # Quoted for the same reason the cmake arguments are: PowerShell leaves
           # $env: unexpanded inside a bareword that starts with a single dash.
-          #
-          # Each call is checked individually: PowerShell only propagates the
-          # LAST command's exit code, and v0.9.4 released without its admin
-          # installer because the first compile failed behind a green step.
           iscc "/DAppVersion=$env:VERSION" "/DAppVersionFull=$env:FILEVER" installer\ImeModePersistence.iss
-          if ($LASTEXITCODE -ne 0) { throw "admin installer failed to compile" }
-          iscc "/DAppVersion=$env:VERSION" "/DAppVersionFull=$env:FILEVER" /DUserInstall installer\ImeModePersistence.iss
-          if ($LASTEXITCODE -ne 0) { throw "user installer failed to compile" }
+          if ($LASTEXITCODE -ne 0) { throw "installer failed to compile" }
 
       - name: Package portable archives
         if: env.RELEASE_EXISTS != 'true'
@@ -202,8 +196,7 @@ jobs:
           # build and downloads just the MSIX.
           if ($env:RELEASE_EXISTS -ne 'true') {
             $expected = @(
-              "ImeModePersistence-$env:FILEVER-setup-admin.exe",
-              "ImeModePersistence-$env:FILEVER-setup-user.exe",
+              "ImeModePersistence-$env:FILEVER-setup.exe",
               "ImeModePersistence-$env:FILEVER-x64.zip",
               "ImeModePersistence-$env:FILEVER.msix",
               'SHA256SUMS.txt'
