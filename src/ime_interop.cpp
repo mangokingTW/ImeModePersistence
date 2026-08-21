@@ -1,4 +1,5 @@
 #include "ime_interop.h"
+#include "helper.h"
 
 #include <imm.h>
 
@@ -93,6 +94,16 @@ bool has_ime(HWND hwnd) {
 
 Conversion read(HWND hwnd) {
     Conversion state;
+    if (!g_focusChild) {
+        bool open = false;
+        DWORD bits = 0;
+        if (helper::try_read(hwnd, open, bits)) {
+            state.valid = true;
+            state.open = open;
+            state.bits = bits;
+            return state;
+        }
+    }
 
     const Targets targets = targets_for(hwnd);
     for (int i = 0; i < targets.count; ++i) {
@@ -123,6 +134,11 @@ Conversion read(HWND hwnd) {
 }
 
 bool write_open(HWND hwnd, bool open) {
+    if (!g_focusChild) {
+        if (helper::try_write_open(hwnd, open)) {
+            return true;
+        }
+    }
     const Targets targets = targets_for(hwnd);
     for (int i = 0; i < targets.count; ++i) {
         HWND imeWnd = default_ime_window(targets.wnd[i]);
@@ -138,6 +154,11 @@ bool write_open(HWND hwnd, bool open) {
 }
 
 bool write_conversion(HWND hwnd, DWORD bits) {
+    if (!g_focusChild) {
+        if (helper::try_write_conversion(hwnd, bits)) {
+            return true;
+        }
+    }
     const Targets targets = targets_for(hwnd);
     for (int i = 0; i < targets.count; ++i) {
         HWND imeWnd = default_ime_window(targets.wnd[i]);

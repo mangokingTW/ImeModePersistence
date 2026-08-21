@@ -19,6 +19,8 @@ struct Strings {
     const wchar_t* menuIndicator;
     const wchar_t* menuAutostart;
     const wchar_t* menuElevate;
+    const wchar_t* menuHelper;
+    const wchar_t* menuHelperActive;
     const wchar_t* menuRules;
     const wchar_t* menuLog;
     const wchar_t* menuExit;

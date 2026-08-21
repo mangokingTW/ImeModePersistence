@@ -7,6 +7,18 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.5.0
+
+Microsoft Store (MSIX) and non-elevated builds now support modern (WinUI/TSF) apps via Sidecar Helper:
+
+- Added Sidecar Helper architecture: Microsoft Store and non-elevated users can now enable "WinUI / Admin support" directly from the system tray menu. It launches a lightweight elevated background helper service via standard Windows UAC without requiring third-party code signing certificates.
+- Full bidirectional read/write synchronization: Accurately reads and persists IME conversion mode for modern WinUI 3 / XAML / TSF applications (such as Windows 11 modern Notepad `RichEditD2DPT` child focus controls) as well as elevated windows across window switches.
+
+繁體中文:Microsoft Store（市集版）與非提權環境現已支援現代（WinUI/TSF）視窗：
+
+- 新增 Sidecar Helper 輔助服務架構：市集版與一般權限使用者現在可直接從系統匣選單點選「啟用現代視窗／管理員支援」，透過標準 Windows UAC 啟動輕量提權背景服務，免自備付費代碼簽章憑證。
+- 完整雙向讀寫同步：精準讀取並延續 Windows 11 現代記事本（WinUI 3 / XAML / TSF 子焦點控制項 `RichEditD2DPT`）與高權限視窗的中／英輸入法轉換模式。
+
 ## v1.4.1
 
 (v1.4.0 was an experimental in-process TSF text-service beta; it was withdrawn as

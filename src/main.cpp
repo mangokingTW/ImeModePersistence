@@ -25,6 +25,7 @@
 #include "schedule.h"
 #include "theme.h"
 #include "tsf.h"
+#include "helper.h"
 
 namespace {
 
@@ -46,6 +47,7 @@ constexpr UINT ID_TRAY_LANG_ZHTW = 1010;
 constexpr UINT ID_TRAY_LANG_ZHCN = 1011;
 constexpr UINT ID_TRAY_LANG_JA = 1012;
 constexpr UINT ID_TRAY_LANG_KO = 1013;
+constexpr UINT ID_TRAY_HELPER = 1014;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Session-local: one instance per interactive logon session is what we want, and
@@ -90,6 +92,7 @@ struct AppState {
     // (g_persist); these two are the layout half of that identity.
     DWORD observedThread{};
     HKL observedLayout{};
+    HWND observedFocusWindow{};
 
     HWND pendingWindow{};
     int restoreAttempt{};
@@ -564,10 +567,23 @@ void schedule_restore_attempt(HWND hwnd) {
     SetTimer(g_app.hwnd, TIMER_RESTORE, delay, nullptr);
 }
 
+HWND current_focus_window(HWND hwnd, DWORD thread) {
+    if (!hwnd || !IsWindow(hwnd)) {
+        return nullptr;
+    }
+    GUITHREADINFO gti{};
+    gti.cbSize = sizeof(gti);
+    if (thread && GetGUIThreadInfo(thread, &gti) && gti.hwndFocus && IsWindow(gti.hwndFocus)) {
+        return gti.hwndFocus;
+    }
+    return hwnd;
+}
+
 void accept_restored_state(HWND hwnd, const ime::State& state) {
     record_snapshot(hwnd, state);
     g_app.observedThread = GetWindowThreadProcessId(hwnd, nullptr);
     g_app.observedLayout = GetKeyboardLayout(g_app.observedThread);
+    g_app.observedFocusWindow = current_focus_window(hwnd, g_app.observedThread);
     g_persist.accept_restored(state.mode, GetTickCount64());
     cancel_restore();
 }
@@ -630,10 +646,11 @@ void note_context_switch(HWND hwnd) {
         rule != 0 && rule == g_app.ruleLanguage &&
         (!executable.empty() ? executable == g_app.observedExecutable
                              : (!windowClass.empty() &&
-                                windowClass == g_app.observedWindowClass));
+                                 windowClass == g_app.observedWindowClass));
 
     g_app.observedThread = thread;
     g_app.observedLayout = GetKeyboardLayout(thread);
+    g_app.observedFocusWindow = current_focus_window(hwnd, thread);
     g_persist.begin_context(GetTickCount64());
 
     g_app.observedExecutable = executable;
@@ -983,6 +1000,13 @@ void observe_tick() {
         return;
     }
 
+    const HWND focusNow = current_focus_window(hwnd, thread);
+    if (focusNow && focusNow != g_app.observedFocusWindow) {
+        g_app.observedFocusWindow = focusNow;
+        note_context_switch(hwnd);
+        return;
+    }
+
     const HKL layoutNow = GetKeyboardLayout(thread);
     if (layoutNow != g_app.observedLayout) {
         // A layout change inside the same thread. In a bound window this is
@@ -1051,14 +1075,22 @@ void CALLBACK win_event_proc(
     HWINEVENTHOOK,
     DWORD event,
     HWND hwnd,
-    LONG,
+    LONG idObject,
     LONG,
     DWORD,
     DWORD) {
-    if (event != EVENT_SYSTEM_FOREGROUND || !hwnd) {
-        return;
+    if (event == EVENT_SYSTEM_FOREGROUND && hwnd) {
+        note_context_switch(hwnd);
+    } else if (event == EVENT_OBJECT_FOCUS && idObject == OBJID_CLIENT && hwnd) {
+        HWND fg = GetForegroundWindow();
+        if (fg && (hwnd == fg || IsChild(fg, hwnd))) {
+            const DWORD thread = GetWindowThreadProcessId(fg, nullptr);
+            const HWND focusNow = current_focus_window(fg, thread);
+            if (focusNow && focusNow != g_app.observedFocusWindow) {
+                note_context_switch(fg);
+            }
+        }
     }
-    note_context_switch(hwnd);
 }
 
 // Elevation cannot be added to a running process, so this hands over to a fresh
@@ -1202,11 +1234,18 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     ID_TRAY_INDICATOR,
                     text::s().menuIndicator);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
-                if (!autostart::elevated() && !autostart::packaged()) {
-                    // Hidden rather than greyed when already elevated: a disabled
-                    // item invites the question of how to enable it. Also hidden in
-                    // the MSIX build, which cannot elevate.
-                    AppendMenuW(menu, MF_STRING, ID_TRAY_ELEVATE, text::s().menuElevate);
+                if (!autostart::elevated()) {
+                    if (autostart::packaged()) {
+                        const bool helperActive = helper::is_running();
+                        AppendMenuW(
+                            menu,
+                            MF_STRING | (helperActive ? MF_CHECKED : MF_UNCHECKED),
+                            ID_TRAY_HELPER,
+                            helperActive ? text::s().menuHelperActive : text::s().menuHelper);
+                    } else {
+                        // Desktop unelevated: can restart elevated directly
+                        AppendMenuW(menu, MF_STRING, ID_TRAY_ELEVATE, text::s().menuElevate);
+                    }
                 }
                 if (!diag::path().empty()) {
                     // Only when there is a file to open, so the menu never offers
@@ -1312,6 +1351,13 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             restart_elevated();
             return 0;
         }
+        if (LOWORD(wParam) == ID_TRAY_HELPER) {
+            if (!helper::is_running()) {
+                diag::write(L"user: launching elevated helper");
+                helper::launch_elevated();
+            }
+            return 0;
+        }
         if (LOWORD(wParam) == ID_TRAY_RULES) {
             config::show_rules(
                 reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd, GWLP_HINSTANCE)),
@@ -1371,6 +1417,14 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 } // namespace
 
 int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ int) {
+    const wchar_t* cmdline = GetCommandLineW();
+    if (wcsstr(cmdline, L"--helper")) {
+        return helper::run_server();
+    }
+    if (wcsstr(cmdline, L"--stop-helper")) {
+        return helper::stop_server() ? 0 : 1;
+    }
+
     // The manifest activates ComCtl32 version 6; this loads it and registers the
     // classes. Per-Monitor V2 awareness comes from the manifest too, so there is
     // no DPI call to make here.
@@ -1462,7 +1516,7 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
 
     g_app.foregroundHook = SetWinEventHook(
         EVENT_SYSTEM_FOREGROUND,
-        EVENT_SYSTEM_FOREGROUND,
+        EVENT_OBJECT_FOCUS,
         nullptr,
         win_event_proc,
         0,
@@ -1498,7 +1552,6 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     // screenshot job can drive it without automating the fragile system tray.
     // Each posts the same message the tray itself would. Harmless in normal use;
     // a second instance still exits at the single-instance check above.
-    const wchar_t* cmdline = GetCommandLineW();
     if (wcsstr(cmdline, L"--show-rules")) {
         PostMessageW(g_app.hwnd, WM_COMMAND, ID_TRAY_RULES, 0);
     }
