@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 3.21)
 # Single source of truth for the version. The release workflow reads it and
 # refuses to publish a tag that disagrees, so the number stamped into the
 # executable always matches the release it shipped in.
-project(ImeModePersistence VERSION 1.4.1 LANGUAGES CXX)
+project(ImeModePersistence VERSION 1.5.0 LANGUAGES CXX)
 
-set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable")
+set(APP_VERSION "${PROJECT_VERSION}" CACHE STRING "Version stamped into the executable" FORCE)
 
 if(NOT APP_VERSION MATCHES "^([0-9]+)\\.([0-9]+)\\.([0-9]+)$")
     message(FATAL_ERROR "APP_VERSION must be MAJOR.MINOR.PATCH, got '${APP_VERSION}'")
@@ -61,6 +61,8 @@ add_library(ime_core STATIC
     src/theme.h
     src/tsf.cpp
     src/tsf.h
+    src/helper.cpp
+    src/helper.h
 )
 
 target_include_directories(ime_core PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")

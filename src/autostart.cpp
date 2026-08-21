@@ -207,7 +207,7 @@ bool elevated() {
         return ok && elevation.TokenIsElevated != 0;
     }();
     return result;
-}
+} // namespace
 
 bool packaged() {
     // Static, not queried per call: package identity is fixed for the life of the

@@ -25,6 +25,7 @@
 #include "schedule.h"
 #include "theme.h"
 #include "tsf.h"
+#include "helper.h"
 
 namespace {
 
@@ -46,6 +47,7 @@ constexpr UINT ID_TRAY_LANG_ZHTW = 1010;
 constexpr UINT ID_TRAY_LANG_ZHCN = 1011;
 constexpr UINT ID_TRAY_LANG_JA = 1012;
 constexpr UINT ID_TRAY_LANG_KO = 1013;
+constexpr UINT ID_TRAY_HELPER = 1014;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Session-local: one instance per interactive logon session is what we want, and
@@ -1202,11 +1204,18 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     ID_TRAY_INDICATOR,
                     text::s().menuIndicator);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
-                if (!autostart::elevated() && !autostart::packaged()) {
-                    // Hidden rather than greyed when already elevated: a disabled
-                    // item invites the question of how to enable it. Also hidden in
-                    // the MSIX build, which cannot elevate.
-                    AppendMenuW(menu, MF_STRING, ID_TRAY_ELEVATE, text::s().menuElevate);
+                if (!autostart::elevated()) {
+                    if (autostart::packaged()) {
+                        const bool helperActive = helper::is_running();
+                        AppendMenuW(
+                            menu,
+                            MF_STRING | (helperActive ? MF_CHECKED : MF_UNCHECKED),
+                            ID_TRAY_HELPER,
+                            helperActive ? text::s().menuHelperActive : text::s().menuHelper);
+                    } else {
+                        // Desktop unelevated: can restart elevated directly
+                        AppendMenuW(menu, MF_STRING, ID_TRAY_ELEVATE, text::s().menuElevate);
+                    }
                 }
                 if (!diag::path().empty()) {
                     // Only when there is a file to open, so the menu never offers
@@ -1312,6 +1321,13 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             restart_elevated();
             return 0;
         }
+        if (LOWORD(wParam) == ID_TRAY_HELPER) {
+            if (!helper::is_running()) {
+                diag::write(L"user: launching elevated helper");
+                helper::launch_elevated();
+            }
+            return 0;
+        }
         if (LOWORD(wParam) == ID_TRAY_RULES) {
             config::show_rules(
                 reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(hwnd, GWLP_HINSTANCE)),
@@ -1371,6 +1387,14 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 } // namespace
 
 int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In_ int) {
+    const wchar_t* cmdline = GetCommandLineW();
+    if (wcsstr(cmdline, L"--helper")) {
+        return helper::run_server();
+    }
+    if (wcsstr(cmdline, L"--stop-helper")) {
+        return helper::stop_server() ? 0 : 1;
+    }
+
     // The manifest activates ComCtl32 version 6; this loads it and registers the
     // classes. Per-Monitor V2 awareness comes from the manifest too, so there is
     // no DPI call to make here.
@@ -1498,7 +1522,6 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     // screenshot job can drive it without automating the fragile system tray.
     // Each posts the same message the tray itself would. Harmless in normal use;
     // a second instance still exits at the single-instance check above.
-    const wchar_t* cmdline = GetCommandLineW();
     if (wcsstr(cmdline, L"--show-rules")) {
         PostMessageW(g_app.hwnd, WM_COMMAND, ID_TRAY_RULES, 0);
     }
