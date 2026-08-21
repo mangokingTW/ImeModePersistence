@@ -6,6 +6,9 @@
 #include <sddl.h>
 #include <shellapi.h>
 
+#include <atomic>
+#include <thread>
+
 #pragma comment(lib, "imm32.lib")
 #pragma comment(lib, "advapi32.lib")
 #pragma comment(lib, "shell32.lib")
@@ -107,14 +110,6 @@ int run_server(DWORD parentPid) {
         return 0;
     }
 
-    HANDLE hParent = nullptr;
-    if (parentPid != 0) {
-        hParent = OpenProcess(SYNCHRONIZE, FALSE, parentPid);
-        if (!hParent) {
-            diag::write(L"helper: could not open parent process %u (error %u)", parentPid, GetLastError());
-        }
-    }
-
     // Set SDDL allowing Medium-IL interactive user and admin clients to connect:
     // D:(A;;GA;;;BA)(A;;GA;;;IU) -> Built-in Admins & Interactive Users Generic All
     // S:(ML;;NW;;;ME) -> Low/Medium Mandatory Integrity Label
@@ -130,9 +125,12 @@ int run_server(DWORD parentPid) {
         sa.lpSecurityDescriptor = pSD;
     }
 
+    // Synchronous pipe: no FILE_FLAG_OVERLAPPED so ReadFile/WriteFile are always
+    // reliable. Parent-process monitoring is handled by a separate watchdog thread
+    // that posts a Stop command to break the server loop cleanly.
     HANDLE hPipe = CreateNamedPipeW(
         kPipeName,
-        PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
+        PIPE_ACCESS_DUPLEX,
         PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
         PIPE_UNLIMITED_INSTANCES,
         512,
@@ -143,146 +141,140 @@ int run_server(DWORD parentPid) {
     if (hPipe == INVALID_HANDLE_VALUE) {
         diag::write(L"helper: CreateNamedPipe failed with %u", GetLastError());
         if (pSD) LocalFree(pSD);
-        if (hParent) CloseHandle(hParent);
-        CloseHandle(hMutex);
-        return 1;
-    }
-
-    HANDLE hConnectEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!hConnectEvent) {
-        diag::write(L"helper: CreateEvent failed with %u", GetLastError());
-        CloseHandle(hPipe);
-        if (pSD) LocalFree(pSD);
-        if (hParent) CloseHandle(hParent);
         CloseHandle(hMutex);
         return 1;
     }
 
     diag::write(L"helper: named pipe created and listening");
 
-    OVERLAPPED ol{};
-    ol.hEvent = hConnectEvent;
-
-    bool running = true;
-    while (running) {
-        ResetEvent(hConnectEvent);
-        const BOOL connected = ConnectNamedPipe(hPipe, &ol);
-        if (!connected) {
-            const DWORD err = GetLastError();
-            if (err == ERROR_PIPE_CONNECTED) {
-                SetEvent(hConnectEvent);
-            } else if (err != ERROR_IO_PENDING) {
-                Sleep(10);
-                continue;
-            }
-        }
-
-        HANDLE waitHandles[2] = { hConnectEvent, hParent };
-        const DWORD waitCount = hParent ? 2 : 1;
-        const DWORD waitRes = WaitForMultipleObjects(waitCount, waitHandles, FALSE, INFINITE);
-
-        if (waitRes == WAIT_OBJECT_0) {
-            DWORD unused = 0;
-            if (GetOverlappedResult(hPipe, &ol, &unused, TRUE)) {
-                Request req{};
-                DWORD bytesRead = 0;
-                if (ReadFile(hPipe, &req, sizeof(req), &bytesRead, nullptr) && bytesRead == sizeof(req)) {
+    // Watchdog thread: waits on the parent process handle and sends a Stop
+    // command to unblock the synchronous ConnectNamedPipe / ReadFile loop,
+    // allowing a clean exit rather than leaving an orphaned elevated process.
+    std::atomic<bool> watchdogDone{false};
+    std::thread watchdog;
+    if (parentPid != 0) {
+        HANDLE hParent = OpenProcess(SYNCHRONIZE, FALSE, parentPid);
+        if (!hParent) {
+            diag::write(L"helper: could not open parent process %u (error %u)", parentPid, GetLastError());
+        } else {
+            watchdog = std::thread([hParent, parentPid, &watchdogDone] {
+                WaitForSingleObject(hParent, INFINITE);
+                CloseHandle(hParent);
+                if (!watchdogDone) {
+                    diag::write(L"helper: parent process %u terminated, sending stop", parentPid);
+                    Request req{CommandType::Stop};
                     Response resp{};
-
-                    if (req.type == CommandType::Ping) {
-                        resp.success = TRUE;
-                    } else if (req.type == CommandType::Stop) {
-                        resp.success = TRUE;
-                        running = false;
-                    } else if (req.type == CommandType::Read) {
-                        const Targets targets = targets_for(req.targetTopHwnd);
-                        for (int i = 0; i < targets.count; ++i) {
-                            HWND imeWnd = default_ime_window(targets.wnd[i]);
-                            if (!imeWnd) continue;
-                            DWORD_PTR open = 0;
-                            if (!SendMessageTimeoutW(
-                                    imeWnd,
-                                    WM_IME_CONTROL,
-                                    IMC_GETOPENSTATUS,
-                                    0,
-                                    SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT,
-                                    kSendTimeoutMs,
-                                    &open)) {
-                                continue;
-                            }
-                            DWORD_PTR bits = 0;
-                            if (!SendMessageTimeoutW(
-                                    imeWnd,
-                                    WM_IME_CONTROL,
-                                    IMC_GETCONVERSIONMODE,
-                                    0,
-                                    SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT,
-                                    kSendTimeoutMs,
-                                    &bits)) {
-                                continue;
-                            }
-                            resp.success = TRUE;
-                            resp.openStatus = (open != 0);
-                            resp.conversionBits = static_cast<DWORD>(bits);
-                            resp.targetHwnd = imeWnd;
-                            break;
-                        }
-                    } else if (req.type == CommandType::WriteConversion) {
-                        const Targets targets = targets_for(req.targetTopHwnd);
-                        for (int i = 0; i < targets.count; ++i) {
-                            HWND imeWnd = default_ime_window(targets.wnd[i]);
-                            if (!imeWnd) continue;
-                            DWORD_PTR result = 0;
-                            if (SendMessageTimeoutW(
-                                    imeWnd,
-                                    WM_IME_CONTROL,
-                                    IMC_SETCONVERSIONMODE,
-                                    static_cast<LPARAM>(req.conversionBits),
-                                    SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT,
-                                    kSendTimeoutMs,
-                                    &result) != 0) {
-                                resp.success = TRUE;
-                                resp.targetHwnd = imeWnd;
-                                break;
-                            }
-                        }
-                    } else if (req.type == CommandType::WriteOpen) {
-                        const Targets targets = targets_for(req.targetTopHwnd);
-                        for (int i = 0; i < targets.count; ++i) {
-                            HWND imeWnd = default_ime_window(targets.wnd[i]);
-                            if (!imeWnd) continue;
-                            DWORD_PTR result = 0;
-                            if (SendMessageTimeoutW(
-                                    imeWnd,
-                                    WM_IME_CONTROL,
-                                    IMC_SETOPENSTATUS,
-                                    req.openStatus ? TRUE : FALSE,
-                                    SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT,
-                                    kSendTimeoutMs,
-                                    &result) != 0) {
-                                resp.success = TRUE;
-                                resp.targetHwnd = imeWnd;
-                                break;
-                            }
-                        }
-                    }
-
-                    DWORD written = 0;
-                    WriteFile(hPipe, &resp, sizeof(resp), &written, nullptr);
+                    send_client_request(req, resp);
                 }
-            }
-            DisconnectNamedPipe(hPipe);
-        } else if (hParent && waitRes == WAIT_OBJECT_0 + 1) {
-            diag::write(L"helper: parent process %u terminated, exiting", parentPid);
-            CancelIo(hPipe);
-            running = false;
+            });
         }
     }
 
-    CloseHandle(hConnectEvent);
+    bool running = true;
+    while (running) {
+        const BOOL connected =
+            ConnectNamedPipe(hPipe, nullptr) ? TRUE : (GetLastError() == ERROR_PIPE_CONNECTED);
+
+        if (connected) {
+            Request req{};
+            DWORD bytesRead = 0;
+            if (ReadFile(hPipe, &req, sizeof(req), &bytesRead, nullptr) && bytesRead == sizeof(req)) {
+                Response resp{};
+
+                if (req.type == CommandType::Ping) {
+                    resp.success = TRUE;
+                } else if (req.type == CommandType::Stop) {
+                    resp.success = TRUE;
+                    running = false;
+                } else if (req.type == CommandType::Read) {
+                    const Targets targets = targets_for(req.targetTopHwnd);
+                    for (int i = 0; i < targets.count; ++i) {
+                        HWND imeWnd = default_ime_window(targets.wnd[i]);
+                        if (!imeWnd) continue;
+                        DWORD_PTR open = 0;
+                        if (!SendMessageTimeoutW(
+                                imeWnd,
+                                WM_IME_CONTROL,
+                                IMC_GETOPENSTATUS,
+                                0,
+                                SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT,
+                                kSendTimeoutMs,
+                                &open)) {
+                            continue;
+                        }
+                        DWORD_PTR bits = 0;
+                        if (!SendMessageTimeoutW(
+                                imeWnd,
+                                WM_IME_CONTROL,
+                                IMC_GETCONVERSIONMODE,
+                                0,
+                                SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT,
+                                kSendTimeoutMs,
+                                &bits)) {
+                            continue;
+                        }
+                        resp.success = TRUE;
+                        resp.openStatus = (open != 0);
+                        resp.conversionBits = static_cast<DWORD>(bits);
+                        resp.targetHwnd = imeWnd;
+                        break;
+                    }
+                } else if (req.type == CommandType::WriteConversion) {
+                    const Targets targets = targets_for(req.targetTopHwnd);
+                    for (int i = 0; i < targets.count; ++i) {
+                        HWND imeWnd = default_ime_window(targets.wnd[i]);
+                        if (!imeWnd) continue;
+                        DWORD_PTR result = 0;
+                        if (SendMessageTimeoutW(
+                                imeWnd,
+                                WM_IME_CONTROL,
+                                IMC_SETCONVERSIONMODE,
+                                static_cast<LPARAM>(req.conversionBits),
+                                SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT,
+                                kSendTimeoutMs,
+                                &result) != 0) {
+                            resp.success = TRUE;
+                            resp.targetHwnd = imeWnd;
+                            break;
+                        }
+                    }
+                } else if (req.type == CommandType::WriteOpen) {
+                    const Targets targets = targets_for(req.targetTopHwnd);
+                    for (int i = 0; i < targets.count; ++i) {
+                        HWND imeWnd = default_ime_window(targets.wnd[i]);
+                        if (!imeWnd) continue;
+                        DWORD_PTR result = 0;
+                        if (SendMessageTimeoutW(
+                                imeWnd,
+                                WM_IME_CONTROL,
+                                IMC_SETOPENSTATUS,
+                                req.openStatus ? TRUE : FALSE,
+                                SMTO_ABORTIFHUNG | SMTO_ERRORONEXIT,
+                                kSendTimeoutMs,
+                                &result) != 0) {
+                            resp.success = TRUE;
+                            resp.targetHwnd = imeWnd;
+                            break;
+                        }
+                    }
+                }
+
+                DWORD written = 0;
+                WriteFile(hPipe, &resp, sizeof(resp), &written, nullptr);
+            }
+            DisconnectNamedPipe(hPipe);
+        }
+    }
+
+    // Signal the watchdog not to send another Stop (we already exited the loop),
+    // then wait for it to finish.
+    watchdogDone = true;
+    if (watchdog.joinable()) {
+        watchdog.join();
+    }
+
     CloseHandle(hPipe);
     if (pSD) LocalFree(pSD);
-    if (hParent) CloseHandle(hParent);
     CloseHandle(hMutex);
     diag::write(L"helper: server stopped");
     return 0;
