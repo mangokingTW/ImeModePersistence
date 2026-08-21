@@ -1235,15 +1235,14 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     text::s().menuIndicator);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
                 if (!autostart::elevated()) {
-                    if (autostart::packaged()) {
-                        const bool helperActive = helper::is_running();
-                        AppendMenuW(
-                            menu,
-                            MF_STRING | (helperActive ? MF_CHECKED : MF_UNCHECKED),
-                            ID_TRAY_HELPER,
-                            helperActive ? text::s().menuHelperActive : text::s().menuHelper);
-                    } else {
-                        // Desktop unelevated: can restart elevated directly
+                    const bool helperActive = helper::is_running();
+                    AppendMenuW(
+                        menu,
+                        MF_STRING | (helperActive ? MF_CHECKED : MF_UNCHECKED),
+                        ID_TRAY_HELPER,
+                        helperActive ? text::s().menuHelperActive : text::s().menuHelper);
+                    if (!autostart::packaged()) {
+                        // Desktop unelevated: can also restart elevated directly
                         AppendMenuW(menu, MF_STRING, ID_TRAY_ELEVATE, text::s().menuElevate);
                     }
                 }
@@ -1355,6 +1354,9 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             if (!helper::is_running()) {
                 diag::write(L"user: launching elevated helper");
                 helper::launch_elevated();
+            } else {
+                diag::write(L"user: stopping helper");
+                helper::stop_server();
             }
             return 0;
         }
