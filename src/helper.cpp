@@ -259,6 +259,40 @@ int run_server(DWORD parentPid) {
                             break;
                         }
                     }
+                } else if (req.type == CommandType::SwitchLayout) {
+                    if (req.targetTopHwnd && req.layoutHkl && IsWindow(req.targetTopHwnd)) {
+                        const DWORD thread = GetWindowThreadProcessId(req.targetTopHwnd, nullptr);
+                        if (thread) {
+                            GUITHREADINFO info{};
+                            info.cbSize = sizeof(info);
+                            HWND target = (GetGUIThreadInfo(thread, &info) && info.hwndFocus && IsWindow(info.hwndFocus))
+                                              ? info.hwndFocus
+                                              : req.targetTopHwnd;
+                            if (PostMessageW(target, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(req.layoutHkl))) {
+                                resp.success = TRUE;
+                                resp.targetHwnd = target;
+                            } else {
+                                struct Broadcast {
+                                    HKL hkl;
+                                    bool posted;
+                                } state{req.layoutHkl, false};
+                                EnumThreadWindows(
+                                    thread,
+                                    [](HWND w, LPARAM p) -> BOOL {
+                                        auto* s = reinterpret_cast<Broadcast*>(p);
+                                        if (PostMessageW(w, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(s->hkl))) {
+                                            s->posted = true;
+                                        }
+                                        return TRUE;
+                                    },
+                                    reinterpret_cast<LPARAM>(&state));
+                                if (state.posted) {
+                                    resp.success = TRUE;
+                                    resp.targetHwnd = req.targetTopHwnd;
+                                }
+                            }
+                        }
+                    }
                 }
 
                 DWORD written = 0;
@@ -356,6 +390,19 @@ bool try_read(HWND targetTopHwnd, bool& open, DWORD& bits) {
         return true;
     }
     return false;
+}
+
+bool try_switch_layout(HWND targetTopHwnd, HKL hkl) {
+    if (!targetTopHwnd || !hkl) {
+        return false;
+    }
+    Request req{};
+    req.type = CommandType::SwitchLayout;
+    req.targetTopHwnd = targetTopHwnd;
+    req.layoutHkl = hkl;
+
+    Response resp{};
+    return send_client_request(req, resp);
 }
 
 bool stop_server() {

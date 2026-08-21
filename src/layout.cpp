@@ -5,6 +5,7 @@
 
 #include <algorithm>
 
+#include "helper.h"
 #include "tsf.h"
 
 namespace layout {
@@ -165,11 +166,17 @@ bool request(HWND hwnd, HKL hkl, Method method) {
 
     switch (method) {
     case Method::FocusWindow: {
+        if (helper::try_switch_layout(hwnd, hkl)) {
+            return true;
+        }
         HWND focus = focus_window(thread);
         return post_request(focus ? focus : hwnd, hkl);
     }
 
     case Method::ThreadWindows: {
+        if (helper::try_switch_layout(hwnd, hkl)) {
+            return true;
+        }
         // Some applications keep a separate message-handling window that honours
         // the request even when the visible one ignores it.
         Broadcast state{hkl, false};
