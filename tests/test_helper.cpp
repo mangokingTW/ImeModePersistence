@@ -20,6 +20,14 @@ void run_helper_tests() {
     CHECK(resp.success);
     CHECK(resp.targetHwnd == reinterpret_cast<HWND>(0x5678));
 
+    helper::Request reqLayout{};
+    reqLayout.type = helper::CommandType::SwitchLayout;
+    reqLayout.targetTopHwnd = reinterpret_cast<HWND>(0x1234);
+    reqLayout.layoutHkl = reinterpret_cast<HKL>(0x04090409);
+    CHECK(reqLayout.type == helper::CommandType::SwitchLayout);
+    CHECK(reqLayout.targetTopHwnd == reinterpret_cast<HWND>(0x1234));
+    CHECK(reqLayout.layoutHkl == reinterpret_cast<HKL>(0x04090409));
+
     // 2. Client fallback when helper is offline
     // When helper server is not running, client calls must return false quickly without blocking or crashing.
     if (!helper::is_running()) {
@@ -28,5 +36,6 @@ void run_helper_tests() {
         CHECK(!helper::try_read(nullptr, open, bits));
         CHECK(!helper::try_write_conversion(nullptr, 1));
         CHECK(!helper::try_write_open(nullptr, true));
+        CHECK(!helper::try_switch_layout(nullptr, reinterpret_cast<HKL>(0x04090409)));
     }
 }

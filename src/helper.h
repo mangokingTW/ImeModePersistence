@@ -14,6 +14,7 @@ enum class CommandType : DWORD {
     WriteOpen = 3,
     Stop = 4,
     Read = 5,
+    SwitchLayout = 6,
 };
 
 struct Request {
@@ -21,6 +22,7 @@ struct Request {
     HWND targetTopHwnd{nullptr};
     DWORD conversionBits{0};
     BOOL openStatus{FALSE};
+    HKL layoutHkl{nullptr};
 };
 
 struct Response {
@@ -39,6 +41,7 @@ bool launch_elevated();
 bool try_write_conversion(HWND targetTopHwnd, DWORD bits);
 bool try_write_open(HWND targetTopHwnd, bool open);
 bool try_read(HWND targetTopHwnd, bool& open, DWORD& bits);
+bool try_switch_layout(HWND targetTopHwnd, HKL hkl);
 bool stop_server();
 
 } // namespace helper
