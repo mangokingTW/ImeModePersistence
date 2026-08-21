@@ -280,8 +280,13 @@ TSF is deliberately not exercised. It moves the input language for the whole ses
 ## Security boundaries
 
 - No global `WH_CALLWNDPROC` DLL injection.
-- UIPI stops any process from changing IME state at a higher integrity level. Run the utility at the same integrity level as the target application when that matters.
-- No attempt is made to bypass Windows security boundaries. Elevation only ever happens explicitly and by the user's hand: the manifest stays `asInvoker`, and the only requests are the *Restart as administrator* menu item and the admin installer's own UAC prompt.
+- UIPI stops any process from sending window messages to windows at a higher integrity level or focused child windows in certain modern packaged apps (e.g. Windows 11 Notepad).
+- **Sidecar Helper architecture**: To allow unelevated desktop and Microsoft Store packaged builds to persist IME modes across UIPI-protected windows without running the entire main application as administrator:
+  - An elevated helper process is spawned on demand (`--helper <parent_pid>`) via an explicit user UAC prompt from the tray menu ("Enable WinUI/Admin support...").
+  - The main application and helper communicate over a local synchronous Named Pipe (`\\.\pipe\ImeModePersistence.Sidecar`) secured by a strict SDDL (`D:(A;;GA;;;BA)(A;;GA;;;IU)S:(ML;;NW;;;ME)`), restricting IPC strictly to the interactive user session and administrators.
+  - Elevation runs directly on the original executable binary without copying to mutable temp directories, eliminating TOCTOU / unprivileged folder LPE risks.
+  - A dedicated watchdog thread monitors the parent process handle and an internal shutdown event, ensuring the elevated helper terminates immediately when the main application exits.
+- No attempt is made to bypass Windows security boundaries silently. Elevation only ever happens explicitly and by the user's hand: the manifest stays `asInvoker`, and the only elevation triggers are *Restart as administrator*, *Enable WinUI/Admin support...*, and the admin installer's UAC prompt.
 
 ## Verifying it, without taking the author's word
 
