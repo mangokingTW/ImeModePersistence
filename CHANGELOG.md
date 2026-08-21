@@ -7,6 +7,22 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.5.1
+
+Security hardening and lifecycle improvements for Sidecar Helper:
+
+- Hardened elevation path: Sidecar Helper now elevates directly from the original executable path, eliminating writable AppData copy and preventing potential local privilege escalation (LPE) / TOCTOU risks.
+- Restricted IPC access: Tightened named pipe security descriptor (SDDL) to interactive users and administrators only.
+- Parent process watchdog: Helper service now monitors the main application's process lifecycle and cleanly terminates when the parent process exits.
+- Improved data integrity: Upgraded window handle passing in IPC responses to 64-bit HWND.
+
+繁體中文:Sidecar Helper 輔助服務之安全加固與生命週期改善：
+
+- 提權路徑加固：Sidecar Helper 改為直接對原始執行檔路徑提權，移除 AppData 複本機制，消滅潛在的本機提權（LPE）與 TOCTOU 風險。
+- IPC 連線權限收斂：收斂具名管道 SDDL 安全描述元，僅允許當前互動登入者與管理員連線。
+- 孤兒行程守護：Helper 服務新增父行程生命週期監聽，於主程式結束或崩潰時自動退出。
+- 資料完整性提升：IPC 回應之視窗代碼欄位升級為 64 位元 HWND。
+
 ## v1.5.0
 
 Microsoft Store (MSIX) and non-elevated builds now support modern (WinUI/TSF) apps via Sidecar Helper:
