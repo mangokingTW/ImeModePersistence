@@ -7,18 +7,18 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
-## v1.5.3-beta.3
+## v1.5.3
 
-Beta release with unified dual-mode installer and Sidecar Helper layout switching:
+Unified dual-mode installer & Sidecar Helper layout switching:
 
-- Unified dual-mode installer: Merged separate `setup-admin.exe` and `setup-user.exe` into a single `ImeModePersistence-<version>-setup.exe` installer with `PrivilegesRequiredOverridesAllowed=dialog commandline`. Interactive installs offer per-user (no UAC) or all-users (Program Files, elevated) choices; package managers use `/CURRENTUSER` or `/ALLUSERS`.
-- Sidecar Helper layout switching: Extended Helper IPC protocol with `SwitchLayout` command, allowing unelevated desktop and Microsoft Store packaged builds to switch keyboard layouts for elevated or anti-cheat protected fullscreen games (such as Helldivers 2 with `class:stingray_window`) across UIPI boundaries.
+- Unified dual-mode installer: Merged separate `setup-admin.exe` and `setup-user.exe` into a single `ImeModePersistence-<version>-setup.exe` installer with `PrivilegesRequiredOverridesAllowed=dialog commandline`. Interactive installs offer per-user (no UAC required) or all-users (Program Files, elevated) choices; package managers use `/CURRENTUSER` or `/ALLUSERS`.
+- Layout switching via Sidecar Helper: Extended Helper IPC protocol with `SwitchLayout` command, allowing unelevated desktop and Microsoft Store packaged builds to switch keyboard layouts for elevated or anti-cheat protected fullscreen games (such as Helldivers 2 with `class:stingray_window`) across UIPI boundaries.
 - Desktop Helper menu availability: Made "Enable WinUI/Admin support..." (Sidecar Helper) available across all unelevated builds with toggle stop support.
 
-繁體中文:二合一安裝程式與 Sidecar Helper 鍵盤配置切換支援測試版：
+繁體中文:二合一安裝程式與 Sidecar Helper 鍵盤配置切換支援：
 
 - 二合一安裝程式：將原先分開的 `setup-admin.exe` 與 `setup-user.exe` 合併為單一 `ImeModePersistence-<version>-setup.exe`。互動安裝時提供「為目前使用者安裝（免提權）」與「為全機所有使用者安裝（需要管理員提權）」選項；命令列支援 `/CURRENTUSER` 與 `/ALLUSERS` 參數。
-- 跨 UIPI 鍵盤配置切換：擴充 Sidecar Helper IPC 協定支援 `SwitchLayout` 指令，使一般權限與 Store 版在啟用 Helper 輔助服務後，能跨越 UIPI 屏障為高權限 / 反作弊全螢幕遊戲（如 Helldivers 2 搭配 `class:stingray_window`）自動切換與綁定語言。
+- 跨 UIPI 鍵盤配置切換：擴充 Sidecar Helper IPC 協定支援 `SwitchLayout` 指令，使一般權限桌面版與 Store 版在啟用 Helper 輔助服務後，能跨越 UIPI 屏障為高權限 / 反作弊全螢幕遊戲（如 Helldivers 2 搭配 `class:stingray_window`）自動切換與綁定語言。
 - 桌面版選單支援 Helper：所有未提權版本皆一律顯示「啟用現代視窗 (WinUI) 支援…」選單項目，並支援再次點擊關閉。
 
 ## v1.5.2
