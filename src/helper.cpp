@@ -6,7 +6,6 @@
 #include <sddl.h>
 #include <shellapi.h>
 
-#include <atomic>
 #include <thread>
 
 #pragma comment(lib, "imm32.lib")
@@ -147,25 +146,28 @@ int run_server(DWORD parentPid) {
 
     diag::write(L"helper: named pipe created and listening");
 
-    // Watchdog thread: waits on the parent process handle and sends a Stop
-    // command to unblock the synchronous ConnectNamedPipe / ReadFile loop,
-    // allowing a clean exit rather than leaving an orphaned elevated process.
-    std::atomic<bool> watchdogDone{false};
+    // Watchdog thread: waits on both the parent process handle and an internal
+    // shutdown event. If parent terminates first, it sends a Stop command to
+    // unblock the synchronous ConnectNamedPipe loop. If the server loop exits
+    // due to another command, setting hShutdownEvent immediately wakes and joins
+    // the watchdog thread without blocking.
+    HANDLE hShutdownEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     std::thread watchdog;
-    if (parentPid != 0) {
+    if (parentPid != 0 && hShutdownEvent) {
         HANDLE hParent = OpenProcess(SYNCHRONIZE, FALSE, parentPid);
         if (!hParent) {
             diag::write(L"helper: could not open parent process %u (error %u)", parentPid, GetLastError());
         } else {
-            watchdog = std::thread([hParent, parentPid, &watchdogDone] {
-                WaitForSingleObject(hParent, INFINITE);
-                CloseHandle(hParent);
-                if (!watchdogDone) {
+            watchdog = std::thread([hParent, hShutdownEvent, parentPid] {
+                HANDLE waitHandles[2] = { hParent, hShutdownEvent };
+                const DWORD waitRes = WaitForMultipleObjects(2, waitHandles, FALSE, INFINITE);
+                if (waitRes == WAIT_OBJECT_0) {
                     diag::write(L"helper: parent process %u terminated, sending stop", parentPid);
                     Request req{CommandType::Stop};
                     Response resp{};
                     send_client_request(req, resp);
                 }
+                CloseHandle(hParent);
             });
         }
     }
@@ -266,11 +268,15 @@ int run_server(DWORD parentPid) {
         }
     }
 
-    // Signal the watchdog not to send another Stop (we already exited the loop),
-    // then wait for it to finish.
-    watchdogDone = true;
+    // Wake and cleanly join watchdog thread before cleaning up resources.
+    if (hShutdownEvent) {
+        SetEvent(hShutdownEvent);
+    }
     if (watchdog.joinable()) {
         watchdog.join();
+    }
+    if (hShutdownEvent) {
+        CloseHandle(hShutdownEvent);
     }
 
     CloseHandle(hPipe);
