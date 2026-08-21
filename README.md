@@ -70,7 +70,7 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 ## 使用
 
-常駐在通知區域。右鍵選單：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**以管理員身分重新啟動**（未提權時才出現）、**結束**。
+常駐在通知區域。右鍵選單：**跨程式維持輸入模式**（可關閉）、**開機時自動啟動**、**程式綁定輸入語言…**、**啟用現代視窗 (WinUI) 支援…**（未提權時可選，用 Sidecar Helper 服務）、**以管理員身分重新啟動**（未提權時才出現）、**結束**。
 
 <p align="center"><img src="docs/screenshots/menu-zh-tw-light.png" alt="托盤右鍵選單" width="230"></p>
 
@@ -101,20 +101,18 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 它會避開自己的視窗、跟著游標走。在**瀏覽器網址列**這類程式,因為 Chromium 對外回報的游標位置不可靠,徽章改顯示在該行**上方**、不遮住文字。
 
-## ⚠️ 已知問題
+## 現代 TSF/WinUI 程式支援
 
-**現代 TSF/WinUI 程式（新版記事本等封裝程式）需以系統管理員執行，才能維持輸入模式。**
+**新版記事本等封裝/WinUI 程式**的輸入欄位在焦點子視窗、受 Windows UIPI 機制保護：
 
-這類程式真正的輸入欄位在焦點子視窗、受 Windows 的 UIPI 保護，只有提權（高完整性）程式搆得到。
-
-- 未提權時：傳統程式與 Chromium（Chrome、Discord）照常運作；新版記事本這類則不受控。
-- 解法：以系統管理員執行（工具列 →「以系統管理員重新啟動」）。
-- **Microsoft Store 版無法做到** —— 封裝程式被系統拒絕所需權限；這些程式請改用桌面版並以系統管理員執行。
+- **Sidecar Helper 支援（推薦）**：在托盤選單點擊「**啟用現代視窗 (WinUI) 支援…**」（通過一次 UAC 啟動背景輔助服務），即可由 Helper 跨越 UIPI 保護維持輸入模式。**Microsoft Store 商店版與一般桌面版皆支援此功能**！
+- **桌面版亦可直接提權**：點選托盤選單「以系統管理員身分重新啟動」。
+- **未啟用時**：傳統程式與 Chromium（Chrome、Discord）正常運作；新版記事本等受 UIPI 保護的現代視窗則不維持。
 
 ## 限制
 
 - 寫入是 best-effort 並讀回驗證。IME 仍在啟動中時可能丟棄變更，重試四次後就接受目標視窗的狀態
-- 讀取或修改**提權程式**的視窗需要同等權限，所以控制有防作弊的遊戲必須提權執行
+- 讀取或修改**提權程式**的視窗需要同等權限，所以控制有防作弊的遊戲必須提權執行（或使用 Sidecar Helper）
 - 介面依 Windows 顯示語言選擇：英文、繁體中文、簡體中文、日文、韓文（後三者為機器翻譯）；安裝程式仍是英文
 - 深色模式：程式綁定對話框整個套用；狀態／錯誤這類暫時性小框維持淺底、僅標題列變暗（與 Windows 系統對話框一致）
 - 不注入、不掛勾、不模擬按鍵。切換是向視窗投遞 Windows 標準的「切換輸入語言」通知（視窗可自行忽略），行不通再請 TSF 以公開 API 切換；仍無效就放手，愈輸愈少問
@@ -123,7 +121,8 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failureiscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+ctest --test-dir build -C Release --output-on-failure
+iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
 iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 
@@ -142,6 +141,7 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 - [x] 開機自動啟動、設定介面、Windows CI、安裝檔與發佈流程
 - [x] 程式綁定輸入語言，含視窗類別與萬用字元（glob）綁定
 - [x] 游標輸入指示器（游標旁的語言／模式徽章，預設關閉）
+- [x] Sidecar Helper 架構（支援 Store 版與一般權限下維持 WinUI/TSF 視窗）
 - [ ] 同語言多輸入法的細分（注音 vs 倉頡）
 
 ---
@@ -204,7 +204,7 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 ## Using it
 
-It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start automatically at logon**, **App language bindings...**, **Restart as administrator** (shown only when not elevated) and **Exit**.
+It lives in the notification area. Right-click for **Keep mode across windows** (which can be turned off), **Start automatically at logon**, **App language bindings...**, **Enable WinUI/Admin support...** (shown when unelevated; uses a Sidecar Helper service), **Restart as administrator** (shown only when not elevated) and **Exit**.
 
 <p align="center"><img src="docs/screenshots/menu-en-light.png" alt="Tray right-click menu" width="230"></p>
 
@@ -235,20 +235,18 @@ Bind a program to an input language — a terminal to English, Word to Chinese.
 
 It stays out of its own windows and follows the caret. In fields where the reported caret position is unreliable — a browser address bar, because of a Chromium limitation — the badge is drawn above the line instead, so it does not cover the text.
 
-## ⚠️ Known issues
+## Modern TSF/WinUI app support
 
-**Modern TSF/WinUI apps (the packaged Windows 11 Notepad and similar) need the utility run as administrator to hold their input mode.**
+**Modern TSF/WinUI apps (the packaged Windows 11 Notepad and similar)** have their edit fields in focused child windows protected by Windows UIPI:
 
-Their real edit field sits in a focused child window behind Windows' UIPI, reachable only by an elevated (high-integrity) process.
-
-- Unelevated: classic and Chromium apps (Chrome, Discord) still work; these do not.
-- Fix: run as administrator (tray → "Restart as administrator").
-- The **Microsoft Store build cannot do this at all** — the OS denies packaged apps the required privilege; use the desktop build for those apps.
+- **Sidecar Helper support (Recommended)**: Click **"Enable WinUI/Admin support..."** in the tray menu (accepting one UAC prompt to start an elevated helper service). The helper bridges UIPI barriers to hold the input mode seamlessly. **Supported in both the Microsoft Store and desktop builds!**
+- **Desktop build direct elevation**: Or click "Restart as administrator".
+- **When disabled**: Classic and Chromium apps (Chrome, Discord) still work normally; UIPI-protected modern windows do not persist.
 
 ## Limitations
 
 - Writes are best-effort and verified by reading back. An IME still activating can discard one; after four attempts the utility accepts whatever the target settled on
-- Reading or changing the windows of an **elevated** program requires equal privileges, so controlling an anti-cheat protected game means running elevated
+- Reading or changing the windows of an **elevated** program requires equal privileges, so controlling an anti-cheat protected game means running elevated (or using Sidecar Helper)
 - The interface follows Windows' display language — English, Traditional Chinese, Simplified Chinese, Japanese or Korean (the last three machine-translated); the installer is English only
 - Dark mode themes the App-language-bindings dialog fully; the transient status and error boxes keep a light body with a dark title bar, as Windows' own system dialogs do
 - Nothing is injected, hooked or synthesised. Switching posts the window Windows' standard input-language-change notification (which it is free to ignore), then falls back to TSF's public API; where neither takes, the utility backs off, asking less the more it loses
@@ -257,7 +255,8 @@ Their real edit field sits in a focused child window behind Windows' UIPI, reach
 
 ```powershell
 cmake -S . -B build -A x64 && cmake --build build --config Release
-ctest --test-dir build -C Release --output-on-failureiscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
+ctest --test-dir build -C Release --output-on-failure
+iscc /DAppVersion=0.0.0 installer\ImeModePersistence.iss
 iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 ```
 

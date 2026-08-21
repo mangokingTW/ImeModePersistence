@@ -48,7 +48,7 @@ do. The source is small and auditable, and the capability boundary is deliberate
 - **Narrow writes.** Only under `HKCU\Software\ImeModePersistence` and the
   `Run` key, and only to `%LocalAppData%\ImeModePersistence\log.txt`.
 - **Explicit elevation only.** The manifest is `asInvoker`; elevation happens
-  solely through *Restart as administrator* or the admin installer's UAC prompt.
+  solely through *Restart as administrator*, *Enable WinUI/Admin support...* (Sidecar Helper), or the admin installer's UAC prompt.
 
 Independent checks run on every change and are public: CodeQL and MSVC
 `/analyze` (results in the **Security** tab), and OpenSSF Scorecard. A full
