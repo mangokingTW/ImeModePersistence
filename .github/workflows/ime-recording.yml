@@ -74,18 +74,11 @@ jobs:
             }
           }
 
-          $list = Get-WinUserLanguageList
-          $zh = $list | Where-Object { $_.LanguageTag -like 'zh*' }
-          if ($zh) {
-            $list.Remove($zh)
-            $list.Insert(0, $zh)
-          } else {
-            $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
-            $list.Insert(0, $lang)
-          }
-          Set-WinUserLanguageList $list -Force
-          $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
-          Write-Host "zh-TW InputMethodTips (Primary): $tips"
+          $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
+          Set-WinUserLanguageList -LanguageList ($lang) -Force
+          $tips = (Get-WinUserLanguageList).InputMethodTips
+          Write-Host "Exclusive InputMethodTips: $tips"
+
 
 
       - name: Install dependencies

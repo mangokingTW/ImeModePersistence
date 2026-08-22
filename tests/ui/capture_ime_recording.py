@@ -159,13 +159,17 @@ class NotepadWindow:
         pydirectinput.press('shift')
         time.sleep(0.3)
 
-    def set_alphanumeric(self):
-        self.set_foreground()
-        import pydirectinput
-        pydirectinput.press('shift')
-        time.sleep(0.3)
-
-
+    def get_text(self) -> str:
+        """Reads text from Notepad control."""
+        try:
+            edit = self.dlg.child_window(class_name="Edit")
+            return edit.window_text()
+        except Exception:
+            try:
+                edit = self.dlg.child_window(control_type="Edit")
+                return edit.get_value() or ""
+            except Exception:
+                return ""
 
     def close(self):
         try:
@@ -176,6 +180,7 @@ class NotepadWindow:
                 self.proc.kill()
             except Exception:
                 pass
+
 
 def grab_real_screen() -> Image.Image:
     w = user32.GetSystemMetrics(0)
@@ -324,8 +329,20 @@ def main() -> int:
         win_a.type_text("Engine restores latest alphanumeric state automatically!\n")
         time.sleep(2.0)
 
+        # Check actual text contents of Window A and Window B
+        text_a = win_a.get_text()
+        text_b = win_b.get_text()
+        print(f"\n==================== [CONTENT VERIFICATION] ====================", flush=True)
+        print(f"--- Window A Content ---\n{text_a}", flush=True)
+        print(f"--- Window B Content ---\n{text_b}", flush=True)
+        print(f"=================================================================\n", flush=True)
+
+        has_target_a = ("測" in text_a) or ("試" in text_a) or ("中" in text_a) or ("文" in text_a)
+        print(f"[VERIFY] Window A contained expected Chinese character: {has_target_a}", flush=True)
+
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
+
 
         # Save pristine 60 FPS H.264 MP4 video only (no screenshots)
 
