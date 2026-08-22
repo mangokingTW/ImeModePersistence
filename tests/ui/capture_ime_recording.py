@@ -193,52 +193,16 @@ class ThreadedEditorWindow:
             user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
             time.sleep(delay_per_char)
 
-    def type_bopomofo_ime(self, bopomofo_entries: list[tuple[str, str]]):
-        """Uses Windows native IMM32 API (ImmSetCompositionStringW) to render genuine IME composition and commit.
+    def type_real_keys(self, keystroke_str: str):
+        """100% authentic physical keyboard typing via SendInput without any synthetic string manipulation."""
+        from pywinauto.keyboard import send_keys
 
-        bopomofo_entries format: [("ㄓㄨㄥ", "中"), ("ㄨㄣˊ", "文")]
-        """
         self.set_foreground()
         user32.SetFocus(self.edit_hwnd)
         time.sleep(0.3)
 
-        SCS_SETSTR = 0x0009
-
-        for bopomofo_str, target_char in bopomofo_entries:
-            # 1. Start composition and display bopomofo strokes in IME context
-            himc = imm32.ImmGetContext(self.edit_hwnd)
-            if himc:
-                try:
-                    imm32.ImmSetOpenStatus(himc, 1)
-                    imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE, 0)
-                    user32.SendMessageW(self.edit_hwnd, 0x010D, 0, 0)  # WM_IME_STARTCOMPOSITION
-                    bop_buf = ctypes.create_unicode_buffer(f"[{bopomofo_str}]")
-                    imm32.ImmSetCompositionStringW(himc, SCS_SETSTR, bop_buf, len(bop_buf.value) * 2, None, 0)
-                finally:
-                    imm32.ImmReleaseContext(self.edit_hwnd, himc)
-
-            # Insert visual bopomofo candidate marker
-            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
-            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
-            user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, f"[{bopomofo_str}]")
-            time.sleep(0.85)  # Dwell to show bopomofo composition strokes in 60 FPS recording
-
-            # 2. Commit the chosen Chinese character via native IMM
-            text_buf = ctypes.create_unicode_buffer(4096)
-            user32.GetWindowTextW(self.edit_hwnd, text_buf, 4096)
-            full_text = text_buf.value.replace(f"[{bopomofo_str}]", target_char)
-            user32.SetWindowTextW(self.edit_hwnd, full_text)
-            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
-            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
-
-            himc = imm32.ImmGetContext(self.edit_hwnd)
-            if himc:
-                try:
-                    user32.SendMessageW(self.edit_hwnd, 0x010E, 0, 0)  # WM_IME_ENDCOMPOSITION
-                finally:
-                    imm32.ImmReleaseContext(self.edit_hwnd, himc)
-
-            time.sleep(0.35)
+        send_keys(keystroke_str, with_spaces=True, pause=0.1)
+        time.sleep(0.5)
 
     def set_chinese(self):
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
@@ -260,6 +224,7 @@ class ThreadedEditorWindow:
                 finally:
                     imm32.ImmReleaseContext(w, himc)
         time.sleep(0.2)
+
 
 
 
@@ -405,7 +370,8 @@ def main() -> int:
         win_a.set_chinese()
         time.sleep(0.4)
         win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n注音輸入：", delay_per_char=0.04)
-        win_a.type_bopomofo_ime([("ㄓㄨㄥ", "中"), ("ㄨㄣˊ", "文")])
+        win_a.type_real_keys("5j0 {DOWN}{ENTER}")
+        win_a.type_real_keys("jp6{DOWN}{ENTER}")
         win_a.type_text("\r\n", delay_per_char=0.04)
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
@@ -413,9 +379,11 @@ def main() -> int:
         win_b.set_foreground()
         time.sleep(0.8)
         win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n注音輸入：", delay_per_char=0.04)
-        win_b.type_bopomofo_ime([("ㄓㄨㄥ", "中"), ("ㄨㄣˊ", "文")])
+        win_b.type_real_keys("5j0 {DOWN}{ENTER}")
+        win_b.type_real_keys("jp6{DOWN}{ENTER}")
         win_b.type_text("\r\n", delay_per_char=0.04)
         time.sleep(2.0)
+
 
 
 
