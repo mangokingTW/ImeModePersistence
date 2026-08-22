@@ -96,134 +96,70 @@ def _window_wndproc(hwnd, msg, wparam, lparam):
         wintypes.WPARAM(wparam), wintypes.LPARAM(lparam),
     )
 
-class ThreadedEditorWindow:
-    """A standalone Win32 editor window on its own thread with isolated IME context."""
+class NotepadWindow:
+    """Manages a genuine Windows Notepad process with full Microsoft TSF IME candidate window support."""
 
-    _registered = False
-    _lock = threading.Lock()
-    CLASS_NAME = "ImeRecorderWindowClass"
+    def __init__(self, x: int, y: int, w: int, h: int):
+        from pywinauto.application import Application
 
-    def __init__(self, title: str, x: int, y: int, w: int, h: int):
-        self.title = title
-        self.x, self.y, self.w, self.h = x, y, w, h
-        self.hwnd = None
-        self.edit_hwnd = None
-        self.thread_id = 0
-        self.ready_event = threading.Event()
-        self.stop_event = threading.Event()
+        self.proc = subprocess.Popen(["notepad.exe"])
+        time.sleep(1.0)
+        self.app = Application(backend="uia").connect(process=self.proc.pid)
+        self.dlg = self.app.top_window()
+        self.hwnd = self.dlg.handle
 
-        self.thread = threading.Thread(target=self._run, daemon=True)
-        self.thread.start()
-        if not self.ready_event.wait(timeout=5.0):
-            raise TimeoutError(f"Window '{title}' failed to initialize.")
-
-    def _run(self):
-        hinst = kernel32.GetModuleHandleW(None)
-        with ThreadedEditorWindow._lock:
-            if not ThreadedEditorWindow._registered:
-                wcex = WNDCLASSEXW()
-                wcex.cbSize = ctypes.sizeof(WNDCLASSEXW)
-                wcex.style = 0x0003
-                wcex.lpfnWndProc = _window_wndproc
-                wcex.hInstance = hinst
-                wcex.hbrBackground = wintypes.HANDLE(6)
-                wcex.lpszClassName = ThreadedEditorWindow.CLASS_NAME
-                user32.RegisterClassExW(ctypes.byref(wcex))
-                ThreadedEditorWindow._registered = True
-
-        self.hwnd = user32.CreateWindowExW(
-            0, ThreadedEditorWindow.CLASS_NAME, self.title,
-            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-            self.x, self.y, self.w, self.h,
-            None, None, hinst, None,
-        )
-
-        self.edit_hwnd = user32.CreateWindowExW(
-            0, "EDIT", "",
-            WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL,
-            15, 15, self.w - 45, self.h - 70,
-            self.hwnd, None, hinst, None,
-        )
-
-        font = gdi32.CreateFontW(
-            22, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 2, 0, "Microsoft JhengHei"
-        )
-        if font:
-            user32.SendMessageW(self.edit_hwnd, WM_SETFONT, font, 1)
-
-        pid = wintypes.DWORD()
-        self.thread_id = user32.GetWindowThreadProcessId(self.hwnd, ctypes.byref(pid))
-        self.ready_event.set()
-
-        msg = ctypes.create_string_buffer(48)
-        while not self.stop_event.is_set():
-            if user32.PeekMessageW(msg, None, 0, 0, 1):
-                user32.TranslateMessage(msg)
-                user32.DispatchMessageW(msg)
-            else:
-                time.sleep(0.001)
+        # Move and resize window
+        user32.MoveWindow(self.hwnd, x, y, w, h, True)
+        self.set_foreground()
 
     def set_foreground(self):
-        user32.keybd_event(0, 0, 0, 0)  # Bypass Windows foreground lock
-        cur_thread = kernel32.GetCurrentThreadId()
-        fg_wnd = user32.GetForegroundWindow()
-        fg_thread = user32.GetWindowThreadProcessId(fg_wnd, None) if fg_wnd else 0
-        target_thread = self.thread_id
-
-        if fg_thread and fg_thread != target_thread:
-            user32.AttachThreadInput(cur_thread, target_thread, True)
-            user32.AttachThreadInput(fg_thread, target_thread, True)
-
-        user32.ShowWindow(self.hwnd, 9)  # SW_RESTORE
-        user32.SetForegroundWindow(self.hwnd)
-        user32.BringWindowToTop(self.hwnd)
-        user32.SetFocus(self.edit_hwnd or self.hwnd)
-
-        if fg_thread and fg_thread != target_thread:
-            user32.AttachThreadInput(fg_thread, target_thread, False)
-            user32.AttachThreadInput(cur_thread, target_thread, False)
-
+        user32.keybd_event(0, 0, 0, 0)
+        self.dlg.set_focus()
         time.sleep(0.3)
 
-    def type_text(self, text: str, delay_per_char: float = 0.045):
-        """Simulates authentic real-time keyboard typing character by character."""
-        for ch in text:
-            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
-            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
-            user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
-            time.sleep(delay_per_char)
-
-    def type_real_keys(self, keystroke_str: str):
-        """100% authentic physical keyboard typing via SendInput without any synthetic string manipulation."""
-        from pywinauto.keyboard import send_keys
-
+    def type_text(self, text: str, delay_per_char: float = 0.04):
         self.set_foreground()
-        user32.SetFocus(self.edit_hwnd)
+        self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
         time.sleep(0.3)
 
-        send_keys(keystroke_str, with_spaces=True, pause=0.1)
-        time.sleep(0.5)
+    def type_bopomofo(self, key_sequence: str):
+        """Types authentic bopomofo keys, opens candidate window, and selects target character."""
+        self.set_foreground()
+        time.sleep(0.2)
+        # Type bopomofo strokes (e.g. '5j0' for ㄓㄨㄥ)
+        self.dlg.type_keys(key_sequence, with_spaces=True, pause=0.1)
+        time.sleep(0.6)  # Allow TSF to render native candidate list
+        self.dlg.type_keys("{DOWN}", pause=0.1)
+        time.sleep(0.6)  # Dwell to show native candidate popup in 60 FPS video
+        self.dlg.type_keys("{ENTER}", pause=0.1)
+        time.sleep(0.4)
 
     def set_chinese(self):
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
         if hkl:
             user32.ActivateKeyboardLayout(hkl, 0)
             user32.SendMessageW(self.hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
-            user32.SendMessageW(self.edit_hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
+        time.sleep(0.3)
 
-        for w in (self.edit_hwnd, self.hwnd):
-            ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
-            if ime_wnd:
-                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
-                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_NATIVE)
-            himc = imm32.ImmGetContext(w)
-            if himc:
-                try:
-                    imm32.ImmSetOpenStatus(himc, 1)
-                    imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE, 0)
-                finally:
-                    imm32.ImmReleaseContext(w, himc)
-        time.sleep(0.2)
+    def set_alphanumeric(self):
+        # Shift key toggle
+        self.set_foreground()
+        scan = user32.MapVirtualKeyW(VK_SHIFT, 0) or 0x2A
+        user32.keybd_event(VK_SHIFT, scan, 0, 0)
+        time.sleep(0.05)
+        user32.keybd_event(VK_SHIFT, scan, 2, 0)
+        time.sleep(0.3)
+
+    def close(self):
+        try:
+            self.proc.terminate()
+            self.proc.wait(timeout=2)
+        except Exception:
+            try:
+                self.proc.kill()
+            except Exception:
+                pass
+
 
 
 
@@ -354,12 +290,11 @@ def main() -> int:
     engine = subprocess.Popen([EXE])
     time.sleep(1.0)
 
-    win_a = ThreadedEditorWindow("【視窗 A】繁體中文編輯區 (Window A)", x=40, y=80, w=480, h=360)
-    win_b = ThreadedEditorWindow("【視窗 B】英數編輯區 (Window B)", x=550, y=80, w=480, h=360)
+    win_a = NotepadWindow(x=40, y=80, w=480, h=360)
+    win_b = NotepadWindow(x=550, y=80, w=480, h=360)
     time.sleep(0.5)
 
     recorder = ContinuousRecorder(fps=60)
-    key_frames = []
 
     try:
         print("Starting continuous real-time desktop recording (60 FPS)...")
@@ -369,39 +304,35 @@ def main() -> int:
         win_a.set_foreground()
         win_a.set_chinese()
         time.sleep(0.4)
-        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n注音輸入：", delay_per_char=0.04)
-        win_a.type_real_keys("5j0 {DOWN}{ENTER}")
-        win_a.type_real_keys("jp6{DOWN}{ENTER}")
-        win_a.type_text("\r\n", delay_per_char=0.04)
+        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\n注音輸入：")
+        win_a.type_bopomofo("5j0 ")
+        win_a.type_bopomofo("jp6")
+        win_a.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
         # Step 2: Switch to Window B -> Engine automatically maintains Chinese and native candidate selection
         win_b.set_foreground()
         time.sleep(0.8)
-        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n注音輸入：", delay_per_char=0.04)
-        win_b.type_real_keys("5j0 {DOWN}{ENTER}")
-        win_b.type_real_keys("jp6{DOWN}{ENTER}")
-        win_b.type_text("\r\n", delay_per_char=0.04)
+        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\n注音輸入：")
+        win_b.type_bopomofo("5j0 ")
+        win_b.type_bopomofo("jp6")
+        win_b.type_text("\n")
         time.sleep(2.0)
-
-
-
-
-
 
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
         time.sleep(0.4)
-        win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\r\n", delay_per_char=0.04)
-        win_b.type_text("Typing in English without manual switching!\r\n", delay_per_char=0.04)
+        win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\n")
+        win_b.type_text("Typing in English without manual switching!\n")
         time.sleep(1.8)  # Dwell to let engine adopt Alphanumeric mode
 
         # Step 4: Switch back to Window A -> Engine restores English mode
         win_a.set_foreground()
         time.sleep(0.8)
-        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n", delay_per_char=0.04)
-        win_a.type_text("Engine restores latest alphanumeric state automatically!\r\n", delay_per_char=0.04)
+        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\n")
+        win_a.type_text("Engine restores latest alphanumeric state automatically!\n")
         time.sleep(2.0)
+
 
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
