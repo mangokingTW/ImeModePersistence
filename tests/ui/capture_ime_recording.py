@@ -123,16 +123,16 @@ class NotepadWindow:
         time.sleep(0.3)
 
     def type_bopomofo(self, key_sequence: str):
-        """Types authentic bopomofo keys, opens candidate window, and selects target character."""
+        """Types authentic bopomofo keys using PyAutoGUI punchy syntax."""
+        import pyautogui
+
         self.set_foreground()
-        time.sleep(0.2)
-        # Type bopomofo strokes (e.g. '5j0' for ㄓㄨㄥ)
-        self.dlg.type_keys(key_sequence, with_spaces=True, pause=0.1)
-        time.sleep(0.6)  # Allow TSF to render native candidate list
-        self.dlg.type_keys("{DOWN}", pause=0.1)
-        time.sleep(0.6)  # Dwell to show native candidate popup in 60 FPS video
-        self.dlg.type_keys("{ENTER}", pause=0.1)
+        time.sleep(0.3)
+        pyautogui.write(key_sequence, interval=0.1)
+        time.sleep(0.3)
+        pyautogui.press(['space', 'enter'])
         time.sleep(0.4)
+
 
     def set_chinese(self):
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
@@ -272,13 +272,14 @@ def main() -> int:
         print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
-        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo
+        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo via PyAutoGUI
         win_a.set_foreground()
         win_a.set_chinese()
         time.sleep(0.4)
         win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\n注音輸入：")
-        win_a.type_bopomofo("5j0 ")
-        win_a.type_bopomofo("jp6")
+        # 模擬打出「測試」（2g4 空格 Enter，g4 空格 Enter）
+        win_a.type_bopomofo("2g4")
+        win_a.type_bopomofo("g4")
         win_a.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
@@ -286,10 +287,11 @@ def main() -> int:
         win_b.set_foreground()
         time.sleep(0.8)
         win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\n注音輸入：")
-        win_b.type_bopomofo("5j0 ")
-        win_b.type_bopomofo("jp6")
+        win_b.type_bopomofo("2g4")
+        win_b.type_bopomofo("g4")
         win_b.type_text("\n")
         time.sleep(2.0)
+
 
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
