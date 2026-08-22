@@ -53,9 +53,8 @@ jobs:
             Write-Host "Running first-time Install-Language from Windows Update..."
             Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
 
-
-
             # Automatically package installed IME assets & create Draft Release
+
             try {
               Write-Host "Creating Draft Release 'ci-dependencies' for future ultra-fast offline runs..."
               $zipPath = "$cacheDir\zh-tw-ime-assets.zip"
