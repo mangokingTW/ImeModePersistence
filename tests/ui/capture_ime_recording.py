@@ -115,6 +115,12 @@ class NotepadWindow:
     def set_foreground(self):
         user32.keybd_event(0, 0, 0, 0)
         self.dlg.set_focus()
+        time.sleep(0.2)
+        try:
+            edit = self.dlg.child_window(control_type="Edit")
+            edit.click_input()
+        except Exception:
+            pass
         time.sleep(0.3)
 
     def type_text(self, text: str, delay_per_char: float = 0.04):
@@ -166,17 +172,20 @@ class NotepadWindow:
         time.sleep(0.3)
 
     def get_text(self) -> str:
-
         """Reads text from Notepad control."""
+        try:
+            edit = self.dlg.child_window(control_type="Edit")
+            val = edit.get_value()
+            if val:
+                return val
+        except Exception:
+            pass
         try:
             edit = self.dlg.child_window(class_name="Edit")
             return edit.window_text()
         except Exception:
-            try:
-                edit = self.dlg.child_window(control_type="Edit")
-                return edit.get_value() or ""
-            except Exception:
-                return ""
+            return ""
+
 
     def close(self):
         try:
