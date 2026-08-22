@@ -365,7 +365,13 @@ def main() -> int:
     except Exception:
         pass
 
+    # Activate zh-TW layout as primary in the recording process
+    hkl_tw = user32.LoadKeyboardLayoutW("00000404", 1)
+    if hkl_tw:
+        user32.ActivateKeyboardLayout(hkl_tw, 0)
+
     subprocess.run(["taskkill", "/F", "/IM", "ImeModePersistence.exe"], capture_output=True)
+
 
     time.sleep(0.3)
 
