@@ -201,15 +201,19 @@ class ThreadedEditorWindow:
         """100% genuine physical keyboard typing sent directly to Microsoft Bopomofo TIP."""
         from pywinauto.keyboard import send_keys
 
-        self.set_foreground()
+        cur_thread = kernel32.GetCurrentThreadId()
+        target_thread = self.thread_id
+        user32.AttachThreadInput(cur_thread, target_thread, True)
+        user32.SetForegroundWindow(self.hwnd)
+        user32.SetActiveWindow(self.hwnd)
         user32.SetFocus(self.edit_hwnd)
-        # Mouse click inside edit box to ensure active hardware focus
-        user32.SendMessageW(self.edit_hwnd, 0x0201, 1, 0x00100010)  # WM_LBUTTONDOWN
-        user32.SendMessageW(self.edit_hwnd, 0x0202, 0, 0x00100010)  # WM_LBUTTONUP
-        time.sleep(0.3)
+        time.sleep(0.2)
 
         send_keys(keystroke_string, pause=0.08, with_spaces=True)
         time.sleep(0.5)
+
+        user32.AttachThreadInput(cur_thread, target_thread, False)
+
 
 
 
