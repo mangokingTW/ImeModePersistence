@@ -205,10 +205,23 @@ class ThreadedEditorWindow:
         user32.SetFocus(self.edit_hwnd)
         time.sleep(0.2)
 
+        # Diagnostics: print IME conversion status before sending keys
+        himc = imm32.ImmGetContext(self.edit_hwnd)
+        if himc:
+            conv = ctypes.c_uint(0)
+            sent = ctypes.c_uint(0)
+            imm32.ImmGetConversionStatus(himc, ctypes.byref(conv), ctypes.byref(sent))
+            is_open = imm32.ImmGetOpenStatus(himc)
+            print(f"[DIAG] IME open={is_open} conversion=0x{conv.value:04x} sentence=0x{sent.value:04x}", flush=True)
+            imm32.ImmReleaseContext(self.edit_hwnd, himc)
+        hkl = user32.GetKeyboardLayout(target_thread)
+        print(f"[DIAG] HKL={hkl:#010x} thread_id={target_thread} keys={keystroke_string!r}", flush=True)
+
         send_keys(keystroke_string, pause=0.08, with_spaces=True)
         time.sleep(0.5)
 
         user32.AttachThreadInput(cur_thread, target_thread, False)
+
 
     def set_chinese(self):
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
