@@ -167,9 +167,27 @@ class ThreadedEditorWindow:
                 time.sleep(0.01)
 
     def set_foreground(self):
+        user32.keybd_event(0, 0, 0, 0)  # Bypass Windows foreground lock
+        cur_thread = kernel32.GetCurrentThreadId()
+        fg_wnd = user32.GetForegroundWindow()
+        fg_thread = user32.GetWindowThreadProcessId(fg_wnd, None) if fg_wnd else 0
+        target_thread = self.thread_id
+
+        if fg_thread and fg_thread != target_thread:
+            user32.AttachThreadInput(cur_thread, target_thread, True)
+            user32.AttachThreadInput(fg_thread, target_thread, True)
+
+        user32.ShowWindow(self.hwnd, 9)  # SW_RESTORE
         user32.SetForegroundWindow(self.hwnd)
-        user32.SetActiveWindow(self.hwnd)
-        user32.SetFocus(self.edit_hwnd)
+        user32.BringWindowToTop(self.hwnd)
+        user32.SetFocus(self.edit_hwnd or self.hwnd)
+
+        if fg_thread and fg_thread != target_thread:
+            user32.AttachThreadInput(fg_thread, target_thread, False)
+            user32.AttachThreadInput(cur_thread, target_thread, False)
+
+        time.sleep(0.3)
+
 
     def append_text(self, text: str):
         cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
