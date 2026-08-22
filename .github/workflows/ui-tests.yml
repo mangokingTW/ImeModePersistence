@@ -26,15 +26,17 @@ jobs:
           cmake --build build-x64 --config Release
 
       - name: Install UI-test dependencies
-        run: pip install pywinauto==0.6.9 pillow==10.4.0
+        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0
 
-      - name: Run rules-dialog UI test
-        run: python tests/ui/test_rules_dialog.py "build-x64/Release/ImeModePersistence.exe"
+      - name: Run UI and E2E tests
+        run: pytest tests/ui/ -v --tb=short
 
-      - name: Upload failure screenshot
-        if: always()
+      - name: Upload failure diagnostics
+        if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: ui-failure-screenshot
-          path: ui-failure.png
+          name: ui-failure-diagnostics
+          path: |
+            ui-failure-*.png
+            ui-failure-*.log
           if-no-files-found: ignore
