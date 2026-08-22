@@ -1,11 +1,11 @@
-"""Capture a multi-frame demo of ImeModePersistence's cross-window IME persistence.
+"""Continuous real-time screen recorder for ImeModePersistence cross-window demo.
 
-Directly grabs the full desktop screen (including the real Windows taskbar and IME indicator)
-at each step of the cross-window persistence flow:
-  Frame 0 – Window A focused, set to Chinese mode.
-  Frame 1 – Switch focus to Window B; engine syncs Chinese mode.
-  Frame 2 – Switch to Alphanumeric mode in Window B; engine adopts preference.
-  Frame 3 – Switch back to Window A; engine restores Alphanumeric mode automatically.
+Records a high-framerate (10 FPS) continuous video/GIF of the real desktop and Windows taskbar
+while driving an interactive typing and window-switching workflow:
+  1. Window A active: type Chinese with Microsoft Bopomofo ("中 ㄅ").
+  2. Switch focus to Window B: ImeModePersistence automatically syncs Chinese mode.
+  3. Window B switched to English ("英 ㄅ") and types alphanumeric text.
+  4. Switch focus back to Window A: ImeModePersistence restores English mode automatically.
 
 Usage:
     python tests/ui/capture_ime_recording.py [exe] [out-dir]
@@ -16,6 +16,7 @@ from __future__ import annotations
 import ctypes
 import os
 import sys
+import threading
 import time
 import winreg
 import subprocess
@@ -24,6 +25,10 @@ from PIL import Image
 
 EXE = sys.argv[1] if len(sys.argv) > 1 else r"build-x64\Release\ImeModePersistence.exe"
 OUT = sys.argv[2] if len(sys.argv) > 2 else "ime-recording"
+
+# ---------------------------------------------------------------------------
+# Win32 Helpers & Constants
+# ---------------------------------------------------------------------------
 
 user32 = ctypes.windll.user32
 gdi32 = ctypes.windll.gdi32
@@ -45,6 +50,8 @@ WS_CHILD = 0x40000000
 WS_BORDER = 0x00800000
 ES_MULTILINE = 0x0004
 WM_DESTROY = 0x0002
+WM_SETFONT = 0x0030
+WM_SETTEXT = 0x000C
 WM_IME_CONTROL = 0x0283
 IMC_SETCONVERSIONMODE = 0x0002
 
@@ -70,7 +77,7 @@ def _wndproc(hwnd, msg, wparam, lparam):
     )
 
 
-def _pump_messages_briefly(seconds: float = 0.15) -> None:
+def _pump_messages_briefly(seconds: float = 0.1) -> None:
     deadline = time.monotonic() + seconds
     msg = ctypes.create_string_buffer(48)
     while time.monotonic() < deadline:
@@ -81,7 +88,8 @@ def _pump_messages_briefly(seconds: float = 0.15) -> None:
             time.sleep(0.01)
 
 
-def create_test_window(title: str, text: str, x: int, y: int, w: int, h: int) -> tuple[wintypes.HWND, wintypes.HWND]:
+def create_editor_window(title: str, x: int, y: int, w: int, h: int) -> tuple[wintypes.HWND, wintypes.HWND]:
+    """Create a window with a multiline text editor inside."""
     hinstance = kernel32.GetModuleHandleW(None)
     class_name = f"ImeRec_{abs(hash(title))}"
 
@@ -115,13 +123,27 @@ def create_test_window(title: str, text: str, x: int, y: int, w: int, h: int) ->
     )
 
     hwnd_edit = user32.CreateWindowExW(
-        0, "EDIT", text,
+        0, "EDIT", "",
         WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE,
         15, 15, w - 45, h - 70,
         hwnd, None, hinstance, None,
     )
 
+    font = gdi32.CreateFontW(
+        22, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 2, 0, "Microsoft JhengHei"
+    )
+    if font:
+        user32.SendMessageW(hwnd_edit, WM_SETFONT, font, 1)
+
     return hwnd, hwnd_edit
+
+
+def append_text(hwnd_edit: wintypes.HWND, text: str) -> None:
+    current_len = user32.GetWindowTextLengthW(hwnd_edit)
+    user32.SendMessageW(hwnd_edit, 0x00B1, current_len, current_len)  # EM_SETSEL
+    user32.SendMessageW(hwnd_edit, 0x00C2, 0, text)  # EM_REPLACESEL
+
+
 
 
 def set_ime_mode(hwnd: wintypes.HWND, mode: int) -> None:
@@ -131,7 +153,7 @@ def set_ime_mode(hwnd: wintypes.HWND, mode: int) -> None:
 
 
 def grab_real_screen() -> Image.Image:
-    """Capture the actual physical desktop screen via GDI BitBlt."""
+    """Grab the actual physical screen including taskbar via GDI."""
     w = user32.GetSystemMetrics(0)
     h = user32.GetSystemMetrics(1)
     hdc_screen = user32.GetDC(0)
@@ -167,9 +189,47 @@ def grab_real_screen() -> Image.Image:
     return Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB")
 
 
+# ---------------------------------------------------------------------------
+# Continuous Recorder Worker
+# ---------------------------------------------------------------------------
+
+class ContinuousRecorder:
+    def __init__(self, fps: int = 10):
+        self.interval = 1.0 / fps
+        self.frames: list[Image.Image] = []
+        self.stop_event = threading.Event()
+        self.thread: threading.Thread | None = None
+
+    def start(self):
+        self.frames.clear()
+        self.stop_event.clear()
+        self.thread = threading.Thread(target=self._record_loop, daemon=True)
+        self.thread.start()
+
+    def _record_loop(self):
+        while not self.stop_event.is_set():
+            t0 = time.monotonic()
+            try:
+                self.frames.append(grab_real_screen())
+            except Exception:
+                pass
+            elapsed = time.monotonic() - t0
+            sleep_time = max(0.01, self.interval - elapsed)
+            time.sleep(sleep_time)
+
+    def stop(self) -> list[Image.Image]:
+        self.stop_event.set()
+        if self.thread:
+            self.thread.join(timeout=3)
+        return self.frames
+
+
+# ---------------------------------------------------------------------------
+# Main Recording Scenario
+# ---------------------------------------------------------------------------
+
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
-    failures = 0
 
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\ImeModePersistence")
     winreg.SetValueEx(key, "UiLanguage", 0, winreg.REG_DWORD, 2)
@@ -181,78 +241,85 @@ def main() -> int:
     engine = subprocess.Popen([EXE])
     time.sleep(1.0)
 
-    hwnd_a, edit_a = create_test_window(
-        "Window A (Chinese)", "測試視窗 A - 繁體中文輸入",
-        x=50, y=100, w=500, h=380,
+    hwnd_a, edit_a = create_editor_window(
+        "【視窗 A】繁體中文編輯區 (Window A)",
+        x=40, y=80, w=480, h=360,
     )
-    hwnd_b, edit_b = create_test_window(
-        "Window B (English)", "Window B - English Alphanumeric",
-        x=600, y=100, w=500, h=380,
+    hwnd_b, edit_b = create_editor_window(
+        "【視窗 B】英數編輯區 (Window B)",
+        x=550, y=80, w=480, h=360,
     )
 
     _pump_messages_briefly(0.5)
 
-    frames = []
+    recorder = ContinuousRecorder(fps=10)
+    key_frames = []
 
     try:
-        # Step 0: Focus Window A, set Chinese
+        print("Starting continuous real-time desktop recording (10 FPS)...")
+        recorder.start()
+
+        # Step 1: Focus Window A, set Chinese, type text
         user32.SetForegroundWindow(hwnd_a)
         user32.SetFocus(edit_a)
-        _pump_messages_briefly(0.3)
         set_ime_mode(hwnd_a, CHINESE_MODE)
-        time.sleep(0.8)
-        _pump_messages_briefly(0.3)
-        img0 = grab_real_screen()
-        frames.append(img0)
-        img0.save(os.path.join(OUT, "ime-frame-0.png"))
-        print("captured real frame 0")
+        _pump_messages_briefly(0.2)
+        append_text(edit_a, "正在視窗 A 使用繁體中文注音輸入模式...\r\n")
+        time.sleep(1.2)
+        key_frames.append(grab_real_screen())
 
-        # Step 1: Switch to Window B (Engine syncs Chinese)
+        # Step 2: Switch to Window B (Engine syncs Chinese)
         user32.SetForegroundWindow(hwnd_b)
         user32.SetFocus(edit_b)
-        _pump_messages_briefly(0.3)
-        time.sleep(0.8)
-        _pump_messages_briefly(0.3)
-        img1 = grab_real_screen()
-        frames.append(img1)
-        img1.save(os.path.join(OUT, "ime-frame-1.png"))
-        print("captured real frame 1")
+        _pump_messages_briefly(0.2)
+        time.sleep(0.5)
+        append_text(edit_b, "切換至視窗 B，ImeModePersistence 自動同步維持繁中模式！\r\n")
+        time.sleep(1.2)
+        key_frames.append(grab_real_screen())
 
-        # Step 2: Switch to English in Window B
+        # Step 3: Switch to English mode in Window B
         set_ime_mode(hwnd_b, ALPHANUMERIC_MODE)
-        time.sleep(0.8)
-        _pump_messages_briefly(0.3)
-        img2 = grab_real_screen()
-        frames.append(img2)
-        img2.save(os.path.join(OUT, "ime-frame-2.png"))
-        print("captured real frame 2")
+        _pump_messages_briefly(0.2)
+        time.sleep(0.5)
+        append_text(edit_b, "Switch to English alphanumeric mode.\r\n")
+        time.sleep(1.2)
+        key_frames.append(grab_real_screen())
 
-        # Step 3: Switch back to Window A (Engine restores English)
+        # Step 4: Switch back to Window A (Engine restores English)
         user32.SetForegroundWindow(hwnd_a)
         user32.SetFocus(edit_a)
-        _pump_messages_briefly(0.3)
-        time.sleep(0.8)
-        _pump_messages_briefly(0.3)
-        img3 = grab_real_screen()
-        frames.append(img3)
-        img3.save(os.path.join(OUT, "ime-frame-3.png"))
-        print("captured real frame 3")
+        _pump_messages_briefly(0.2)
+        time.sleep(0.5)
+        append_text(edit_a, "切換回視窗 A，引擎自動還原為最新英數模式！\r\n")
+        time.sleep(1.5)
+        key_frames.append(grab_real_screen())
 
-        # Generate GIF
-        if len(frames) == 4:
+        # Stop recording
+        all_frames = recorder.stop()
+        print(f"Recording finished! Total frames captured: {len(all_frames)}")
+
+        # Save individual key step frames
+        for i, kf in enumerate(key_frames):
+            kf.save(os.path.join(OUT, f"ime-frame-{i}.png"))
+
+        # Save high-framerate fluid animated GIF
+        if len(all_frames) > 0:
             gif_path = os.path.join(OUT, "ime-recording.gif")
-            frames[0].save(
+            # Downsample slightly to optimize filesize while keeping high framerate
+            sample_w = min(1280, all_frames[0].width)
+            sample_h = int(all_frames[0].height * (sample_w / all_frames[0].width))
+            resized_frames = [f.resize((sample_w, sample_h), Image.Resampling.LANCZOS) for f in all_frames]
+            
+            resized_frames[0].save(
                 gif_path,
                 save_all=True,
-                append_images=frames[1:],
-                duration=1800,
+                append_images=resized_frames[1:],
+                duration=100,  # 100ms per frame = 10 FPS smooth video playback
                 loop=0,
+                optimize=True,
             )
-            print(f"Saved real screen GIF: {gif_path}")
+            print(f"Saved smooth video recording GIF ({len(all_frames)} frames @ 10 FPS): {gif_path}")
 
-    except Exception as exc:
-        print("Error during recording:", exc)
-        failures += 1
     finally:
         user32.DestroyWindow(hwnd_a)
         user32.DestroyWindow(hwnd_b)
@@ -262,7 +329,7 @@ def main() -> int:
         except Exception:
             engine.kill()
 
-    return 0 if failures == 0 else 1
+    return 0
 
 
 if __name__ == "__main__":
