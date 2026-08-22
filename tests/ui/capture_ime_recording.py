@@ -357,13 +357,13 @@ def main() -> int:
         print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
-        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo via PyAutoGUI
+        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo via pydirectinput
         win_a.set_foreground()
         win_a.set_chinese()
         time.sleep(0.4)
         win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\n注音輸入：")
-        # 模擬打出「測試」（2g4 空格 Enter，g4 空格 Enter）
-        win_a.type_bopomofo("2g4")
+        # 敲擊注音打出「測試」（hd4 = ㄘㄜˋ[測], g4 = ㄕˋ[試]）
+        win_a.type_bopomofo("hd4")
         win_a.type_bopomofo("g4")
         win_a.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
@@ -372,10 +372,11 @@ def main() -> int:
         win_b.set_foreground()
         time.sleep(0.8)
         win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\n注音輸入：")
-        win_b.type_bopomofo("2g4")
+        win_b.type_bopomofo("hd4")
         win_b.type_bopomofo("g4")
         win_b.type_text("\n")
         time.sleep(2.0)
+
 
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
