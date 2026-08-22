@@ -38,7 +38,6 @@ OUT = sys.argv[2] if len(sys.argv) > 2 else "ime-recording"
 # ---------------------------------------------------------------------------
 # Win32 & IME Constants
 # ---------------------------------------------------------------------------
-
 user32 = ctypes.windll.user32
 gdi32 = ctypes.windll.gdi32
 imm32 = ctypes.windll.imm32
@@ -241,7 +240,6 @@ class NotepadWindow:
             if ime_wnd:
                 user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
                 user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 1)  # IME_CMODE_NATIVE (1)
-
         time.sleep(0.3)
 
     def set_alphanumeric(self):
@@ -272,7 +270,6 @@ class NotepadWindow:
             if ime_wnd:
                 user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
                 user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 0)  # IME_CMODE_ALPHANUMERIC (0)
-
         time.sleep(0.3)
 
     def get_text(self) -> str:
@@ -494,7 +491,6 @@ def main() -> int:
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
 
         # Save pristine 60 FPS H.264 MP4 video only (no screenshots)
-
         if len(all_frames) > 0:
             mp4_path = os.path.join(OUT, "ime-recording.mp4")
             # H.264 requires even width and height
