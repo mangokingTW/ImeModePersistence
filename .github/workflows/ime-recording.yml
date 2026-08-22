@@ -28,12 +28,34 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
+      - name: Cache Traditional Chinese IME Packages
+        id: ime-cache
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4
+        with:
+          path: C:\ime-cache
+          key: ime-zh-tw-cache-v1
+
       - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
         run: |
-          # Genuine Microsoft Bopomofo installation via Windows Update
-          # Note: On GitHub-hosted clean Windows runner this takes ~20-30 min, which is why it only runs in this manual on-demand workflow.
-          Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+          $cacheDir = "C:\ime-cache"
+          if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force }
+          $cabs = Get-ChildItem $cacheDir -Filter "*.cab" -ErrorAction SilentlyContinue
+
+          if ($cabs.Count -gt 0) {
+            Write-Host "Found $($cabs.Count) cached IME package(s)! Installing offline via DISM in ~40 seconds..."
+            foreach ($cab in $cabs) {
+              Write-Host "Installing $($cab.Name)..."
+              dism.exe /Online /Add-Package /PackagePath:$($cab.FullName) /NoRestart /Quiet
+            }
+          } else {
+            Write-Host "No cached CAB packages found. Running Install-Language from Windows Update (first-time seed)..."
+            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+            # Save downloaded FOD CABs to cache directory for future ultra-fast runs
+            Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Filter "*.cab" -Recurse -ErrorAction SilentlyContinue |
+              Copy-Item -Destination $cacheDir -Force -ErrorAction SilentlyContinue
+          }
+
           $list = Get-WinUserLanguageList
           if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
             $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
@@ -55,9 +77,7 @@ jobs:
       - name: Run real-IME E2E tests
         run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
 
-
       - name: Upload recording artifact
-
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
