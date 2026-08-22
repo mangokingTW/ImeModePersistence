@@ -1,15 +1,14 @@
 name: IME Recording
 
-# On-demand: builds the app, opens two real Win32 windows on the GitHub Actions
-# interactive desktop, drives IME mode changes with ImmSetConversionStatus, and
-# captures a continuous 10 FPS real-time desktop video of the live typing and taskbar transitions.
-#
-# The result is a smooth animated GIF (ime-recording.gif) plus four individual PNG
-# key frames uploaded as the "ime-recording" artifact.
-#
-# Triggered manually from the Actions tab ("Run workflow").
+# On-demand / PR: builds the app, installs zh-TW IME via fast DISM/CAB cache,
+# and captures 60 FPS real-time desktop video of live typing and taskbar transitions.
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'tests/ui/**'
+      - '.github/workflows/ime-recording.yml'
 
 permissions:
   contents: read
@@ -20,7 +19,6 @@ jobs:
     permissions:
       contents: write
     steps:
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Build x64
@@ -28,64 +26,66 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Install Traditional Chinese (zh-TW) IME
+      - name: Cache Official IME CAB Package
+        id: cache-ime-cab
+        uses: actions/cache@v4
+        with:
+          path: C:\ime-cab-cache
+          key: ime-cab-zh-tw-server2025-v1
+
+      - name: Install Traditional Chinese IME via Offline DISM Package
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $ProgressPreference = 'Continue'
-          $cacheDir = "C:\ime-cache"
-          if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force }
+          $ProgressPreference = 'SilentlyContinue'
+          $cabDir = "C:\ime-cab-cache"
+          if (-not (Test-Path $cabDir)) { New-Item -ItemType Directory -Path $cabDir -Force }
 
-          # Try downloading pre-cached assets from Draft Release 'ci-dependencies' (2-second download)
-          $downloadSuccess = $false
+          # Try instant download from Release storage (1 second download inside GitHub DC)
           try {
-            Write-Host "Checking for offline IME assets in hidden Draft Release 'ci-dependencies'..."
-            gh release download ci-dependencies --repo ${{ github.repository }} --pattern "zh-tw-ime-assets.zip" --dir $cacheDir
-            $zip = "$cacheDir\zh-tw-ime-assets.zip"
-            if (Test-Path $zip) {
-              Write-Host "Found cached IME package! Restoring offline in ~5 seconds..."
-              Expand-Archive -Path $zip -DestinationPath "C:\Windows\System32\IME\IMETC" -Force
-              $downloadSuccess = $true
+            gh release download ci-dependencies --pattern "*.cab" -D $cabDir --repo ${{ github.repository }} --clobber
+          } catch {}
+
+
+          $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
+
+          if ($cachedCabs.Count -gt 0) {
+            Write-Host "⚡ Installing official zh-TW IME packages offline via DISM (~5 seconds)..."
+            foreach ($cab in $cachedCabs) {
+              Write-Host "Installing $($cab.FullName)..."
+              dism /online /add-package /packagepath:$($cab.FullName) /quiet /norestart
             }
-          } catch {
-            Write-Host "Draft Release not populated yet. Falling back to Windows Update..."
-          }
-
-          if (-not $downloadSuccess) {
-            Write-Host "Running first-time Install-Language from Windows Update..."
-            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
-
-            # Automatically package installed IME assets & create Draft Release
-            try {
-              Write-Host "Creating Draft Release 'ci-dependencies' for future ultra-fast offline runs..."
-              $zipPath = "$cacheDir\zh-tw-ime-assets.zip"
-              Compress-Archive -Path "C:\Windows\System32\IME\IMETC" -DestinationPath $zipPath -Force
-              gh release create ci-dependencies $zipPath --draft --title "CI Dependencies" --notes "Pre-cached IME components for fast CI offline installation" --repo ${{ github.repository }}
-              Write-Host "Successfully created hidden Draft Release 'ci-dependencies'!"
-            } catch {
-              Write-Host "Draft Release auto-creation note: $_"
-            }
-          }
-
-          $list = Get-WinUserLanguageList
-          $zh = $list | Where-Object { $_.LanguageTag -like 'zh*' }
-          if ($zh) {
-            $list.Remove($zh)
-            $list.Insert(0, $zh)
           } else {
-            $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
-            $list.Insert(0, $lang)
-          }
-          Set-WinUserLanguageList $list -Force
-          $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
-          Write-Host "zh-TW InputMethodTips (Primary): $tips"
+            Write-Host "First-time install: Adding capability from Windows Update..."
+            dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
 
+            # Export installed CAB from servicing cache to cache directory & persist to Release
+            Write-Host "Caching downloaded CAB packages for future instant 5s runs..."
+            $downloaded = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\servicing\Packages" -Recurse -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
+            foreach ($f in $downloaded) {
+              Copy-Item $f.FullName -Destination "$cabDir\$($f.Name)" -Force -ErrorAction SilentlyContinue
+              try {
+                gh release upload ci-dependencies $f.FullName --clobber --repo ${{ github.repository }}
+              } catch {}
+            }
+          }
+
+
+          $list = New-WinUserLanguageList "zh-TW"
+          Set-WinUserLanguageList $list -Force
+          $tips = (Get-WinUserLanguageList).InputMethodTips
+          Write-Host "Active zh-TW InputMethodTips: $tips"
+
+          New-Item -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
 
       - name: Install dependencies
-        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio==2.35.1 imageio-ffmpeg==0.5.1
+        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
 
       - name: Capture continuous IME persistence recording
+        env:
+          PYTHONIOENCODING: utf-8
         run: >
           python tests/ui/capture_ime_recording.py
           "build-x64/Release/ImeModePersistence.exe"
@@ -101,4 +101,5 @@ jobs:
           name: ime-recording
           path: ime-recording/ime-recording.mp4
           if-no-files-found: warn
+
 

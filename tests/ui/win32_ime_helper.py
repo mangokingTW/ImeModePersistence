@@ -41,7 +41,6 @@ user32 = ctypes.windll.user32
 imm32 = ctypes.windll.imm32
 kernel32 = ctypes.windll.kernel32
 
-
 @functools.lru_cache(maxsize=1)
 def has_chinese_ime() -> bool:
     """Returns True if Microsoft Bopomofo or JhengHei IME is installed on this machine.
@@ -67,11 +66,9 @@ def has_chinese_ime() -> bool:
     except Exception:
         return False
 
-
 WNDPROC = ctypes.WINFUNCTYPE(
     wintypes.LPARAM, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
 )
-
 
 class WNDCLASSEXW(ctypes.Structure):
     _fields_ = [
@@ -88,7 +85,6 @@ class WNDCLASSEXW(ctypes.Structure):
         ("lpszClassName", wintypes.LPCWSTR),
         ("hIconSm", wintypes.HICON),
     ]
-
 
 kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
 kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
@@ -208,18 +204,15 @@ imm32.ImmSetConversionStatus.argtypes = [
 ]
 imm32.ImmSetConversionStatus.restype = wintypes.BOOL
 
-
 def get_window_thread_id(hwnd: int) -> int:
     """Returns the thread ID of the given window."""
     pid = wintypes.DWORD()
     return user32.GetWindowThreadProcessId(wintypes.HWND(hwnd), ctypes.byref(pid))
 
-
 def get_keyboard_layout(hwnd: int) -> int:
     """Returns the HKL (as integer) of the given window's thread."""
     tid = get_window_thread_id(hwnd)
     return user32.GetKeyboardLayout(tid)
-
 
 def get_ime_state(hwnd: int):
     """Reads the IME open status and conversion mode for a window.
@@ -245,7 +238,6 @@ def get_ime_state(hwnd: int):
             imm32.ImmReleaseContext(wintypes.HWND(hwnd), himc)
     return False, 0
 
-
 def set_ime_state(hwnd: int, is_open: bool, conversion_mode: int):
     """Sets the IME open status and conversion mode for a window."""
     ime_wnd = imm32.ImmGetDefaultIMEWnd(wintypes.HWND(hwnd))
@@ -265,7 +257,6 @@ def set_ime_state(hwnd: int, is_open: bool, conversion_mode: int):
         finally:
             imm32.ImmReleaseContext(wintypes.HWND(hwnd), himc)
 
-
 @WNDPROC
 def _test_window_wndproc(hwnd, msg, wparam, lparam):
     try:
@@ -279,9 +270,7 @@ def _test_window_wndproc(hwnd, msg, wparam, lparam):
     except Exception:
         return 0
 
-
 _GLOBAL_WNDPROC = _test_window_wndproc
-
 
 class ImeTestWindow:
     """Manages a live Win32 top-level window with an active Edit child control on an independent thread."""
