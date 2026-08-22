@@ -2,13 +2,10 @@ name: IME Recording
 
 # On-demand: builds the app, opens two real Win32 windows on the GitHub Actions
 # interactive desktop, drives IME mode changes with ImmSetConversionStatus, and
-# captures full-desktop screenshots (including the Windows taskbar IME indicator)
-# for each step of the cross-window persistence flow.
+# captures a continuous 10 FPS real-time desktop video of the live typing and taskbar transitions.
 #
-# The result is an animated GIF (ime-recording.gif) plus four individual PNG
-# frames uploaded as the "ime-recording" artifact.  Download it from the Actions
-# tab after the run to see the real IME indicator (中 / A) react to window
-# focus switches on a genuine Windows runner.
+# The result is a smooth animated GIF (ime-recording.gif) plus four individual PNG
+# key frames uploaded as the "ime-recording" artifact.
 #
 # Triggered manually from the Actions tab ("Run workflow").
 on:
@@ -28,35 +25,11 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Cache Traditional Chinese IME Packages
-        id: ime-cache
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
-        with:
-          path: C:\ime-cache
-          key: ime-zh-tw-cache-v2
-
-      - name: Install Traditional Chinese (zh-TW) IME
+      - name: Install Traditional Chinese (zh-TW) IME (Fast Basic Only)
         shell: pwsh
         run: |
-          $cacheDir = "C:\ime-cache"
-          if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force }
-          # Only target LanguageFeatures (Basic & Fonts) CABs, ignoring unrelated apps
-          $cabs = Get-ChildItem $cacheDir -Filter "*LanguageFeatures*.cab" -ErrorAction SilentlyContinue
-
-          if ($cabs.Count -gt 0) {
-            Write-Host "Found $($cabs.Count) targeted IME Language package(s)! Installing offline via DISM in ~20 seconds..."
-            foreach ($cab in $cabs) {
-              Write-Host "Installing $($cab.Name)..."
-              dism.exe /Online /Add-Package /PackagePath:$($cab.FullName) /NoRestart /Quiet
-            }
-          } else {
-            Write-Host "No cached CAB packages found. Running Install-Language from Windows Update (first-time seed)..."
-            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
-            # Save only the LanguageFeatures (IME/Fonts) CABs to cache directory
-            Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Filter "*LanguageFeatures*.cab" -Recurse -ErrorAction SilentlyContinue |
-              Copy-Item -Destination $cacheDir -Force -ErrorAction SilentlyContinue
-          }
-
+          Write-Host "Installing Traditional Chinese (zh-TW) Basic IME core (excluding Speech/TTS/Handwriting/OCR)..."
+          Install-Language -Language zh-TW -ExcludeFeatures Speech,TextToSpeech,Handwriting,OCR -CopyToSettings -ErrorAction Stop
 
           $list = Get-WinUserLanguageList
           if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
@@ -70,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0
 
-      - name: Capture IME persistence recording
+      - name: Capture continuous IME persistence recording
         run: >
           python tests/ui/capture_ime_recording.py
           "build-x64/Release/ImeModePersistence.exe"
