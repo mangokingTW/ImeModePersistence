@@ -197,17 +197,20 @@ class ThreadedEditorWindow:
             user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
             time.sleep(delay_per_char)
 
-    def type_real_keys(self, key_sequence: list[str]):
+    def type_real_keys(self, keystroke_string: str):
         """100% genuine physical keyboard typing sent directly to Microsoft Bopomofo TIP."""
         from pywinauto.keyboard import send_keys
 
         self.set_foreground()
         user32.SetFocus(self.edit_hwnd)
+        # Mouse click inside edit box to ensure active hardware focus
+        user32.SendMessageW(self.edit_hwnd, 0x0201, 1, 0x00100010)  # WM_LBUTTONDOWN
+        user32.SendMessageW(self.edit_hwnd, 0x0202, 0, 0x00100010)  # WM_LBUTTONUP
         time.sleep(0.3)
 
-        for key in key_sequence:
-            send_keys(key, pause=0.08)
-            time.sleep(0.1)
+        send_keys(keystroke_string, pause=0.08, with_spaces=True)
+        time.sleep(0.5)
+
 
 
 
@@ -236,12 +239,8 @@ class ThreadedEditorWindow:
                     imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE, 0)
                 finally:
                     imm32.ImmReleaseContext(w, himc)
+        time.sleep(0.2)
 
-        # Trigger Shift press with hardware scan code 0x2A for Microsoft Bopomofo TIP indicator
-        scan = user32.MapVirtualKeyW(VK_SHIFT, 0) or 0x2A
-        user32.keybd_event(VK_SHIFT, scan, 0, 0)
-        time.sleep(0.05)
-        user32.keybd_event(VK_SHIFT, scan, KEYEVENTF_KEYUP, 0)
 
     def set_alphanumeric(self):
         for w in (self.edit_hwnd, self.hwnd):
@@ -389,8 +388,8 @@ def main() -> int:
         win_a.set_chinese()
         time.sleep(0.4)
         win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n注音輸入：", delay_per_char=0.04)
-        win_a.type_real_keys(["5", "j", "0", "{DOWN}", "{ENTER}"])
-        win_a.type_real_keys(["j", "p", "6", "{DOWN}", "{ENTER}"])
+        win_a.type_real_keys("5j0 {DOWN}{ENTER}")
+        win_a.type_real_keys("jp6{DOWN}{ENTER}")
         win_a.type_text("\r\n", delay_per_char=0.04)
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
@@ -398,10 +397,11 @@ def main() -> int:
         win_b.set_foreground()
         time.sleep(0.8)
         win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n注音輸入：", delay_per_char=0.04)
-        win_b.type_real_keys(["5", "j", "0", "{DOWN}", "{ENTER}"])
-        win_b.type_real_keys(["j", "p", "6", "{DOWN}", "{ENTER}"])
+        win_b.type_real_keys("5j0 {DOWN}{ENTER}")
+        win_b.type_real_keys("jp6{DOWN}{ENTER}")
         win_b.type_text("\r\n", delay_per_char=0.04)
         time.sleep(2.0)
+
 
 
         # Step 3: Switch to English mode in Window B
