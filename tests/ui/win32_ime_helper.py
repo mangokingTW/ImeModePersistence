@@ -6,6 +6,7 @@ and keyboard layout (HKL) without simulating keyboard strokes.
 """
 
 import ctypes
+import functools
 import subprocess
 import threading
 import time
@@ -41,6 +42,7 @@ imm32 = ctypes.windll.imm32
 kernel32 = ctypes.windll.kernel32
 
 
+@functools.lru_cache(maxsize=1)
 def has_chinese_ime() -> bool:
     """Returns True if Microsoft Bopomofo or JhengHei IME is installed on this machine.
 

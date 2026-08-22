@@ -28,10 +28,15 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Install Traditional Chinese (zh-TW) IME
+      - name: Install Traditional Chinese (zh-TW) IME (Fast FOD)
         shell: pwsh
         run: |
-          Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+          # Fast FOD install: only install Language.Basic (IME core), skipping TTS/OCR/Speech/Handwriting
+          $basic = Get-WindowsCapability -Online | Where-Object { $_.Name -like "Language.Basic*zh-TW*" }
+          if ($basic -and $basic.State -ne 'Installed') {
+            Write-Host "Installing Language.Basic for zh-TW: $($basic.Name)..."
+            Add-WindowsCapability -Online -Name $basic.Name
+          }
           $list = Get-WinUserLanguageList
           if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
             $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
