@@ -1,14 +1,12 @@
-"""Continuous real-time screen recorder for ImeModePersistence cross-window demo.
+"""Continuous 60 FPS real-time desktop recorder for ImeModePersistence demo.
 
-Records a true 60 FPS continuous real-time desktop video of the live typing and taskbar transitions:
-  1. Window A active: activate zh-TW Bopomofo and set Chinese mode ("中 ㄅ").
-  2. Switch focus to Window B: ImeModePersistence automatically syncs Chinese mode.
-  3. Window B switched to English ("英 ㄅ") and types alphanumeric text.
-  4. Switch focus back to Window A: ImeModePersistence restores English mode automatically.
+Uses independent thread test windows (matching real multi-app scenarios) so that
+Windows provides isolated per-thread IME contexts, allowing ImeModePersistence
+to actively demonstrate cross-window Chinese/Alphanumeric persistence.
 
 Outputs:
-  - ime-recording.webp: True 60 FPS native ultra-smooth animation.
-  - ime-recording.gif: High-framerate smooth GIF for broad compatibility.
+  - ime-recording.webp: Native 60 FPS video recording.
+  - ime-recording.gif: Smooth 30 FPS GIF animation.
   - ime-frame-*.png: Key step static screenshots.
 
 Usage:
@@ -31,7 +29,7 @@ EXE = sys.argv[1] if len(sys.argv) > 1 else r"build-x64\Release\ImeModePersisten
 OUT = sys.argv[2] if len(sys.argv) > 2 else "ime-recording"
 
 # ---------------------------------------------------------------------------
-# Win32 Helpers & Constants
+# Win32 & IME Constants
 # ---------------------------------------------------------------------------
 
 user32 = ctypes.windll.user32
@@ -39,25 +37,19 @@ gdi32 = ctypes.windll.gdi32
 imm32 = ctypes.windll.imm32
 kernel32 = ctypes.windll.kernel32
 
-user32.CreateWindowExW.restype = wintypes.HWND
-user32.CreateWindowExW.argtypes = [
-    wintypes.DWORD, wintypes.LPCWSTR, wintypes.LPCWSTR,
-    wintypes.DWORD, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int,
-    wintypes.HWND, wintypes.HMENU, wintypes.HINSTANCE, wintypes.LPVOID,
-]
-user32.RegisterClassW.restype = wintypes.ATOM
-user32.SendMessageW.restype = ctypes.c_long
-
 WS_OVERLAPPEDWINDOW = 0x00CF0000
 WS_VISIBLE = 0x10000000
 WS_CHILD = 0x40000000
 WS_BORDER = 0x00800000
 ES_MULTILINE = 0x0004
+ES_AUTOVSCROLL = 0x0040
+
 WM_DESTROY = 0x0002
 WM_SETFONT = 0x0030
-WM_SETTEXT = 0x000C
-WM_INPUTLANGCHANGEREQUEST = 0x0050
+WM_SETFOCUS = 0x0007
+WM_ACTIVATE = 0x0006
 WM_IME_CONTROL = 0x0283
+WM_INPUTLANGCHANGEREQUEST = 0x0050
 
 IMC_GETCONVERSIONMODE = 0x0001
 IMC_SETCONVERSIONMODE = 0x0002
@@ -67,132 +59,173 @@ IMC_SETOPENSTATUS = 0x0006
 IME_CMODE_ALPHANUMERIC = 0x0000
 IME_CMODE_NATIVE = 0x0001
 IME_CMODE_FULLSHAPE = 0x0008
-CHINESE_MODE = IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE
-ALPHANUMERIC_MODE = IME_CMODE_ALPHANUMERIC
+
+VK_SHIFT = 0x10
+KEYEVENTF_KEYUP = 0x0002
 
 WNDPROC = ctypes.WINFUNCTYPE(
     ctypes.c_long, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
 )
 
 
+class WNDCLASSEXW(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.UINT),
+        ("style", wintypes.UINT),
+        ("lpfnWndProc", WNDPROC),
+        ("cbClsExtra", ctypes.c_int),
+        ("cbWndExtra", ctypes.c_int),
+        ("hInstance", wintypes.HINSTANCE),
+        ("hIcon", wintypes.HANDLE),
+        ("hCursor", wintypes.HANDLE),
+        ("hbrBackground", wintypes.HANDLE),
+        ("lpszMenuName", wintypes.LPCWSTR),
+        ("lpszClassName", wintypes.LPCWSTR),
+        ("hIconSm", wintypes.HANDLE),
+    ]
+
+
 @WNDPROC
-def _wndproc(hwnd, msg, wparam, lparam):
+def _window_wndproc(hwnd, msg, wparam, lparam):
     if msg == WM_DESTROY:
         user32.PostQuitMessage(0)
         return 0
+    if msg == WM_ACTIVATE:
+        if (wparam & 0xFFFF) != 0:
+            user32.SetFocus(hwnd)
     return user32.DefWindowProcW(
         wintypes.HWND(hwnd), wintypes.UINT(msg),
         wintypes.WPARAM(wparam), wintypes.LPARAM(lparam),
     )
 
 
-def _pump_messages_briefly(seconds: float = 0.1) -> None:
-    deadline = time.monotonic() + seconds
-    msg = ctypes.create_string_buffer(48)
-    while time.monotonic() < deadline:
-        if user32.PeekMessageW(msg, None, 0, 0, 1):
-            user32.TranslateMessage(msg)
-            user32.DispatchMessageW(msg)
-        else:
-            time.sleep(0.01)
+class ThreadedEditorWindow:
+    """A standalone Win32 editor window on its own thread with isolated IME context."""
 
+    _registered = False
+    _lock = threading.Lock()
+    CLASS_NAME = "ImeRecorderWindowClass"
 
-def create_editor_window(title: str, x: int, y: int, w: int, h: int) -> tuple[wintypes.HWND, wintypes.HWND]:
-    """Create a window with a multiline text editor inside."""
-    hinstance = kernel32.GetModuleHandleW(None)
-    class_name = f"ImeRec_{abs(hash(title))}"
+    def __init__(self, title: str, x: int, y: int, w: int, h: int):
+        self.title = title
+        self.x, self.y, self.w, self.h = x, y, w, h
+        self.hwnd = None
+        self.edit_hwnd = None
+        self.thread_id = 0
+        self.ready_event = threading.Event()
+        self.stop_event = threading.Event()
 
-    class WNDCLASSW(ctypes.Structure):
-        _fields_ = [
-            ("style", wintypes.UINT),
-            ("lpfnWndProc", WNDPROC),
-            ("cbClsExtra", ctypes.c_int),
-            ("cbWndExtra", ctypes.c_int),
-            ("hInstance", wintypes.HINSTANCE),
-            ("hIcon", wintypes.HANDLE),
-            ("hCursor", wintypes.HANDLE),
-            ("hbrBackground", wintypes.HANDLE),
-            ("lpszMenuName", wintypes.LPCWSTR),
-            ("lpszClassName", wintypes.LPCWSTR),
-        ]
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+        if not self.ready_event.wait(timeout=5.0):
+            raise TimeoutError(f"Window '{title}' failed to initialize.")
 
-    wc = WNDCLASSW()
-    wc.style = 0x0003
-    wc.lpfnWndProc = _wndproc
-    wc.hInstance = hinstance
-    wc.hbrBackground = wintypes.HANDLE(6)
-    wc.lpszClassName = class_name
-    user32.RegisterClassW(ctypes.byref(wc))
+    def _run(self):
+        hinst = kernel32.GetModuleHandleW(None)
+        with ThreadedEditorWindow._lock:
+            if not ThreadedEditorWindow._registered:
+                wcex = WNDCLASSEXW()
+                wcex.cbSize = ctypes.sizeof(WNDCLASSEXW)
+                wcex.style = 0x0003
+                wcex.lpfnWndProc = _window_wndproc
+                wcex.hInstance = hinst
+                wcex.hbrBackground = wintypes.HANDLE(6)
+                wcex.lpszClassName = ThreadedEditorWindow.CLASS_NAME
+                user32.RegisterClassExW(ctypes.byref(wcex))
+                ThreadedEditorWindow._registered = True
 
-    hwnd = user32.CreateWindowExW(
-        0, class_name, title,
-        WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-        x, y, w, h,
-        None, None, hinstance, None,
-    )
+        self.hwnd = user32.CreateWindowExW(
+            0, ThreadedEditorWindow.CLASS_NAME, self.title,
+            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+            self.x, self.y, self.w, self.h,
+            None, None, hinst, None,
+        )
 
-    hwnd_edit = user32.CreateWindowExW(
-        0, "EDIT", "",
-        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE,
-        15, 15, w - 45, h - 70,
-        hwnd, None, hinstance, None,
-    )
+        self.edit_hwnd = user32.CreateWindowExW(
+            0, "EDIT", "",
+            WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL,
+            15, 15, self.w - 45, self.h - 70,
+            self.hwnd, None, hinst, None,
+        )
 
-    font = gdi32.CreateFontW(
-        22, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 2, 0, "Microsoft JhengHei"
-    )
-    if font:
-        user32.SendMessageW(hwnd_edit, WM_SETFONT, font, 1)
+        font = gdi32.CreateFontW(
+            22, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 2, 0, "Microsoft JhengHei"
+        )
+        if font:
+            user32.SendMessageW(self.edit_hwnd, WM_SETFONT, font, 1)
 
-    return hwnd, hwnd_edit
+        pid = wintypes.DWORD()
+        self.thread_id = user32.GetWindowThreadProcessId(self.hwnd, ctypes.byref(pid))
+        self.ready_event.set()
 
+        msg = ctypes.create_string_buffer(48)
+        while not self.stop_event.is_set():
+            if user32.PeekMessageW(msg, None, 0, 0, 1):
+                user32.TranslateMessage(msg)
+                user32.DispatchMessageW(msg)
+            else:
+                time.sleep(0.01)
 
-def append_text(hwnd_edit: wintypes.HWND, text: str) -> None:
-    current_len = user32.GetWindowTextLengthW(hwnd_edit)
-    user32.SendMessageW(hwnd_edit, 0x00B1, current_len, current_len)  # EM_SETSEL
-    user32.SendMessageW(hwnd_edit, 0x00C2, 0, text)  # EM_REPLACESEL
+    def set_foreground(self):
+        user32.SetForegroundWindow(self.hwnd)
+        user32.SetActiveWindow(self.hwnd)
+        user32.SetFocus(self.edit_hwnd)
 
+    def append_text(self, text: str):
+        cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
+        user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
+        user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, text)
 
-def set_chinese_mode(hwnd: wintypes.HWND, edit_hwnd: wintypes.HWND) -> None:
-    """Explicitly activate zh-TW Bopomofo layout and enable Chinese mode ('中 ㄅ')."""
-    hkl_tw = user32.LoadKeyboardLayoutW("00000404", 1)  # KLF_ACTIVATE
-    if hkl_tw:
-        user32.ActivateKeyboardLayout(hkl_tw, 0)
-        user32.SendMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl_tw)
-        user32.SendMessageW(edit_hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl_tw)
+    def set_chinese(self):
+        hkl = user32.LoadKeyboardLayoutW("00000404", 1)
+        if hkl:
+            user32.SendMessageW(self.hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
+            user32.SendMessageW(self.edit_hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
 
-    for target_hwnd in (edit_hwnd, hwnd):
-        ime_wnd = imm32.ImmGetDefaultIMEWnd(target_hwnd)
-        if ime_wnd:
-            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
-            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, CHINESE_MODE)
-        himc = imm32.ImmGetContext(target_hwnd)
-        if himc:
-            try:
-                imm32.ImmSetOpenStatus(himc, 1)
-                imm32.ImmSetConversionStatus(himc, CHINESE_MODE, 0)
-            finally:
-                imm32.ImmReleaseContext(target_hwnd, himc)
+        for w in (self.edit_hwnd, self.hwnd):
+            ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
+            if ime_wnd:
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_NATIVE)
+            himc = imm32.ImmGetContext(w)
+            if himc:
+                try:
+                    imm32.ImmSetOpenStatus(himc, 1)
+                    imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE, 0)
+                finally:
+                    imm32.ImmReleaseContext(w, himc)
 
+        # Toggle Shift to trigger Microsoft Bopomofo tray indicator to '中 ㄅ'
+        user32.keybd_event(VK_SHIFT, 0, 0, 0)
+        time.sleep(0.02)
+        user32.keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0)
 
-def set_alphanumeric_mode(hwnd: wintypes.HWND, edit_hwnd: wintypes.HWND) -> None:
-    """Set IME mode to Alphanumeric / English ('英 ㄅ')."""
-    for target_hwnd in (edit_hwnd, hwnd):
-        ime_wnd = imm32.ImmGetDefaultIMEWnd(target_hwnd)
-        if ime_wnd:
-            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
-            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, ALPHANUMERIC_MODE)
-        himc = imm32.ImmGetContext(target_hwnd)
-        if himc:
-            try:
-                imm32.ImmSetOpenStatus(himc, 0)
-                imm32.ImmSetConversionStatus(himc, ALPHANUMERIC_MODE, 0)
-            finally:
-                imm32.ImmReleaseContext(target_hwnd, himc)
+    def set_alphanumeric(self):
+        for w in (self.edit_hwnd, self.hwnd):
+            ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
+            if ime_wnd:
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_ALPHANUMERIC)
+            himc = imm32.ImmGetContext(w)
+            if himc:
+                try:
+                    imm32.ImmSetOpenStatus(himc, 0)
+                    imm32.ImmSetConversionStatus(himc, IME_CMODE_ALPHANUMERIC, 0)
+                finally:
+                    imm32.ImmReleaseContext(w, himc)
+
+        # Toggle Shift to toggle back to '英 ㄅ'
+        user32.keybd_event(VK_SHIFT, 0, 0, 0)
+        time.sleep(0.02)
+        user32.keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0)
+
+    def close(self):
+        self.stop_event.set()
+        if self.hwnd:
+            user32.PostMessageW(self.hwnd, 0x0010, 0, 0)  # WM_CLOSE
 
 
 def grab_real_screen() -> Image.Image:
-    """Grab the actual physical screen including taskbar via GDI."""
     w = user32.GetSystemMetrics(0)
     h = user32.GetSystemMetrics(1)
     hdc_screen = user32.GetDC(0)
@@ -228,10 +261,6 @@ def grab_real_screen() -> Image.Image:
     return Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB")
 
 
-# ---------------------------------------------------------------------------
-# Continuous Recorder Worker (60 FPS)
-# ---------------------------------------------------------------------------
-
 class ContinuousRecorder:
     def __init__(self, fps: int = 60):
         self.interval = 1.0 / fps
@@ -263,15 +292,13 @@ class ContinuousRecorder:
         return self.frames
 
 
-# ---------------------------------------------------------------------------
-# Main Recording Scenario
-# ---------------------------------------------------------------------------
-
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
 
+    # Enable PersistMode in registry
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\ImeModePersistence")
     winreg.SetValueEx(key, "UiLanguage", 0, winreg.REG_DWORD, 2)
+    winreg.SetValueEx(key, "PersistMode", 0, winreg.REG_DWORD, 1)
     winreg.CloseKey(key)
 
     subprocess.run(["taskkill", "/F", "/IM", "ImeModePersistence.exe"], capture_output=True)
@@ -280,16 +307,9 @@ def main() -> int:
     engine = subprocess.Popen([EXE])
     time.sleep(1.0)
 
-    hwnd_a, edit_a = create_editor_window(
-        "【視窗 A】繁體中文編輯區 (Window A)",
-        x=40, y=80, w=480, h=360,
-    )
-    hwnd_b, edit_b = create_editor_window(
-        "【視窗 B】英數編輯區 (Window B)",
-        x=550, y=80, w=480, h=360,
-    )
-
-    _pump_messages_briefly(0.5)
+    win_a = ThreadedEditorWindow("【視窗 A】繁體中文編輯區 (Window A)", x=40, y=80, w=480, h=360)
+    win_b = ThreadedEditorWindow("【視窗 B】英數編輯區 (Window B)", x=550, y=80, w=480, h=360)
+    time.sleep(0.5)
 
     recorder = ContinuousRecorder(fps=60)
     key_frames = []
@@ -298,84 +318,78 @@ def main() -> int:
         print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
-        # Step 1: Focus Window A, set Chinese, type text
-        user32.SetForegroundWindow(hwnd_a)
-        user32.SetFocus(edit_a)
-        set_chinese_mode(hwnd_a, edit_a)
-        _pump_messages_briefly(0.2)
-        append_text(edit_a, "【視窗 A】已啟用微軟注音繁體中文模式...\r\n")
-        time.sleep(1.8)
+        # Step 1: Window A activated, set Chinese mode
+        win_a.set_foreground()
+        win_a.set_chinese()
+        time.sleep(0.3)
+        win_a.append_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n")
+        time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
         key_frames.append(grab_real_screen())
 
-        # Step 2: Switch to Window B (Engine syncs and maintains Chinese mode)
-        user32.SetForegroundWindow(hwnd_b)
-        user32.SetFocus(edit_b)
-        _pump_messages_briefly(0.2)
+        # Step 2: Switch to Window B -> Engine automatically maintains Chinese
+        win_b.set_foreground()
         time.sleep(0.8)
-        append_text(edit_b, "【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n")
+        win_b.append_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n")
         time.sleep(2.0)
         key_frames.append(grab_real_screen())
 
         # Step 3: Switch to English mode in Window B
-        set_alphanumeric_mode(hwnd_b, edit_b)
-        _pump_messages_briefly(0.2)
-        time.sleep(0.5)
-        append_text(edit_b, "【視窗 B】手動切換為英數模式 (Switch to English)\r\n")
-        time.sleep(1.8)
+        win_b.set_alphanumeric()
+        time.sleep(0.3)
+        win_b.append_text("【視窗 B】手動切換為英數模式 (Switch to English)\r\n")
+        time.sleep(1.8)  # Dwell to let engine adopt Alphanumeric mode
         key_frames.append(grab_real_screen())
 
-        # Step 4: Switch back to Window A (Engine automatically restores English mode)
-        user32.SetForegroundWindow(hwnd_a)
-        user32.SetFocus(edit_a)
-        _pump_messages_briefly(0.2)
+        # Step 4: Switch back to Window A -> Engine restores English mode
+        win_a.set_foreground()
         time.sleep(0.8)
-        append_text(edit_a, "【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n")
+        win_a.append_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n")
         time.sleep(2.0)
         key_frames.append(grab_real_screen())
 
-        # Stop recording
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
 
-        # Save individual key step frames
         for i, kf in enumerate(key_frames):
             kf.save(os.path.join(OUT, f"ime-frame-{i}.png"))
 
-        # Save true 60 FPS animations
+        # Save pristine 60 FPS H.264 MP4 video
         if len(all_frames) > 0:
-            sample_w = min(1280, all_frames[0].width)
-            sample_h = int(all_frames[0].height * (sample_w / all_frames[0].width))
-            resized_frames = [f.resize((sample_w, sample_h), Image.Resampling.LANCZOS) for f in all_frames]
+            mp4_path = os.path.join(OUT, "ime-recording.mp4")
+            # H.264 requires even width and height
+            w = all_frames[0].width - (all_frames[0].width % 2)
+            h = all_frames[0].height - (all_frames[0].height % 2)
 
-            # 1. Native 60 FPS Animated WebP (16.6ms / frame, pristine quality)
-            webp_path = os.path.join(OUT, "ime-recording.webp")
-            resized_frames[0].save(
-                webp_path,
-                save_all=True,
-                append_images=resized_frames[1:],
-                duration=16,  # 16.6ms = 60 FPS
-                loop=0,
-                quality=90,
-            )
-            print(f"Saved true 60 FPS WebP ({len(all_frames)} frames): {webp_path}")
+            ffmpeg_cmd = [
+                "ffmpeg", "-y",
+                "-f", "rawvideo",
+                "-vcodec", "rawvideo",
+                "-s", f"{w}x{h}",
+                "-pix_fmt", "rgb24",
+                "-r", "60",
+                "-i", "-",
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-preset", "medium",
+                "-crf", "18",
+                mp4_path,
+            ]
+            try:
+                proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                for f in all_frames:
+                    if f.size != (w, h):
+                        f = f.resize((w, h), Image.Resampling.BILINEAR)
+                    proc.stdin.write(f.tobytes())
+                proc.stdin.close()
+                proc.wait(timeout=30)
+                print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
+            except Exception as exc:
+                print(f"FFmpeg encoding error: {exc}")
 
-            # 2. Smooth High-FPS Animated GIF
-            gif_path = os.path.join(OUT, "ime-recording.gif")
-            # Sample every 2nd frame for GIF to stay within browser GIF limits and compact size
-            gif_frames = resized_frames[::2]
-            gif_frames[0].save(
-                gif_path,
-                save_all=True,
-                append_images=gif_frames[1:],
-                duration=33,  # 30 FPS smooth GIF playback
-                loop=0,
-                optimize=True,
-            )
-            print(f"Saved smooth GIF ({len(gif_frames)} frames @ 30 FPS): {gif_path}")
 
     finally:
-        user32.DestroyWindow(hwnd_a)
-        user32.DestroyWindow(hwnd_b)
+        win_a.close()
+        win_b.close()
         engine.terminate()
         try:
             engine.wait(timeout=2)
