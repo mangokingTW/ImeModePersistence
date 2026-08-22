@@ -381,7 +381,6 @@ def main() -> int:
     winreg.SetValueEx(key, "ShowCaretIndicator", 0, winreg.REG_DWORD, 1)
     winreg.CloseKey(key)
 
-
     # Configure Microsoft Bopomofo default mode to Chinese ('中 ㄅ') and enable Shift switching & compatibility mode
     for path in [
         r"Software\Microsoft\IME\15.0\IMETC",
@@ -396,8 +395,8 @@ def main() -> int:
             winreg.SetValueEx(ime_key, "Enable Compatibility Mode", 0, winreg.REG_DWORD, 1)
             winreg.CloseKey(ime_key)
         except Exception:
-
             pass
+
 
     # Activate zh-TW layout as primary in the recording process
     hkl_tw = user32.LoadKeyboardLayoutW("00000404", 1)
