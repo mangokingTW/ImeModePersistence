@@ -18,6 +18,28 @@ REG_KEY_PATH = r"Software\ImeModePersistence"
 DEFAULT_EXE = os.path.abspath(r"build-x64\Release\ImeModePersistence.exe")
 
 
+def pytest_configure(config):
+    """Report Chinese IME availability at session start so CI logs are easy to read."""
+    try:
+        result = subprocess.run(
+            [
+                "powershell", "-NonInteractive", "-Command",
+                "(Get-WinUserLanguageList | "
+                " Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips "
+                "-join ','",
+            ],
+            capture_output=True, text=True, timeout=15,
+        )
+        tips = result.stdout.strip()
+        has_ime = "B2F9C502" in tips or "B115690A" in tips
+        print(
+            f"\n[IME-CONFIG] Chinese IME: {'INSTALLED (OK)' if has_ime else 'NOT INSTALLED (real-IME tests will SKIP)'}"
+            f"\n[IME-CONFIG] zh-TW InputMethodTips: {tips or '(none)'}"
+        )
+    except Exception as exc:
+        print(f"\n[IME-CONFIG] Could not query IME status: {exc}")
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--exe",
@@ -114,7 +136,7 @@ def app_runner(app_exe):
         for p in active_procs:
             try:
                 p.terminate()
-                p.wait(timeout=2.0)
+                p.wait(timeout=1.5)
             except Exception:
                 try:
                     p.kill()
@@ -129,7 +151,7 @@ def app_runner(app_exe):
         cmd = [app_exe] + (args or [])
         proc = subprocess.Popen(cmd)
         active_procs.append(proc)
-        time.sleep(0.4)
+        time.sleep(0.5)
         return proc
 
     _launch.cleanup = _cleanup
