@@ -28,7 +28,6 @@ _NO_CHINESE_IME = pytest.mark.skipif(
            "Install zh-TW language pack to run real-IME tests.",
 )
 
-
 def wait_for_condition(predicate, timeout=3.0, step=0.05):
     """Polls predicate until it returns True or timeout expires."""
     deadline = time.time() + timeout
@@ -37,7 +36,6 @@ def wait_for_condition(predicate, timeout=3.0, step=0.05):
             return True
         time.sleep(step)
     return False
-
 
 def test_ime_mode_persistence_between_windows(app_runner, registry_sandbox):
     """Verifies that switching between two independent windows properly restores
@@ -95,7 +93,6 @@ def test_ime_mode_persistence_between_windows(app_runner, registry_sandbox):
         if win_b:
             win_b.destroy()
 
-
 def test_rule_layout_recognition_e2e(app_runner, registry_sandbox):
     """Verifies that an application rule configured in the registry is loaded
 
@@ -120,7 +117,6 @@ def test_rule_layout_recognition_e2e(app_runner, registry_sandbox):
     finally:
         if win:
             win.destroy()
-
 
 def test_ghost_window_filtering_e2e(app_runner, registry_sandbox):
     """Ensures transient/ghost windows do not crash or corrupt persistence."""
@@ -148,14 +144,12 @@ def test_ghost_window_filtering_e2e(app_runner, registry_sandbox):
         if win:
             win.destroy()
 
-
 # ---------------------------------------------------------------------------
 # Real IME tests – require Microsoft Bopomofo / JhengHei IME (zh-TW)
 # These tests are automatically skipped if the IME is not installed.
 # On GitHub Actions, the "Install Traditional Chinese (zh-TW) IME" workflow
 # step installs the IME before this test suite runs.
 # ---------------------------------------------------------------------------
-
 
 @_NO_CHINESE_IME
 def test_bopomofo_ime_is_installed():
@@ -170,7 +164,6 @@ def test_bopomofo_ime_is_installed():
         "was not found in Get-WinUserLanguageList InputMethodTips. "
         "Ensure the Install-Language zh-TW step ran successfully."
     )
-
 
 @_NO_CHINESE_IME
 def test_ime_open_status_with_real_ime(app_runner, registry_sandbox):
@@ -235,7 +228,6 @@ def test_ime_open_status_with_real_ime(app_runner, registry_sandbox):
     finally:
         if win:
             win.destroy()
-
 
 @_NO_CHINESE_IME
 def test_persistence_with_real_chinese_ime(app_runner, registry_sandbox):

@@ -67,7 +67,6 @@ WNDPROC = ctypes.WINFUNCTYPE(
     ctypes.c_long, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
 )
 
-
 class WNDCLASSEXW(ctypes.Structure):
     _fields_ = [
         ("cbSize", wintypes.UINT),
@@ -84,7 +83,6 @@ class WNDCLASSEXW(ctypes.Structure):
         ("hIconSm", wintypes.HANDLE),
     ]
 
-
 @WNDPROC
 def _window_wndproc(hwnd, msg, wparam, lparam):
     if msg == WM_DESTROY:
@@ -97,7 +95,6 @@ def _window_wndproc(hwnd, msg, wparam, lparam):
         wintypes.HWND(hwnd), wintypes.UINT(msg),
         wintypes.WPARAM(wparam), wintypes.LPARAM(lparam),
     )
-
 
 class ThreadedEditorWindow:
     """A standalone Win32 editor window on its own thread with isolated IME context."""
@@ -188,7 +185,6 @@ class ThreadedEditorWindow:
 
         time.sleep(0.3)
 
-
     def type_text(self, text: str, delay_per_char: float = 0.045):
         """Simulates authentic real-time keyboard typing character by character."""
         for ch in text:
@@ -214,16 +210,6 @@ class ThreadedEditorWindow:
 
         user32.AttachThreadInput(cur_thread, target_thread, False)
 
-
-
-
-
-
-
-
-
-
-
     def set_chinese(self):
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
         if hkl:
@@ -245,7 +231,6 @@ class ThreadedEditorWindow:
                     imm32.ImmReleaseContext(w, himc)
         time.sleep(0.2)
 
-
     def set_alphanumeric(self):
         for w in (self.edit_hwnd, self.hwnd):
             ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
@@ -265,12 +250,10 @@ class ThreadedEditorWindow:
         time.sleep(0.05)
         user32.keybd_event(VK_SHIFT, scan, KEYEVENTF_KEYUP, 0)
 
-
     def close(self):
         self.stop_event.set()
         if self.hwnd:
             user32.PostMessageW(self.hwnd, 0x0010, 0, 0)  # WM_CLOSE
-
 
 def grab_real_screen() -> Image.Image:
     w = user32.GetSystemMetrics(0)
@@ -307,7 +290,6 @@ def grab_real_screen() -> Image.Image:
 
     return Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB")
 
-
 class ContinuousRecorder:
     def __init__(self, fps: int = 60):
         self.interval = 1.0 / fps
@@ -337,7 +319,6 @@ class ContinuousRecorder:
         if self.thread:
             self.thread.join(timeout=3)
         return self.frames
-
 
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
@@ -406,8 +387,6 @@ def main() -> int:
         win_b.type_text("\r\n", delay_per_char=0.04)
         time.sleep(2.0)
 
-
-
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
         time.sleep(0.4)
@@ -465,8 +444,6 @@ def main() -> int:
             except Exception as exc:
                 print(f"FFmpeg encoding error: {exc}")
 
-
-
     finally:
         win_a.close()
         win_b.close()
@@ -477,7 +454,6 @@ def main() -> int:
             engine.kill()
 
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

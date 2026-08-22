@@ -28,7 +28,6 @@ def find_rules_dialog(proc, timeout=15):
     # Fallback to desktop search
     return Desktop(backend="uia").window(title_re=r".*(bindings|綁定|绑定|割り当て|バインド|바인딩).*")
 
-
 def test_rules_dialog_controls_present(app_runner, registry_sandbox):
     """Verifies all UI elements and controls exist with correct automation IDs."""
     registry_sandbox.set_ui_language(1)  # English
@@ -69,7 +68,6 @@ def test_rules_dialog_controls_present(app_runner, registry_sandbox):
     close_btn.click()
     time.sleep(0.3)
 
-
 def test_rules_dialog_add_and_remove_rule(app_runner, registry_sandbox):
     """Tests the complete lifecycle of adding a custom rule, verifying it in the list,
 
@@ -107,7 +105,6 @@ def test_rules_dialog_add_and_remove_rule(app_runner, registry_sandbox):
     close_btn.click()
     time.sleep(0.3)
 
-
 @pytest.mark.parametrize("lang_id,lang_code", [
     (1, "en"),
     (2, "zh-tw"),
@@ -130,7 +127,6 @@ def test_rules_dialog_multilingual(lang_id, lang_code, app_runner, registry_sand
     if close_btn.exists():
         close_btn.click()
     time.sleep(0.3)
-
 
 if __name__ == "__main__":
     # Support standalone runner execution
