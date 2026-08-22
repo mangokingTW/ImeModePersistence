@@ -400,40 +400,39 @@ def main() -> int:
         print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
-        # Step 1: Window A activated, set Chinese mode, type bopomofo with candidate popup
+        # Step 1: Window A activated, set Chinese mode
         win_a.set_foreground()
         win_a.set_chinese()
-        time.sleep(0.3)
-        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n輸入注音: ", delay_per_char=0.04)
-        win_a.type_bopomofo_keystrokes([("5j0 ", True), ("jp6", False)])
-        win_a.type_text("\r\n", delay_per_char=0.04)
-        time.sleep(1.5)  # Dwell to let engine adopt Chinese mode
+        time.sleep(0.4)
+        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n", delay_per_char=0.04)
+        win_a.type_text("輸入繁體中文：注音輸入模式已啟用！\r\n", delay_per_char=0.05)
+        time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
         key_frames.append(grab_real_screen())
 
-        # Step 2: Switch to Window B -> Engine automatically maintains Chinese and candidate selection
+        # Step 2: Switch to Window B -> Engine automatically maintains Chinese
         win_b.set_foreground()
         time.sleep(0.8)
-        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n輸入注音: ", delay_per_char=0.04)
-        win_b.type_bopomofo_keystrokes([("5j0 ", True), ("jp6", False)])
-        win_b.type_text("\r\n", delay_per_char=0.04)
-        time.sleep(1.8)
+        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n", delay_per_char=0.04)
+        win_b.type_text("輸入繁體中文：跨視窗持續保持中文輸入！\r\n", delay_per_char=0.05)
+        time.sleep(2.0)
         key_frames.append(grab_real_screen())
-
-
 
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
-        time.sleep(0.3)
+        time.sleep(0.4)
         win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\r\n", delay_per_char=0.04)
+        win_b.type_text("Typing in English without manual switching!\r\n", delay_per_char=0.04)
         time.sleep(1.8)  # Dwell to let engine adopt Alphanumeric mode
         key_frames.append(grab_real_screen())
 
         # Step 4: Switch back to Window A -> Engine restores English mode
         win_a.set_foreground()
         time.sleep(0.8)
-        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n", delay_per_char=0.05)
+        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n", delay_per_char=0.04)
+        win_a.type_text("Engine restores latest alphanumeric state automatically!\r\n", delay_per_char=0.04)
         time.sleep(2.0)
         key_frames.append(grab_real_screen())
+
 
 
         all_frames = recorder.stop()
