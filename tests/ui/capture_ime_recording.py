@@ -366,42 +366,38 @@ def main() -> int:
         print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
-        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo via pydirectinput
+        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo 測試
         win_a.set_foreground()
         win_a.set_chinese()
-        time.sleep(0.4)
-        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\n注音輸入：")
+        time.sleep(0.5)
         # 敲擊注音打出「測試」（hd4 = ㄘㄜˋ[測], g4 = ㄕˋ[試]）
         win_a.type_bopomofo("hd4")
         win_a.type_bopomofo("g4")
         win_a.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
-        # Step 2: Switch to Window B -> Engine automatically maintains Chinese and native candidate selection
+        # Step 2: Switch to Window B -> Engine automatically maintains Chinese mode
         win_b.set_foreground()
         time.sleep(0.8)
-        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\n注音輸入：")
         win_b.type_bopomofo("hd4")
         win_b.type_bopomofo("g4")
         win_b.type_text("\n")
         time.sleep(2.0)
 
-
-        # Step 3: Switch to English mode in Window B
+        # Step 3: Switch to English mode in Window B -> Type English test
         win_b.set_alphanumeric()
-        time.sleep(0.4)
-        win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\n英文輸入：")
-        win_b.type_english("Hello World from English mode!")
+        time.sleep(0.5)
+        win_b.type_english("hello world")
         win_b.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Alphanumeric mode
 
-        # Step 4: Switch back to Window A -> Engine restores English mode
+        # Step 4: Switch back to Window A -> Engine restores English mode -> Type English test
         win_a.set_foreground()
         time.sleep(0.8)
-        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\n英文輸入：")
-        win_a.type_english("Persistence restored to English!")
+        win_a.type_english("persistence test")
         win_a.type_text("\n")
         time.sleep(2.0)
+
 
 
         # Check actual text contents of Window A and Window B
