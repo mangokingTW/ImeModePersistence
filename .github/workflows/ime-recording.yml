@@ -69,13 +69,18 @@ jobs:
           }
 
           $list = Get-WinUserLanguageList
-          if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
+          $zh = $list | Where-Object { $_.LanguageTag -like 'zh*' }
+          if ($zh) {
+            $list.Remove($zh)
+            $list.Insert(0, $zh)
+          } else {
             $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
             $list.Insert(0, $lang)
-            Set-WinUserLanguageList $list -Force
           }
+          Set-WinUserLanguageList $list -Force
           $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
-          Write-Host "zh-TW InputMethodTips: $tips"
+          Write-Host "zh-TW InputMethodTips (Primary): $tips"
+
 
       - name: Install dependencies
         run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio==2.35.1 imageio-ffmpeg==0.5.1
