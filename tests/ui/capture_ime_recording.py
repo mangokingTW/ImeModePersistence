@@ -179,6 +179,7 @@ class ThreadedEditorWindow:
     def set_chinese(self):
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
         if hkl:
+            user32.ActivateKeyboardLayout(hkl, 0)
             user32.SendMessageW(self.hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
             user32.SendMessageW(self.edit_hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
 
@@ -186,19 +187,20 @@ class ThreadedEditorWindow:
             ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
             if ime_wnd:
                 user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
-                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_NATIVE)
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE)
             himc = imm32.ImmGetContext(w)
             if himc:
                 try:
                     imm32.ImmSetOpenStatus(himc, 1)
-                    imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE, 0)
+                    imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE, 0)
                 finally:
                     imm32.ImmReleaseContext(w, himc)
 
-        # Toggle Shift to trigger Microsoft Bopomofo tray indicator to '中 ㄅ'
-        user32.keybd_event(VK_SHIFT, 0, 0, 0)
-        time.sleep(0.02)
-        user32.keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0)
+        # Trigger Shift press with hardware scan code 0x2A for Microsoft Bopomofo TIP indicator
+        scan = user32.MapVirtualKeyW(VK_SHIFT, 0) or 0x2A
+        user32.keybd_event(VK_SHIFT, scan, 0, 0)
+        time.sleep(0.05)
+        user32.keybd_event(VK_SHIFT, scan, KEYEVENTF_KEYUP, 0)
 
     def set_alphanumeric(self):
         for w in (self.edit_hwnd, self.hwnd):
@@ -214,10 +216,11 @@ class ThreadedEditorWindow:
                 finally:
                     imm32.ImmReleaseContext(w, himc)
 
-        # Toggle Shift to toggle back to '英 ㄅ'
-        user32.keybd_event(VK_SHIFT, 0, 0, 0)
-        time.sleep(0.02)
-        user32.keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0)
+        scan = user32.MapVirtualKeyW(VK_SHIFT, 0) or 0x2A
+        user32.keybd_event(VK_SHIFT, scan, 0, 0)
+        time.sleep(0.05)
+        user32.keybd_event(VK_SHIFT, scan, KEYEVENTF_KEYUP, 0)
+
 
     def close(self):
         self.stop_event.set()
@@ -360,8 +363,14 @@ def main() -> int:
             w = all_frames[0].width - (all_frames[0].width % 2)
             h = all_frames[0].height - (all_frames[0].height % 2)
 
+            try:
+                import imageio_ffmpeg
+                ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+            except Exception:
+                ffmpeg_bin = "ffmpeg"
+
             ffmpeg_cmd = [
-                "ffmpeg", "-y",
+                ffmpeg_bin, "-y",
                 "-f", "rawvideo",
                 "-vcodec", "rawvideo",
                 "-s", f"{w}x{h}",
@@ -370,7 +379,7 @@ def main() -> int:
                 "-i", "-",
                 "-c:v", "libx264",
                 "-pix_fmt", "yuv420p",
-                "-preset", "medium",
+                "-preset", "fast",
                 "-crf", "18",
                 mp4_path,
             ]
@@ -385,6 +394,7 @@ def main() -> int:
                 print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
             except Exception as exc:
                 print(f"FFmpeg encoding error: {exc}")
+
 
 
     finally:

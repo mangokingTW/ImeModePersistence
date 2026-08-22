@@ -78,7 +78,7 @@ jobs:
           Write-Host "zh-TW InputMethodTips: $tips"
 
       - name: Install dependencies
-        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0
+        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio==2.35.1 imageio-ffmpeg==0.5.1
 
       - name: Capture continuous IME persistence recording
         run: >
