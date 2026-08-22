@@ -25,7 +25,14 @@ import subprocess
 from ctypes import wintypes
 from PIL import Image
 
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 EXE = sys.argv[1] if len(sys.argv) > 1 else r"build-x64\Release\ImeModePersistence.exe"
+
 OUT = sys.argv[2] if len(sys.argv) > 2 else "ime-recording"
 
 # ---------------------------------------------------------------------------
