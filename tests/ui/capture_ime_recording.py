@@ -161,7 +161,7 @@ class ThreadedEditorWindow:
                 user32.TranslateMessage(msg)
                 user32.DispatchMessageW(msg)
             else:
-                time.sleep(0.01)
+                time.sleep(0.001)
 
     def set_foreground(self):
         user32.keybd_event(0, 0, 0, 0)  # Bypass Windows foreground lock
@@ -193,60 +193,21 @@ class ThreadedEditorWindow:
             user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
             time.sleep(delay_per_char)
 
-    def type_real_keys(self, keys_and_scans: list[tuple[int, int, bool]]):
-        """Sends genuine hardware scan codes via Win32 SendInput for authentic Microsoft Bopomofo TIP interception.
-
-        keys_and_scans format: list of (virtual_key, scan_code, is_extended)
-        """
+    def type_real_keys(self, vk_list: list[int]):
+        """Sends genuine keyboard events via standard Win32 keybd_event to Microsoft Bopomofo TIP."""
         self.set_foreground()
         user32.SetFocus(self.edit_hwnd)
         time.sleep(0.3)
 
-        # Ensure IME context is explicitly Native Chinese mode (0x0001)
-        himc = imm32.ImmGetContext(self.edit_hwnd)
-        if himc:
-            imm32.ImmSetOpenStatus(himc, 1)
-            imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE, 0)
-            imm32.ImmReleaseContext(self.edit_hwnd, himc)
-
-        class KEYBDINPUT(ctypes.Structure):
-            _fields_ = [
-                ("wVk", wintypes.WORD),
-                ("wScan", wintypes.WORD),
-                ("dwFlags", wintypes.DWORD),
-                ("time", wintypes.DWORD),
-                ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
-            ]
-
-        class INPUT_UNION(ctypes.Union):
-            _fields_ = [("ki", KEYBDINPUT)]
-
-        class INPUT(ctypes.Structure):
-            _fields_ = [("type", wintypes.DWORD), ("u", INPUT_UNION)]
-
-        INPUT_KEYBOARD = 1
-        KEYEVENTF_KEYUP = 0x0002
-        KEYEVENTF_SCANCODE = 0x0008
-        KEYEVENTF_EXTENDEDKEY = 0x0001
-
-        for vk, scan, is_ext in keys_and_scans:
-            # 1. Key Down with Hardware Scan Code
-            flags_down = KEYEVENTF_SCANCODE | (KEYEVENTF_EXTENDEDKEY if is_ext else 0)
-            inp_down = INPUT(
-                type=INPUT_KEYBOARD,
-                u=INPUT_UNION(ki=KEYBDINPUT(wVk=vk, wScan=scan, dwFlags=flags_down, time=0, dwExtraInfo=None))
-            )
-            user32.SendInput(1, ctypes.byref(inp_down), ctypes.sizeof(INPUT))
+        for vk in vk_list:
+            scan = user32.MapVirtualKeyW(vk, 0)
+            # Key Down
+            user32.keybd_event(vk, scan, 0, 0)
+            time.sleep(0.08)
+            # Key Up
+            user32.keybd_event(vk, scan, 2, 0)
             time.sleep(0.08)
 
-            # 2. Key Up with Hardware Scan Code
-            flags_up = KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP | (KEYEVENTF_EXTENDEDKEY if is_ext else 0)
-            inp_up = INPUT(
-                type=INPUT_KEYBOARD,
-                u=INPUT_UNION(ki=KEYBDINPUT(wVk=vk, wScan=scan, dwFlags=flags_up, time=0, dwExtraInfo=None))
-            )
-            user32.SendInput(1, ctypes.byref(inp_up), ctypes.sizeof(INPUT))
-            time.sleep(0.08)
 
 
 
@@ -415,22 +376,9 @@ def main() -> int:
         time.sleep(0.4)
         win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n注音輸入：", delay_per_char=0.04)
         # Type '5'(ㄓ), 'j'(ㄨ), '0'(ㄥ), Space(一聲), Down(候選), Enter(選中'中')
-        win_a.type_real_keys([
-            (0x35, 0x06, False),  # '5' (ㄓ)
-            (0x4A, 0x24, False),  # 'j' (ㄨ)
-            (0x30, 0x0B, False),  # '0' (ㄥ)
-            (0x20, 0x39, False),  # Space (一聲)
-            (0x28, 0x50, True),   # Down (展開選字清單)
-            (0x0D, 0x1C, False),  # Enter (選字上屏)
-        ])
+        win_a.type_real_keys([0x35, 0x4A, 0x30, 0x20, 0x28, 0x0D])
         # Type 'j'(ㄨ), 'p'(ㄣ), '6'(二聲ˊ), Down(候選), Enter(選中'文')
-        win_a.type_real_keys([
-            (0x4A, 0x24, False),  # 'j' (ㄨ)
-            (0x50, 0x19, False),  # 'p' (ㄣ)
-            (0x36, 0x07, False),  # '6' (二聲 ˊ)
-            (0x28, 0x50, True),   # Down (展開選字清單)
-            (0x0D, 0x1C, False),  # Enter (選字上屏)
-        ])
+        win_a.type_real_keys([0x4A, 0x50, 0x36, 0x28, 0x0D])
         win_a.type_text("\r\n", delay_per_char=0.04)
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
@@ -438,23 +386,11 @@ def main() -> int:
         win_b.set_foreground()
         time.sleep(0.8)
         win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n注音輸入：", delay_per_char=0.04)
-        win_b.type_real_keys([
-            (0x35, 0x06, False),
-            (0x4A, 0x24, False),
-            (0x30, 0x0B, False),
-            (0x20, 0x39, False),
-            (0x28, 0x50, True),
-            (0x0D, 0x1C, False),
-        ])
-        win_b.type_real_keys([
-            (0x4A, 0x24, False),
-            (0x50, 0x19, False),
-            (0x36, 0x07, False),
-            (0x28, 0x50, True),
-            (0x0D, 0x1C, False),
-        ])
+        win_b.type_real_keys([0x35, 0x4A, 0x30, 0x20, 0x28, 0x0D])
+        win_b.type_real_keys([0x4A, 0x50, 0x36, 0x28, 0x0D])
         win_b.type_text("\r\n", delay_per_char=0.04)
         time.sleep(2.0)
+
 
 
         # Step 3: Switch to English mode in Window B
