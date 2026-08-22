@@ -20,21 +20,47 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Fast Install Traditional Chinese IME via DISM
+      - name: Cache Official IME CAB Package
+        id: cache-ime-cab
+        uses: actions/cache@v4
+        with:
+          path: C:\ime-cab-cache
+          key: ime-cab-zh-tw-server2025-v1
+
+      - name: Install Traditional Chinese IME via Offline DISM Package
         shell: pwsh
         run: |
           $ProgressPreference = 'SilentlyContinue'
-          Write-Host "Installing Language.Basic~~~zh-TW via DISM (Fast ~1-2 min)..."
-          dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
-          dism /online /add-capability /capabilityname:Language.Fonts.Hant~~~und-Hant~0.0.1.0
+          $cabDir = "C:\ime-cab-cache"
+          if (-not (Test-Path $cabDir)) { New-Item -ItemType Directory -Path $cabDir -Force }
+          $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
+
+          if ($cachedCabs.Count -gt 0) {
+            Write-Host "⚡ Installing official zh-TW IME packages offline via DISM (~5 seconds)..."
+            foreach ($cab in $cachedCabs) {
+              Write-Host "Installing $($cab.FullName)..."
+              dism /online /add-package /packagepath:$($cab.FullName) /quiet /norestart
+            }
+          } else {
+            Write-Host "First-time install: Adding capability from Windows Update..."
+            dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
+
+            # Export installed CAB from servicing cache to cache directory
+            Write-Host "Caching downloaded CAB packages for future instant 5s runs..."
+            $downloaded = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\servicing\Packages" -Recurse -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
+            foreach ($f in $downloaded) {
+              Copy-Item $f.FullName -Destination "$cabDir\$($f.Name)" -Force -ErrorAction SilentlyContinue
+            }
+          }
 
           $list = New-WinUserLanguageList "zh-TW"
           Set-WinUserLanguageList $list -Force
           $tips = (Get-WinUserLanguageList).InputMethodTips
-          Write-Host "Active zh-TW InputMethodTips via DISM: $tips"
+          Write-Host "Active zh-TW InputMethodTips: $tips"
 
           New-Item -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Force -ErrorAction SilentlyContinue
           Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+
 
 
       - name: Install dependencies
