@@ -1,0 +1,54 @@
+﻿name: IME Recording (DISM Fast)
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ime-recording-dism:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Build x64
+        run: |
+          cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
+          cmake --build build-x64 --config Release
+
+      - name: Fast Install Traditional Chinese IME via DISM
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Write-Host "Installing Language.Basic~~~zh-TW via DISM (Fast ~1-2 min)..."
+          dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
+          dism /online /add-capability /capabilityname:Language.Fonts.Hant~~~und-Hant~0.0.1.0
+
+          $list = New-WinUserLanguageList "zh-TW"
+          Set-WinUserLanguageList $list -Force
+          $tips = (Get-WinUserLanguageList).InputMethodTips
+          Write-Host "Active zh-TW InputMethodTips via DISM: $tips"
+
+      - name: Install dependencies
+        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio==2.35.1 imageio-ffmpeg==0.5.1 pyautogui==0.9.54 pydirectinput==1.0.4
+
+      - name: Capture continuous IME persistence recording
+        run: >
+          python tests/ui/capture_ime_recording.py
+          "build-x64/Release/ImeModePersistence.exe"
+          ime-recording
+
+      - name: Run real-IME E2E tests
+        run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+
+      - name: Upload recording artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: ime-recording-dism
+          path: ime-recording/ime-recording.mp4
+          if-no-files-found: warn
