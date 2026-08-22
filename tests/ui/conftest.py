@@ -153,10 +153,11 @@ def pytest_runtest_makereport(item, call):
         try:
             from PIL import ImageGrab
             img = ImageGrab.grab()
-            img.save(shot_path)
-            print(f"\n[FAILURE] Saved screenshot -> {shot_path}")
-        except Exception as exc:
-            print(f"\n[FAILURE] Screenshot failed: {exc}")
+            if img:
+                img.save(shot_path)
+                print(f"\n[FAILURE] Saved screenshot -> {shot_path}")
+        except Exception:
+            pass
 
         # 2. Dump control tree
         try:

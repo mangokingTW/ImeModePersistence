@@ -61,7 +61,12 @@ class WNDCLASSEXW(ctypes.Structure):
     ]
 
 
-# Function prototypes
+kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
+kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
+
+kernel32.GetCurrentProcessId.restype = wintypes.DWORD
+kernel32.GetCurrentThreadId.restype = wintypes.DWORD
+
 user32.DefWindowProcW.argtypes = [
     wintypes.HWND,
     wintypes.UINT,
@@ -119,8 +124,25 @@ user32.PostMessageW.argtypes = [
 ]
 user32.PostMessageW.restype = wintypes.BOOL
 
+user32.UnregisterClassW.argtypes = [wintypes.LPCWSTR, wintypes.HINSTANCE]
+user32.UnregisterClassW.restype = wintypes.BOOL
+
 user32.PostQuitMessage.argtypes = [ctypes.c_int]
 user32.PostQuitMessage.restype = None
+
+user32.GetMessageW.argtypes = [
+    ctypes.POINTER(wintypes.MSG),
+    wintypes.HWND,
+    wintypes.UINT,
+    wintypes.UINT,
+]
+user32.GetMessageW.restype = wintypes.BOOL
+
+user32.TranslateMessage.argtypes = [ctypes.POINTER(wintypes.MSG)]
+user32.TranslateMessage.restype = wintypes.BOOL
+
+user32.DispatchMessageW.argtypes = [ctypes.POINTER(wintypes.MSG)]
+user32.DispatchMessageW.restype = wintypes.LPARAM
 
 user32.GetKeyboardLayout.argtypes = [wintypes.DWORD]
 user32.GetKeyboardLayout.restype = wintypes.HANDLE
@@ -215,21 +237,18 @@ def set_ime_state(hwnd: int, is_open: bool, conversion_mode: int):
             imm32.ImmReleaseContext(wintypes.HWND(hwnd), himc)
 
 
-_GLOBAL_WNDPROC = None
-
-
+@WNDPROC
 def _test_window_wndproc(hwnd, msg, wparam, lparam):
-    if msg == WM_DESTROY:
-        user32.PostQuitMessage(0)
-        return 0
-    if msg == WM_SETFOCUS:
-        edit = user32.GetDlgItem(hwnd, 101)
-        if edit:
-            user32.SetFocus(edit)
-        return 0
-    if msg == WM_INPUTLANGCHANGEREQUEST:
+    try:
+        if msg == 0x0002:  # WM_DESTROY
+            user32.PostQuitMessage(0)
+            return 0
         return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
-    return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
+    except Exception:
+        return 0
+
+
+_GLOBAL_WNDPROC = _test_window_wndproc
 
 
 class ImeTestWindow:
@@ -261,7 +280,6 @@ class ImeTestWindow:
 
         with ImeTestWindow._class_lock:
             if not ImeTestWindow._class_registered:
-                _GLOBAL_WNDPROC = WNDPROC(_test_window_wndproc)
                 wcex = WNDCLASSEXW()
                 wcex.cbSize = ctypes.sizeof(WNDCLASSEXW)
                 wcex.lpfnWndProc = _GLOBAL_WNDPROC
@@ -283,19 +301,8 @@ class ImeTestWindow:
             self.ready_event.set()
             return
 
-        self.edit_hwnd = user32.CreateWindowExW(
-            0,
-            "EDIT",
-            "Test edit buffer",
-            WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | ES_MULTILINE,
-            10, 10, 360, 200,
-            self.hwnd,
-            wintypes.HANDLE(101),
-            hinst,
-            None
-        )
-
-        user32.SetFocus(self.edit_hwnd)
+        self.edit_hwnd = self.hwnd
+        user32.SetFocus(self.hwnd)
         self.ready_event.set()
 
         msg = wintypes.MSG()
@@ -335,4 +342,6 @@ class ImeTestWindow:
         if self.hwnd:
             user32.PostMessageW(self.hwnd, 0x0010, 0, 0)  # WM_CLOSE
             self.closed_event.wait(timeout=2.0)
+            if self.thread and self.thread.is_alive():
+                self.thread.join(timeout=2.0)
             self.hwnd = None
