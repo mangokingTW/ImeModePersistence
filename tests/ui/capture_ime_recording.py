@@ -103,10 +103,42 @@ def _window_wndproc(hwnd, msg, wparam, lparam):
         wintypes.WPARAM(wparam), wintypes.LPARAM(lparam),
     )
 
+def minimize_background_windows():
+    """Minimizes terminal and host console windows so the desktop background is clean."""
+    SW_MINIMIZE = 6
+    kernel32 = ctypes.windll.kernel32
+    user32 = ctypes.windll.user32
+
+    # Minimize own console window if exists
+    console_hwnd = kernel32.GetConsoleWindow()
+    if console_hwnd:
+        user32.ShowWindow(console_hwnd, SW_MINIMIZE)
+
+    # Minimize other console / terminal windows
+    def enum_proc(hwnd, lparam):
+        if user32.IsWindowVisible(hwnd):
+            length = user32.GetWindowTextLengthW(hwnd)
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            title = buf.value.lower()
+            class_buf = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(hwnd, class_buf, 256)
+            cls = class_buf.value
+            if any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
+               cls in ["ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS"]:
+                user32.ShowWindow(hwnd, SW_MINIMIZE)
+        return True
+
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user32.EnumWindows(WNDENUMPROC(enum_proc), 0)
+    time.sleep(0.5)
+
+
 class NotepadWindow:
     """Manages a genuine Windows Notepad process with full Microsoft TSF IME candidate window support."""
 
     def __init__(self, x: int, y: int, w: int, h: int):
+
         from pywinauto.application import Application
 
         self.proc = subprocess.Popen(["notepad.exe"])
@@ -153,37 +185,6 @@ class NotepadWindow:
         time.sleep(0.2)
         pydirectinput.write(text, interval=interval)
         time.sleep(0.3)
-
-
-def minimize_background_windows():
-    """Minimizes terminal and host console windows so the desktop background is clean."""
-    SW_MINIMIZE = 6
-    kernel32 = ctypes.windll.kernel32
-    user32 = ctypes.windll.user32
-
-    # Minimize own console window if exists
-    console_hwnd = kernel32.GetConsoleWindow()
-    if console_hwnd:
-        user32.ShowWindow(console_hwnd, SW_MINIMIZE)
-
-    # Minimize other console / terminal windows
-    def enum_proc(hwnd, lparam):
-        if user32.IsWindowVisible(hwnd):
-            length = user32.GetWindowTextLengthW(hwnd)
-            buf = ctypes.create_unicode_buffer(length + 1)
-            user32.GetWindowTextW(hwnd, buf, length + 1)
-            title = buf.value.lower()
-            class_buf = ctypes.create_unicode_buffer(256)
-            user32.GetClassNameW(hwnd, class_buf, 256)
-            cls = class_buf.value
-            if any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
-               cls in ["ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS"]:
-                user32.ShowWindow(hwnd, SW_MINIMIZE)
-        return True
-
-    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
-    user32.EnumWindows(WNDENUMPROC(enum_proc), 0)
-    time.sleep(0.5)
 
 
 
