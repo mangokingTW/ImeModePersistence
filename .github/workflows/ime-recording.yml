@@ -28,6 +28,19 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
+      - name: Install Traditional Chinese (zh-TW) IME
+        shell: pwsh
+        run: |
+          Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+          $list = Get-WinUserLanguageList
+          if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
+            $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
+            $list.Insert(0, $lang)
+            Set-WinUserLanguageList $list -Force
+          }
+          $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
+          Write-Host "zh-TW InputMethodTips: $tips"
+
       - name: Install dependencies
         run: pip install pywinauto==0.6.9 pillow==10.4.0
 
