@@ -325,21 +325,37 @@ bool shell_ui(const std::wstring& executable) {
     return false;
 }
 
-// The taskbar and the desktop are the same process, and clicking either is
-// exactly what happens on the way to the tray icon. Compared by process id
-// rather than by executable name so a renamed or replaced shell still counts.
+// The taskbar, tray overflow flyouts, desktop, and shell popups are parts of the shell (explorer.exe).
+// Clicking any of these is what happens on the way to opening the tray icon / menu.
 bool shell_window(HWND hwnd) {
-    // By window class, not by process id. The taskbar and the desktop are
+    // By window class, not by process id alone. The taskbar and desktop are
     // explorer.exe, but so is a File Explorer window -- and that is a real
-    // application the user works in. Comparing the process id (an earlier attempt)
-    // swept File Explorer up with the shell and froze mode observation and the
-    // caret indicator there; the class names below are only the taskbar and the
-    // desktop host, so File Explorer (CabinetWClass) is left alone.
+    // application the user works in.
     const std::wstring cls = rules::window_class_of(hwnd);  // lower-cased
-    return cls == L"shell_traywnd" ||           // the primary taskbar
-           cls == L"shell_secondarytraywnd" ||  // taskbars on other monitors
-           cls == L"progman" ||                 // the classic desktop host
-           cls == L"workerw";                   // the desktop while wallpaper/web content is active
+    if (cls == L"shell_traywnd" ||                          // the primary taskbar
+        cls == L"shell_secondarytraywnd" ||                 // taskbars on other monitors
+        cls == L"progman" ||                                // the classic desktop host
+        cls == L"workerw" ||                                // the desktop while wallpaper/web content is active
+        cls == L"notifyiconoverflowwindow" ||               // classic tray overflow flyout (Win10 / early Win11)
+        cls == L"toplevelwindowforoverflowxamlisland" ||    // modern tray overflow flyout (Win11)
+        cls == L"xaml_windowedpopupclass" ||                // modern XAML popup flyout
+        cls == L"windows.ui.core.corewindow" ||             // modern system flyouts
+        cls == L"#32768") {                                 // standard popup menu
+        return true;
+    }
+
+    // When the process is explorer.exe, only genuine file browsing windows
+    // (CabinetWClass / ExploreWClass) and file operation dialogs count as real apps.
+    // Everything else (tray flyouts, shell notifications, system controls) is shell UI.
+    const std::wstring exe = rules::file_name_of(rules::executable_of(hwnd));
+    if (CompareStringOrdinal(exe.c_str(), -1, L"explorer.exe", -1, TRUE) == CSTR_EQUAL) {
+        if (cls != L"cabinetwclass" && cls != L"explorewclass" &&
+            cls != L"operationstatuswindow" && cls != L"#32770") {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 // LoadImageW picks the image of the requested size out of the .ico rather than

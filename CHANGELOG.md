@@ -7,6 +7,18 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.5.4
+
+Fix shell window detection for tray overflow and modern flyouts:
+
+- Tray overflow shell filter: Added window class detection for Windows 11 modern tray overflow flyouts (`TopLevelWindowForOverflowXamlIsland`), classic overflow flyouts (`NotifyIconOverflowWindow`), XAML popups, and shell context menus.
+- Robust Explorer process classification: Prevents tray overflow and shell interactions from overwriting the last observed foreground application with `explorer.exe`, ensuring rule dialog prefill and IME mode persistence accurately capture target applications (e.g. Discord or Chrome).
+
+繁體中文:修正系統匣溢位選單與現代快顯視窗之 Shell 視窗過濾判定：
+
+- 系統匣溢位選單過濾：新增對 Windows 11 現代 XAML 托盤溢位選單（`TopLevelWindowForOverflowXamlIsland`）、經典溢位視窗（`NotifyIconOverflowWindow`）、XAML 彈出視窗與右鍵選單之視窗類別辨識。
+- 強化 Explorer 行程判定：防止展開托盤隱藏圖示選單時將前一個目標應用程式誤判並覆蓋為 `explorer.exe`，確保規則新增對話框能精準預填使用者先前的應用程式（如 Discord 或 Chrome）。
+
 ## v1.5.3
 
 Unified dual-mode installer & Sidecar Helper layout switching:

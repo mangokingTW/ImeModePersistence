@@ -8,7 +8,7 @@ $version  = $env:ChocolateyPackageVersion
 # slots point at the same asset. Chocolatey runs elevated, so the machine-wide
 # (admin) installer is the right variant here.
 $url      = "https://github.com/mangokingTW/ImeModePersistence/releases/download/v$version/ImeModePersistence-$version-setup.exe"
-$checksum = '939C1F6237C514FB24D50B9F1720C461B46BF031E2131421871E2DF923511DAD'
+$checksum = '7F9C6D417DB6A072AEE0F1B2C5B43AF5E0D5D1003B0C08B6A94EBD7B60C02F1F'
 
 $packageArgs = @{
   packageName    = 'imemodepersistence'

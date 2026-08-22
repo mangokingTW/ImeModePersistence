@@ -2,12 +2,13 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
     <id>imemodepersistence</id>
-    <version>1.0.0</version>
+    <version>1.5.4</version>
     <packageSourceUrl>https://github.com/mangokingTW/ImeModePersistence/tree/main/packaging/chocolatey</packageSourceUrl>
     <owners>mangokingTW</owners>
     <title>ImeModePersistence</title>
     <authors>mangokingTW</authors>
     <projectUrl>https://github.com/mangokingTW/ImeModePersistence</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png</iconUrl>
     <copyright>Copyright (c) mangokingTW</copyright>
     <licenseUrl>https://github.com/mangokingTW/ImeModePersistence/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
