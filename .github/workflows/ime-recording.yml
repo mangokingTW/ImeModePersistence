@@ -28,8 +28,14 @@ jobs:
       - name: Install Traditional Chinese (zh-TW) IME (Fast Basic Only)
         shell: pwsh
         run: |
-          Write-Host "Installing Traditional Chinese (zh-TW) Basic IME core (excluding Speech/TTS/Handwriting/OCR)..."
-          Install-Language -Language zh-TW -ExcludeFeatures Speech,TextToSpeech,Handwriting,OCR -CopyToSettings -ErrorAction Stop
+          Write-Host "Installing Traditional Chinese (zh-TW) Basic IME core..."
+          try {
+            Add-WindowsCapability -Online -Name "Language.Basic~~~zh-TW~0.0.1.0" -ErrorAction Stop
+          } catch {
+            Write-Host "Add-WindowsCapability fallback to Install-Language: $_"
+            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+          }
+
 
           $list = Get-WinUserLanguageList
           if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
