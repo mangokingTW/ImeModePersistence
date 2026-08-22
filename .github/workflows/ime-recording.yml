@@ -43,8 +43,9 @@ jobs:
               $downloadSuccess = $true
               Write-Host "Found $($cabs.Count) offline CAB package(s)! Installing via DISM in ~20 seconds..."
               foreach ($cab in $cabs) {
-                dism.exe /Online /Add-Package /PackagePath:$cab.FullName /NoRestart /Quiet
+                dism.exe /Online /Add-Package /PackagePath:$cab.FullName /NoRestart /Quiet /LimitAccess
               }
+
             }
           } catch {
             Write-Host "Draft Release not populated yet. Falling back to Windows Update..."
