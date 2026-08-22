@@ -35,7 +35,6 @@ jobs:
           path: C:\ime-cache
           key: ime-zh-tw-cache-v1
 
-
       - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
         run: |
