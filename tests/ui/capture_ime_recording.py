@@ -439,16 +439,24 @@ def main() -> int:
                 mp4_path,
             ]
             try:
-                proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                for f in all_frames:
-                    if f.size != (w, h):
-                        f = f.resize((w, h), Image.Resampling.BILINEAR)
-                    proc.stdin.write(f.tobytes())
-                proc.stdin.close()
-                proc.wait(timeout=30)
-                print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
+                proc = subprocess.Popen(
+                    ffmpeg_cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                )
+                raw_bytes = b"".join(
+                    (f.resize((w, h), Image.Resampling.BILINEAR) if f.size != (w, h) else f).tobytes()
+                    for f in all_frames
+                )
+                _, stderr_data = proc.communicate(input=raw_bytes, timeout=60)
+                if proc.returncode != 0:
+                    print(f"FFmpeg returned error code {proc.returncode}: {stderr_data.decode('utf-8', errors='ignore')}")
+                else:
+                    print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
             except Exception as exc:
                 print(f"FFmpeg encoding error: {exc}")
+
 
     finally:
         win_a.close()
