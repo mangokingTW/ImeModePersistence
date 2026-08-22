@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   ime-recording:
@@ -25,17 +25,34 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Install Traditional Chinese (zh-TW) IME (Fast Basic Only)
+      - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          Write-Host "Installing Traditional Chinese (zh-TW) Basic IME core..."
+          $cacheDir = "C:\ime-cache"
+          if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force }
+
+          # Try downloading pre-cached CAB from Draft Release 'ci-dependencies' (2-second download)
+          $downloadSuccess = $false
           try {
-            Add-WindowsCapability -Online -Name "Language.Basic~~~zh-TW~0.0.1.0" -ErrorAction Stop
+            Write-Host "Checking for offline IME packages in Draft Release 'ci-dependencies'..."
+            gh release download ci-dependencies --repo ${{ github.repository }} --pattern "*LanguageFeatures*.cab" --dir $cacheDir
+            $cabs = Get-ChildItem $cacheDir -Filter "*LanguageFeatures*.cab"
+            if ($cabs.Count -gt 0) {
+              $downloadSuccess = $true
+              Write-Host "Found $($cabs.Count) offline CAB package(s)! Installing via DISM in ~20 seconds..."
+              foreach ($cab in $cabs) {
+                dism.exe /Online /Add-Package /PackagePath:$cab.FullName /NoRestart /Quiet
+              }
+            }
           } catch {
-            Write-Host "Add-WindowsCapability fallback to Install-Language: $_"
-            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+            Write-Host "Draft Release not populated yet. Falling back to Windows Update..."
           }
 
+          if (-not $downloadSuccess) {
+            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+          }
 
           $list = Get-WinUserLanguageList
           if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
