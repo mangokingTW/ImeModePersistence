@@ -29,3 +29,10 @@ Release/
 # Python bytecode caches (UI tests)
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Test and recording output artifacts
+/ime-recording/
+/ime-recording-*/
+/store-shots/
+ui-failure-*
