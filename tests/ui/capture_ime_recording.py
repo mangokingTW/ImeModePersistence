@@ -198,16 +198,21 @@ class ThreadedEditorWindow:
             time.sleep(delay_per_char)
 
     def type_bopomofo_keystrokes(self, word_sequences: list[tuple[str, bool]]):
-        """Types raw bopomofo keystrokes and optionally pops up the candidate window.
+        """Types raw bopomofo keystrokes with authentic tone keys and pops up candidate list.
 
-        Example: [("5j0", True)] -> types ㄓㄨㄥ, opens candidate list, selects 中.
+        Example: [("5j0 ", True)] -> types ㄓㄨㄥ + Space(1st tone), opens candidate list, selects 中.
         """
         for seq, show_cand in word_sequences:
             for ch in seq:
-                vk = ord(ch.upper()) if len(ch) == 1 and ch.isalnum() else 0x20
+                if ch == ' ':
+                    vk = 0x20  # VK_SPACE
+                elif ch.isalnum():
+                    vk = ord(ch.upper())
+                else:
+                    vk = 0x20
                 scan = user32.MapVirtualKeyW(vk, 0)
                 user32.keybd_event(vk, scan, 0, 0)
-                time.sleep(0.04)
+                time.sleep(0.05)
                 user32.keybd_event(vk, scan, KEYEVENTF_KEYUP, 0)
                 time.sleep(0.08)
 
@@ -215,15 +220,16 @@ class ThreadedEditorWindow:
                 time.sleep(0.2)
                 # Press Down Arrow to expand the Microsoft Bopomofo candidate popup list
                 user32.keybd_event(0x28, 0x50, 0, 0)  # VK_DOWN
-                time.sleep(0.04)
+                time.sleep(0.05)
                 user32.keybd_event(0x28, 0x50, KEYEVENTF_KEYUP, 0)
                 time.sleep(0.7)  # Dwell to show candidate popup window in video
 
-            # Press Enter / Space to commit candidate
+            # Press Enter to commit candidate
             user32.keybd_event(0x0D, 0x1C, 0, 0)  # VK_RETURN
-            time.sleep(0.04)
+            time.sleep(0.05)
             user32.keybd_event(0x0D, 0x1C, KEYEVENTF_KEYUP, 0)
             time.sleep(0.15)
+
 
 
 
@@ -355,15 +361,21 @@ def main() -> int:
     winreg.SetValueEx(key, "PersistMode", 0, winreg.REG_DWORD, 1)
     winreg.CloseKey(key)
 
-    # Configure Microsoft Bopomofo default mode to Chinese ('中 ㄅ') and enable Shift switching
-    try:
-        ime_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\IME\15.0\IMETC")
-        winreg.SetValueEx(ime_key, "Default Input Mode", 0, winreg.REG_DWORD, 1)
-        winreg.SetValueEx(ime_key, "Left Shift Usage", 0, winreg.REG_DWORD, 1)
-        winreg.SetValueEx(ime_key, "Right Shift Usage", 0, winreg.REG_DWORD, 1)
-        winreg.CloseKey(ime_key)
-    except Exception:
-        pass
+    # Configure Microsoft Bopomofo default mode to Chinese ('中 ㄅ') and enable Shift switching & compatibility mode
+    for path in [
+        r"Software\Microsoft\IME\15.0\IMETC",
+        r"Software\Microsoft\InputMethod\Settings\CHT",
+        r"Software\Microsoft\InputMethod\Settings\IMETC",
+    ]:
+        try:
+            ime_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, path)
+            winreg.SetValueEx(ime_key, "Default Input Mode", 0, winreg.REG_DWORD, 1)
+            winreg.SetValueEx(ime_key, "Left Shift Usage", 0, winreg.REG_DWORD, 1)
+            winreg.SetValueEx(ime_key, "Right Shift Usage", 0, winreg.REG_DWORD, 1)
+            winreg.SetValueEx(ime_key, "Enable Compatibility Mode", 0, winreg.REG_DWORD, 1)
+            winreg.CloseKey(ime_key)
+        except Exception:
+            pass
 
     # Activate zh-TW layout as primary in the recording process
     hkl_tw = user32.LoadKeyboardLayoutW("00000404", 1)
@@ -371,7 +383,6 @@ def main() -> int:
         user32.ActivateKeyboardLayout(hkl_tw, 0)
 
     subprocess.run(["taskkill", "/F", "/IM", "ImeModePersistence.exe"], capture_output=True)
-
 
     time.sleep(0.3)
 
@@ -394,7 +405,7 @@ def main() -> int:
         win_a.set_chinese()
         time.sleep(0.3)
         win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n輸入注音: ", delay_per_char=0.04)
-        win_a.type_bopomofo_keystrokes([("5j0", True), ("jp6", False)])
+        win_a.type_bopomofo_keystrokes([("5j0 ", True), ("jp6", False)])
         win_a.type_text("\r\n", delay_per_char=0.04)
         time.sleep(1.5)  # Dwell to let engine adopt Chinese mode
         key_frames.append(grab_real_screen())
@@ -403,10 +414,11 @@ def main() -> int:
         win_b.set_foreground()
         time.sleep(0.8)
         win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n輸入注音: ", delay_per_char=0.04)
-        win_b.type_bopomofo_keystrokes([("5j0", True), ("jp6", False)])
+        win_b.type_bopomofo_keystrokes([("5j0 ", True), ("jp6", False)])
         win_b.type_text("\r\n", delay_per_char=0.04)
         time.sleep(1.8)
         key_frames.append(grab_real_screen())
+
 
 
         # Step 3: Switch to English mode in Window B
