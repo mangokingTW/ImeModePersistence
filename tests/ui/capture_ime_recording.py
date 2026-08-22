@@ -397,7 +397,6 @@ def main() -> int:
         except Exception:
             pass
 
-
     # Activate zh-TW layout as primary in the recording process
     hkl_tw = user32.LoadKeyboardLayoutW("00000404", 1)
     if hkl_tw:
