@@ -47,29 +47,48 @@ jobs:
             gh release download ci-dependencies --pattern "*.cab" -D $cabDir --repo ${{ github.repository }} --clobber
           } catch {}
 
-
           $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
 
           if ($cachedCabs.Count -gt 0) {
             Write-Host "⚡ Installing official zh-TW IME packages offline via DISM (~5 seconds)..."
             foreach ($cab in $cachedCabs) {
-              Write-Host "Installing $($cab.FullName)..."
+              Write-Host "Installing $($cab.FullName) ($([math]::Round($cab.Length/1MB, 2)) MB)..."
               dism /online /add-package /packagepath:$($cab.FullName) /quiet /norestart
             }
           } else {
-            Write-Host "First-time install: Adding capability from Windows Update..."
+            Write-Host "No cached CAB found in Release. Starting real-time background CAB capturer..."
+            $capturer = Start-Job -ScriptBlock {
+              param($dest)
+              for ($i = 0; $i -lt 1800; $i++) {
+                $cabs = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\Temp", "$env:TEMP" -Recurse -Filter "*.cab" -ErrorAction SilentlyContinue
+                foreach ($c in $cabs) {
+                  if ($c.Length -gt 5MB) {
+                    Copy-Item $c.FullName -Destination "$dest\$($c.Name)" -Force -ErrorAction SilentlyContinue
+                  }
+                }
+                Start-Sleep -Seconds 1
+              }
+            } -ArgumentList $cabDir
+
+            Write-Host "Adding capability from Windows Update..."
             dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
 
-            # Export installed CAB from servicing cache to cache directory & persist to Release
-            Write-Host "Caching downloaded CAB packages for future instant 5s runs..."
-            $downloaded = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\servicing\Packages" -Recurse -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
-            foreach ($f in $downloaded) {
-              Copy-Item $f.FullName -Destination "$cabDir\$($f.Name)" -Force -ErrorAction SilentlyContinue
+            Stop-Job $capturer -ErrorAction SilentlyContinue
+            Remove-Job $capturer -ErrorAction SilentlyContinue
+
+            # Upload captured official CAB to Release ci-dependencies for permanent 5s runs
+            $capturedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
+            Write-Host "Captured $($capturedCabs.Count) official CAB package(s)!"
+            foreach ($cab in $capturedCabs) {
+              Write-Host "Uploading official $($cab.Name) ($([math]::Round($cab.Length/1MB, 2)) MB) to Release 'ci-dependencies'..."
               try {
-                gh release upload ci-dependencies $f.FullName --clobber --repo ${{ github.repository }}
-              } catch {}
+                gh release upload ci-dependencies $cab.FullName --clobber --repo ${{ github.repository }}
+              } catch {
+                Write-Host "Release upload note: $_"
+              }
             }
           }
+
 
 
           $list = New-WinUserLanguageList "zh-TW"
