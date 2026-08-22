@@ -181,7 +181,6 @@ class NotepadWindow:
             except Exception:
                 pass
 
-
 def grab_real_screen() -> Image.Image:
     w = user32.GetSystemMetrics(0)
     h = user32.GetSystemMetrics(1)
@@ -314,7 +313,6 @@ def main() -> int:
         win_b.type_text("\n")
         time.sleep(2.0)
 
-
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
         time.sleep(0.4)
@@ -342,7 +340,6 @@ def main() -> int:
 
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
-
 
         # Save pristine 60 FPS H.264 MP4 video only (no screenshots)
 

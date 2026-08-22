@@ -74,10 +74,11 @@ jobs:
             }
           }
 
-          $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
-          Set-WinUserLanguageList -LanguageList ($lang) -Force
+          $list = New-WinUserLanguageList "zh-TW"
+          Set-WinUserLanguageList $list -Force
           $tips = (Get-WinUserLanguageList).InputMethodTips
           Write-Host "Exclusive InputMethodTips: $tips"
+
 
 
 
