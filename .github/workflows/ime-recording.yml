@@ -36,48 +36,21 @@ jobs:
 
       - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          $ProgressPreference = 'Continue'
-          $cacheDir = "C:\ime-cache"
-          if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force }
+          $ProgressPreference = 'SilentlyContinue'
+          Write-Host "Running genuine official Install-Language for full TSF IME COM registration..."
+          Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
 
-          # Try downloading pre-cached assets from Draft Release 'ci-dependencies' (2-second download)
-          $downloadSuccess = $false
-          try {
-            Write-Host "Checking for offline IME assets in hidden Draft Release 'ci-dependencies'..."
-            gh release download ci-dependencies --repo ${{ github.repository }} --pattern "zh-tw-ime-assets.zip" --dir $cacheDir
-            $zip = "$cacheDir\zh-tw-ime-assets.zip"
-            if (Test-Path $zip) {
-              Write-Host "Found cached IME package! Restoring offline in ~5 seconds..."
-              Expand-Archive -Path $zip -DestinationPath "C:\Windows\System32\IME\IMETC" -Force
-              $downloadSuccess = $true
-            }
-          } catch {
-            Write-Host "Draft Release not populated yet. Falling back to Windows Update..."
+          $list = Get-WinUserLanguageList
+          $zh = $list | Where-Object { $_.LanguageTag -like 'zh*' }
+          if ($zh) {
+            $list.Remove($zh)
+            $list.Insert(0, $zh)
+            Set-WinUserLanguageList $list -Force
           }
+          $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
+          Write-Host "Active zh-TW InputMethodTips: $tips"
 
-          if (-not $downloadSuccess) {
-            Write-Host "Running first-time Install-Language from Windows Update..."
-            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
-
-            # Automatically package installed IME assets & create Draft Release
-            try {
-              Write-Host "Creating Draft Release 'ci-dependencies' for future ultra-fast offline runs..."
-              $zipPath = "$cacheDir\zh-tw-ime-assets.zip"
-              Compress-Archive -Path "C:\Windows\System32\IME\IMETC" -DestinationPath $zipPath -Force
-              gh release create ci-dependencies $zipPath --draft --title "CI Dependencies" --notes "Pre-cached IME components for fast CI offline installation" --repo ${{ github.repository }}
-              Write-Host "Successfully created hidden Draft Release 'ci-dependencies'!"
-            } catch {
-              Write-Host "Draft Release auto-creation note: $_"
-            }
-          }
-
-          $list = New-WinUserLanguageList "zh-TW"
-          Set-WinUserLanguageList $list -Force
-          $tips = (Get-WinUserLanguageList).InputMethodTips
-          Write-Host "Exclusive InputMethodTips: $tips"
 
 
 
