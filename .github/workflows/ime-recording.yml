@@ -43,6 +43,19 @@ jobs:
           New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Force -ErrorAction SilentlyContinue
           Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Name "EnableAutoTray" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
 
+          New-Item -Path "HKCU:\Software\ImeModePersistence" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "ShowCaretIndicator" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "PersistMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "UiLanguage" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+
+          $notifyPath = "HKCU:\Control Panel\NotifyIconSettings"
+          if (Test-Path $notifyPath) {
+            Get-ChildItem $notifyPath | ForEach-Object {
+              Set-ItemProperty -Path $_.PSPath -Name "IsPromoted" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+
 
 
       - name: Install dependencies

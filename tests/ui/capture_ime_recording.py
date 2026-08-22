@@ -353,7 +353,7 @@ class ContinuousRecorder:
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
 
-    # Configure taskbar to always show all notification tray icons directly (EnableAutoTray = 0)
+    # Configure taskbar to always show all notification tray icons directly (EnableAutoTray = 0 and NotifyIconSettings IsPromoted = 1)
     try:
         exp_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer")
         winreg.SetValueEx(exp_key, "EnableAutoTray", 0, winreg.REG_DWORD, 0)
@@ -361,11 +361,26 @@ def main() -> int:
     except Exception:
         pass
 
-    # Enable PersistMode in registry
+    try:
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Control Panel\NotifyIconSettings") as notify_key:
+            num_subkeys = winreg.QueryInfoKey(notify_key)[0]
+            for idx in range(num_subkeys):
+                try:
+                    subkey_name = winreg.EnumKey(notify_key, idx)
+                    with winreg.OpenKey(notify_key, subkey_name, 0, winreg.KEY_SET_VALUE) as subkey:
+                        winreg.SetValueEx(subkey, "IsPromoted", 0, winreg.REG_DWORD, 1)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Enable PersistMode and ShowCaretIndicator (Caret / Cursor indicator) in registry
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\ImeModePersistence")
     winreg.SetValueEx(key, "UiLanguage", 0, winreg.REG_DWORD, 2)
     winreg.SetValueEx(key, "PersistMode", 0, winreg.REG_DWORD, 1)
+    winreg.SetValueEx(key, "ShowCaretIndicator", 0, winreg.REG_DWORD, 1)
     winreg.CloseKey(key)
+
 
     # Configure Microsoft Bopomofo default mode to Chinese ('中 ㄅ') and enable Shift switching & compatibility mode
     for path in [
