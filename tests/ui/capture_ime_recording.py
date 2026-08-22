@@ -135,20 +135,35 @@ class NotepadWindow:
 
 
     def set_chinese(self):
+        self.set_foreground()
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
         if hkl:
             user32.ActivateKeyboardLayout(hkl, 0)
             user32.SendMessageW(self.hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
+
+        ime_wnd = imm32.ImmGetDefaultIMEWnd(self.hwnd)
+        if ime_wnd:
+            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
+            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 1)
+
+        himc = imm32.ImmGetContext(self.hwnd)
+        if himc:
+            try:
+                imm32.ImmSetOpenStatus(himc, 1)
+                imm32.ImmSetConversionStatus(himc, 1, 0)
+            finally:
+                imm32.ImmReleaseContext(self.hwnd, himc)
+
+        import pyautogui
+        pyautogui.press('shift')
         time.sleep(0.3)
 
     def set_alphanumeric(self):
-        # Shift key toggle
         self.set_foreground()
-        scan = user32.MapVirtualKeyW(VK_SHIFT, 0) or 0x2A
-        user32.keybd_event(VK_SHIFT, scan, 0, 0)
-        time.sleep(0.05)
-        user32.keybd_event(VK_SHIFT, scan, 2, 0)
+        import pyautogui
+        pyautogui.press('shift')
         time.sleep(0.3)
+
 
     def close(self):
         try:
