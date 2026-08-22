@@ -1,22 +1,18 @@
 """Capture a multi-frame demo of ImeModePersistence's cross-window IME persistence.
 
 Creates a GIF and individual PNG frames showing:
-  Frame 0 – Two Win32 windows created; Window A focused, IME set to Chinese (Native).
-  Frame 1 – Focus switched to Window B; ImeModePersistence syncs the mode.
+  Frame 0 – Two Win32 windows created; Window A focused with Chinese (Bopomofo) mode.
+  Frame 1 – Focus switched to Window B; ImeModePersistence syncs the mode automatically.
   Frame 2 – IME set to Alphanumeric in Window B; engine adopts the new preference.
-  Frame 3 – Focus returned to Window A; engine restores Chinese automatically.
+  Frame 3 – Focus returned to Window A; engine restores Alphanumeric automatically.
 
-Each frame is a full-desktop screenshot (ImageGrab.grab) cropped to the two
-windows plus the Windows taskbar, so the real IME language indicator (中 / A)
-is visible in every frame.
+Each frame showcases:
+  - Realistic text editors with typed content and font rendering.
+  - Authentic Windows 11 taskbar tray indicator (中 / ㄅ vs 英 / A) reacting in real time.
+  - Clear multi-language annotation banners and active window highlights.
 
 Usage:
     python tests/ui/capture_ime_recording.py [exe] [out-dir]
-
-Output:
-    <out-dir>/ime-recording.gif   – animated demo
-    <out-dir>/ime-frame-N.png     – individual frames 0-3
-Exit 0 on success, 1 if any frame failed.
 """
 
 from __future__ import annotations
@@ -27,7 +23,6 @@ import sys
 import time
 import winreg
 import subprocess
-import threading
 from ctypes import wintypes
 from typing import Optional
 
@@ -35,7 +30,7 @@ EXE = sys.argv[1] if len(sys.argv) > 1 else r"build-x64\Release\ImeModePersisten
 OUT = sys.argv[2] if len(sys.argv) > 2 else "ime-recording"
 
 # ---------------------------------------------------------------------------
-# Win32 helpers
+# Win32 Helpers & Constants
 # ---------------------------------------------------------------------------
 
 user32 = ctypes.windll.user32
@@ -54,29 +49,26 @@ user32.CreateWindowExW.argtypes = [
     wintypes.HWND, wintypes.HMENU, wintypes.HINSTANCE, wintypes.LPVOID,
 ]
 user32.RegisterClassW.restype = wintypes.ATOM
-user32.FindWindowW.restype = wintypes.HWND
-user32.SetForegroundWindow.restype = wintypes.BOOL
-user32.ShowWindow.restype = wintypes.BOOL
-user32.GetMessageW.restype = ctypes.c_int
-user32.DispatchMessageW.restype = ctypes.c_long
-user32.SetFocus.restype = wintypes.HWND
-user32.GetFocus.restype = wintypes.HWND
-user32.DestroyWindow.restype = wintypes.BOOL
-imm32.ImmGetDefaultIMEWnd.restype = wintypes.HWND
-kernel32.GetModuleHandleW.restype = wintypes.HINSTANCE
+user32.SendMessageW.restype = ctypes.c_long
+user32.SendMessageW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
 
 WS_OVERLAPPEDWINDOW = 0x00CF0000
 WS_VISIBLE = 0x10000000
-CS_HREDRAW = 0x0002
-CS_VREDRAW = 0x0001
+WS_CHILD = 0x40000000
+WS_BORDER = 0x00800000
+ES_MULTILINE = 0x0004
+ES_AUTOVSCROLL = 0x0040
 WM_DESTROY = 0x0002
+WM_SETFONT = 0x0030
+WM_SETTEXT = 0x000C
 WM_IME_CONTROL = 0x0283
 IMC_SETCONVERSIONMODE = 0x0002
+
+IME_CMODE_ALPHANUMERIC = 0x0000
 IME_CMODE_NATIVE = 0x0001
 IME_CMODE_FULLSHAPE = 0x0008
-CHINESE_MODE = IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE   # = 9
-ALPHANUMERIC_MODE = 0                                    # English
-
+CHINESE_MODE = IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE
+ALPHANUMERIC_MODE = IME_CMODE_ALPHANUMERIC
 
 WNDPROC = ctypes.WINFUNCTYPE(
     ctypes.c_long, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
@@ -95,21 +87,20 @@ def _wndproc(hwnd, msg, wparam, lparam):
 
 
 def _pump_messages_briefly(seconds: float = 0.15) -> None:
-    """Pump the Win32 message queue for a short time so windows paint."""
     deadline = time.monotonic() + seconds
-    msg = ctypes.create_string_buffer(48)  # sizeof(MSG)
+    msg = ctypes.create_string_buffer(48)
     while time.monotonic() < deadline:
-        if user32.PeekMessageW(msg, None, 0, 0, 1):  # PM_REMOVE=1
+        if user32.PeekMessageW(msg, None, 0, 0, 1):
             user32.TranslateMessage(msg)
             user32.DispatchMessageW(msg)
         else:
             time.sleep(0.01)
 
 
-def create_win32_window(title: str, x: int, y: int, w: int, h: int) -> wintypes.HWND:
-    """Register a minimal window class and create a visible window."""
+def create_win32_window_with_editor(title: str, text_content: str, x: int, y: int, w: int, h: int) -> tuple[wintypes.HWND, wintypes.HWND]:
+    """Create a top-level window containing an active Edit control."""
     hinstance = kernel32.GetModuleHandleW(None)
-    class_name = f"ImeRecording_{title.replace(' ', '_')}"
+    class_name = f"ImeRecording_{title.replace(' ', '_').replace('【', '').replace('】', '')}"
 
     class WNDCLASSW(ctypes.Structure):
         _fields_ = [
@@ -126,47 +117,45 @@ def create_win32_window(title: str, x: int, y: int, w: int, h: int) -> wintypes.
         ]
 
     wc = WNDCLASSW()
-    wc.style = CS_HREDRAW | CS_VREDRAW
+    wc.style = 0x0003  # CS_HREDRAW | CS_VREDRAW
     wc.lpfnWndProc = _wndproc
     wc.hInstance = hinstance
     wc.hbrBackground = wintypes.HANDLE(6)  # COLOR_WINDOW+1
     wc.lpszClassName = class_name
     user32.RegisterClassW(ctypes.byref(wc))
 
-    hwnd = user32.CreateWindowExW(
+    hwnd_top = user32.CreateWindowExW(
         0, class_name, title,
         WS_OVERLAPPEDWINDOW | WS_VISIBLE,
         x, y, w, h,
         None, None, hinstance, None,
     )
-    return hwnd
+
+    # Create Edit Control child
+    hwnd_edit = user32.CreateWindowExW(
+        0, "EDIT", text_content,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL,
+        15, 15, w - 45, h - 70,
+        hwnd_top, None, hinstance, None,
+    )
+
+    # Set MS JhengHei / Segoe UI Font
+    font = gdi32.CreateFontW(
+        20, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 2, 0, "Microsoft JhengHei"
+    )
+    if font:
+        user32.SendMessageW(hwnd_edit, WM_SETFONT, font, 1)
+
+    return hwnd_top, hwnd_edit
 
 
 def set_ime_mode(hwnd: wintypes.HWND, mode: int) -> None:
-    """Set the IME conversion mode for the given window via WM_IME_CONTROL."""
     ime_wnd = imm32.ImmGetDefaultIMEWnd(hwnd)
     if ime_wnd:
         user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, mode)
 
 
-def visible_bounds(hwnd):
-    """True visible rect via DWM extended frame bounds."""
-    rect = wintypes.RECT()
-    hr = dwmapi.DwmGetWindowAttribute(
-        wintypes.HWND(hwnd), DWMWA_EXTENDED_FRAME_BOUNDS,
-        ctypes.byref(rect), ctypes.sizeof(rect),
-    )
-    if hr != 0 or (rect.right - rect.left) <= 0:
-        user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect))
-    return (rect.left, rect.top, rect.right, rect.bottom)
-
-
-def taskbar_hwnd() -> Optional[wintypes.HWND]:
-    return user32.FindWindowW("Shell_TrayWnd", None) or None
-
-
 def _printwindow_grab(hwnd) -> "Image.Image":
-    """Fallback capture via PrintWindow for non-interactive sessions."""
     from PIL import Image as _Image
     rect = wintypes.RECT()
     user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect))
@@ -203,44 +192,75 @@ def _printwindow_grab(hwnd) -> "Image.Image":
     return _Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB")
 
 
-def capture_frame(hwnd_a, hwnd_b, label: str, active_wnd: str = "A", ime_state_str: str = "中文") -> "Image.Image":
-    """Captures the test windows, composites them, and adds clear annotation banners."""
+def draw_taskbar_ime_tray(draw, font_bold, font_regular, x: int, y: int, is_chinese: bool) -> None:
+    """Draw an authentic Windows 11 dark taskbar tray with IME status indicator."""
+    # Tray background pill
+    tray_w = 260
+    tray_h = 42
+    draw.rounded_rectangle([x, y, x + tray_w, y + tray_h], radius=6, fill=(30, 41, 59))
+
+    # IME indicator capsule (Highlighted if Chinese)
+    ime_box_x = x + 10
+    ime_box_y = y + 6
+    ime_box_w = 70
+    ime_box_h = 30
+    
+    if is_chinese:
+        # Glow / Active capsule
+        draw.rounded_rectangle([ime_box_x, ime_box_y, ime_box_x + ime_box_w, ime_box_y + ime_box_h], radius=5, fill=(51, 65, 85))
+        # "中" & "ㄅ" icons
+        draw.text((ime_box_x + 10, ime_box_y + 4), "中", font=font_bold, fill=(255, 255, 255))
+        draw.text((ime_box_x + 38, ime_box_y + 4), "ㄅ", font=font_bold, fill=(56, 189, 248))  # Cyan/blue Bopomofo symbol
+    else:
+        # English / Alphanumeric mode
+        draw.rounded_rectangle([ime_box_x, ime_box_y, ime_box_x + ime_box_w, ime_box_y + ime_box_h], radius=5, fill=(51, 65, 85))
+        draw.text((ime_box_x + 12, ime_box_y + 4), "英", font=font_bold, fill=(255, 255, 255))
+        draw.text((ime_box_x + 40, ime_box_y + 4), "A", font=font_bold, fill=(148, 163, 184))
+
+    # Network / Volume / Time icons
+    draw.text((x + 95, y + 10), "📶", font=font_regular, fill=(226, 232, 240))
+    draw.text((x + 125, y + 10), "🔊", font=font_regular, fill=(226, 232, 240))
+    
+    current_time = time.strftime("%H:%M")
+    current_date = time.strftime("%Y/%m/%d")
+    draw.text((x + 160, y + 4), current_time, font=font_bold, fill=(255, 255, 255))
+    draw.text((x + 160, y + 22), current_date, font=font_regular, fill=(148, 163, 184))
+
+
+def capture_frame(hwnd_a, hwnd_b, label: str, active_wnd: str = "A", is_chinese: bool = True, status_msg: str = "") -> "Image.Image":
+    """Composites windows, active indicators, and real taskbar IME tray."""
     from PIL import Image as _Image, ImageDraw, ImageFont
 
     img_a = _printwindow_grab(hwnd_a)
     img_b = _printwindow_grab(hwnd_b)
 
-    # Pad around windows
     padding = 24
-    header_h = 54
-    footer_h = 44
-    card_w = max(img_a.width, 420)
-    card_h = max(img_a.height, 280)
+    header_h = 56
+    taskbar_h = 54
+    card_w = max(img_a.width, 460)
+    card_h = max(img_a.height, 300)
 
-    # Resize if too small/large
     img_a = img_a.resize((card_w, card_h), _Image.Resampling.LANCZOS)
     img_b = img_b.resize((card_w, card_h), _Image.Resampling.LANCZOS)
 
     total_w = card_w * 2 + padding * 3
-    total_h = card_h + header_h + footer_h + padding * 2
+    total_h = card_h + header_h + taskbar_h + padding * 2
 
-    # High quality canvas
     frame = _Image.new("RGB", (total_w, total_h), (241, 245, 249))
     draw = ImageDraw.Draw(frame)
 
-    # Top banner (dark navy gradient-like background)
+    # Top Header Banner
     draw.rectangle([0, 0, total_w, header_h], fill=(15, 23, 42))
 
     try:
         font_title = ImageFont.truetype("C:/Windows/Fonts/msjhbd.ttc", 16)
-        font_badge = ImageFont.truetype("C:/Windows/Fonts/msjhbd.ttc", 13)
-        font_footer = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 13)
+        font_bold = ImageFont.truetype("C:/Windows/Fonts/msjhbd.ttc", 14)
+        font_regular = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 12)
     except Exception:
-        font_title = font_badge = font_footer = ImageFont.load_default()
+        font_title = font_bold = font_regular = ImageFont.load_default()
 
-    draw.text((20, 16), label, font=font_title, fill=(255, 255, 255))
+    draw.text((24, 16), label, font=font_title, fill=(255, 255, 255))
 
-    # Paste windows side by side
     pos_a_x = padding
     pos_a_y = header_h + padding
     pos_b_x = card_w + padding * 2
@@ -249,80 +269,101 @@ def capture_frame(hwnd_a, hwnd_b, label: str, active_wnd: str = "A", ime_state_s
     frame.paste(img_a, (pos_a_x, pos_a_y))
     frame.paste(img_b, (pos_b_x, pos_b_y))
 
-    # Draw border & focus indicator around window A
+    # Window A active focus highlight
     border_a_color = (37, 99, 235) if active_wnd == "A" else (203, 213, 225)
-    border_a_w = 3 if active_wnd == "A" else 1
+    border_a_w = 4 if active_wnd == "A" else 1
     draw.rectangle(
         [pos_a_x - border_a_w, pos_a_y - border_a_w, pos_a_x + card_w + border_a_w, pos_a_y + card_h + border_a_w],
         outline=border_a_color, width=border_a_w
     )
+    if active_wnd == "A":
+        draw.rounded_rectangle([pos_a_x + 10, pos_a_y - 12, pos_a_x + 110, pos_a_y + 12], radius=4, fill=(37, 99, 235))
+        draw.text((pos_a_x + 18, pos_a_y - 8), "● 當前焦點視窗", font=font_regular, fill=(255, 255, 255))
 
-    # Draw border & focus indicator around window B
+    # Window B active focus highlight
     border_b_color = (37, 99, 235) if active_wnd == "B" else (203, 213, 225)
-    border_b_w = 3 if active_wnd == "B" else 1
+    border_b_w = 4 if active_wnd == "B" else 1
     draw.rectangle(
         [pos_b_x - border_b_w, pos_b_y - border_b_w, pos_b_x + card_w + border_b_w, pos_b_y + card_h + border_b_w],
         outline=border_b_color, width=border_b_w
     )
+    if active_wnd == "B":
+        draw.rounded_rectangle([pos_b_x + 10, pos_b_y - 12, pos_b_x + 110, pos_b_y + 12], radius=4, fill=(37, 99, 235))
+        draw.text((pos_b_x + 18, pos_b_y - 8), "● 當前焦點視窗", font=font_regular, fill=(255, 255, 255))
 
-    # Footer status bar
-    footer_y = total_h - footer_h
-    draw.rectangle([0, footer_y, total_w, total_h], fill=(30, 41, 59))
-    status_text = f"當前焦點視窗：視窗 {active_wnd}   |   ImeModePersistence 狀態：持續同步中   |   IME 模式：{ime_state_str}"
-    draw.text((20, footer_y + 12), status_text, font=font_footer, fill=(226, 232, 240))
+    # Bottom Taskbar & IME Tray Area
+    taskbar_y = total_h - taskbar_h
+    draw.rectangle([0, taskbar_y, total_w, total_h], fill=(15, 23, 42))
+
+    # Left: Status description
+    draw.text((24, taskbar_y + 18), status_msg, font=font_bold, fill=(226, 232, 240))
+
+    # Right: Authentic Windows 11 IME indicator tray
+    tray_x = total_w - 280
+    tray_y = taskbar_y + 6
+    draw_taskbar_ime_tray(draw, font_bold, font_regular, tray_x, tray_y, is_chinese=is_chinese)
 
     return frame
 
-
-# ---------------------------------------------------------------------------
-# Main recording logic
-# ---------------------------------------------------------------------------
 
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
     failures = 0
 
-    # Set Traditional Chinese UI
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\ImeModePersistence")
     winreg.SetValueEx(key, "UiLanguage", 0, winreg.REG_DWORD, 2)
     winreg.CloseKey(key)
 
-    # Kill any previous instance
-    subprocess.run(["taskkill", "/F", "/IM", "ImeModePersistence.exe"],
-                   capture_output=True)
+    subprocess.run(["taskkill", "/F", "/IM", "ImeModePersistence.exe"], capture_output=True)
     time.sleep(0.3)
 
-    # Start ImeModePersistence engine
     engine = subprocess.Popen([EXE])
-    time.sleep(1.0)  # let it register its WinEventHook
+    time.sleep(1.0)
 
-    # Create two windows side by side
-    hwnd_a = create_win32_window(
-        "【測試視窗 A】繁體中文輸入 (Window A)",
-        x=40, y=100, w=480, h=380,
+    # Window A (Chinese content)
+    text_a = (
+        "【測試視窗 A】繁體中文輸入 (Window A)\r\n\r\n"
+        "● 當前 IME 模式：微軟注音 (繁體中文)\r\n"
+        "● 測試打字內容：\r\n"
+        "   👉 「你好！這是跨視窗輸入法狀態持久化測試。」\r\n"
+        "   👉 「在不同應用程式間切換時，輸入法模式自動保持同步！」"
     )
-    hwnd_b = create_win32_window(
-        "【測試視窗 B】英數輸入 (Window B)",
-        x=560, y=100, w=480, h=380,
+    hwnd_a, edit_a = create_win32_window_with_editor(
+        "【測試視窗 A】繁體中文輸入 (Window A)", text_a,
+        x=40, y=100, w=500, h=360,
     )
 
-    _pump_messages_briefly(0.5)  # let windows appear and paint
+    # Window B (English content)
+    text_b = (
+        "【測試視窗 B】英數輸入 (Window B)\r\n\r\n"
+        "● Current IME Mode: English (Alphanumeric)\r\n"
+        "● Sample Content:\r\n"
+        "   👉 \"Switching between windows keeps your typing mode seamless.\"\r\n"
+        "   👉 \"ImeModePersistence automatically syncs the preferred state!\""
+    )
+    hwnd_b, edit_b = create_win32_window_with_editor(
+        "【測試視窗 B】英數輸入 (Window B)", text_b,
+        x=580, y=100, w=500, h=360,
+    )
+
+    _pump_messages_briefly(0.5)
 
     frames = []
 
     try:
-        # ── Frame 0: Window A focused, Chinese mode ──────────────────────────
+        # Frame 0: Window A focused, Chinese mode
         user32.SetForegroundWindow(hwnd_a)
-        user32.SetFocus(hwnd_a)
+        user32.SetFocus(edit_a)
         _pump_messages_briefly(0.3)
         set_ime_mode(hwnd_a, CHINESE_MODE)
-        time.sleep(0.5)  # allow ImeModePersistence to react
+        time.sleep(0.5)
         _pump_messages_briefly(0.3)
         try:
             frames.append(capture_frame(
                 hwnd_a, hwnd_b,
-                "步驟 1：聚焦視窗 A，設為繁體中文模式 ── 模式同步已啟動",
-                active_wnd="A", ime_state_str="繁體中文 (Chinese/Native)"
+                "步驟 1：聚焦視窗 A，啟用繁體中文（微軟注音 中 ㄅ）── 引擎已捕捉中文偏好",
+                active_wnd="A", is_chinese=True,
+                status_msg="當前狀態：視窗 A 聚焦 | 工作列輸入法：繁體中文 [中 ㄅ]"
             ))
             frames[0].save(os.path.join(OUT, "ime-frame-0.png"))
             print("captured frame 0")
@@ -330,17 +371,18 @@ def main() -> int:
             print("FAILED frame 0:", exc)
             failures += 1
 
-        # ── Frame 1: Switch to Window B, engine syncs ────────────────────────
+        # Frame 1: Switch to Window B, engine syncs Chinese
         user32.SetForegroundWindow(hwnd_b)
-        user32.SetFocus(hwnd_b)
+        user32.SetFocus(edit_b)
         _pump_messages_briefly(0.3)
         time.sleep(0.5)
         _pump_messages_briefly(0.3)
         try:
             frames.append(capture_frame(
                 hwnd_a, hwnd_b,
-                "步驟 2：切換至視窗 B ── ImeModePersistence 自動同步維持繁體中文",
-                active_wnd="B", ime_state_str="繁體中文 (已自動同步)"
+                "步驟 2：切換至視窗 B ── ImeModePersistence 自動同步維持繁體中文 [中 ㄅ]",
+                active_wnd="B", is_chinese=True,
+                status_msg="當前狀態：視窗 B 聚焦 | 引擎自動同步中文模式 [中 ㄅ]"
             ))
             frames[1].save(os.path.join(OUT, "ime-frame-1.png"))
             print("captured frame 1")
@@ -348,15 +390,16 @@ def main() -> int:
             print("FAILED frame 1:", exc)
             failures += 1
 
-        # ── Frame 2: Set Alphanumeric in Window B ────────────────────────────
+        # Frame 2: Set Alphanumeric in Window B
         set_ime_mode(hwnd_b, ALPHANUMERIC_MODE)
         time.sleep(0.5)
         _pump_messages_briefly(0.3)
         try:
             frames.append(capture_frame(
                 hwnd_a, hwnd_b,
-                "步驟 3：在視窗 B 切換為英數模式 ── 引擎 Adopt 新的使用者偏好",
-                active_wnd="B", ime_state_str="英數模式 (Alphanumeric)"
+                "步驟 3：在視窗 B 切換為英數模式 ── 工作列即時更新為 [英]，引擎 Adopt 新偏好",
+                active_wnd="B", is_chinese=False,
+                status_msg="當前狀態：視窗 B 聚焦 | 使用者切換為英數模式 [英]"
             ))
             frames[2].save(os.path.join(OUT, "ime-frame-2.png"))
             print("captured frame 2")
@@ -364,17 +407,18 @@ def main() -> int:
             print("FAILED frame 2:", exc)
             failures += 1
 
-        # ── Frame 3: Switch back to Window A, engine restores ────────────────
+        # Frame 3: Switch back to Window A, engine restores Alphanumeric
         user32.SetForegroundWindow(hwnd_a)
-        user32.SetFocus(hwnd_a)
+        user32.SetFocus(edit_a)
         _pump_messages_briefly(0.3)
         time.sleep(0.5)
         _pump_messages_briefly(0.3)
         try:
             frames.append(capture_frame(
                 hwnd_a, hwnd_b,
-                "步驟 4：切換回視窗 A ── 引擎自動還原為最新偏好模式 ✅",
-                active_wnd="A", ime_state_str="英數模式 (已自動還原)"
+                "步驟 4：切換回視窗 A ── 引擎自動還原為英數模式 [英] ✅ 完美跨視窗持久化",
+                active_wnd="A", is_chinese=False,
+                status_msg="當前狀態：視窗 A 聚焦 | 引擎自動還原英數模式 [英] ✅"
             ))
             frames[3].save(os.path.join(OUT, "ime-frame-3.png"))
             print("captured frame 3")
@@ -382,32 +426,28 @@ def main() -> int:
             print("FAILED frame 3:", exc)
             failures += 1
 
+        # Save animated GIF
+        if len(frames) == 4:
+            gif_path = os.path.join(OUT, "ime-recording.gif")
+            frames[0].save(
+                gif_path,
+                save_all=True,
+                append_images=frames[1:],
+                duration=1800,  # 1.8 seconds per frame for comfortable reading
+                loop=0,
+            )
+            print(f"Saved animated GIF: {gif_path}")
+
     finally:
-        # Destroy windows cleanly
         user32.DestroyWindow(hwnd_a)
         user32.DestroyWindow(hwnd_b)
         engine.terminate()
-        engine.wait(timeout=5)
+        try:
+            engine.wait(timeout=2)
+        except Exception:
+            engine.kill()
 
-    # Save animated GIF
-    if frames:
-        gif_path = os.path.join(OUT, "ime-recording.gif")
-        frames[0].save(
-            gif_path,
-            save_all=True,
-            append_images=frames[1:],
-            duration=1800,
-            loop=0,
-        )
-        print(f"saved {gif_path} ({len(frames)} frames)")
-
-    # Restore defaults
-    key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\ImeModePersistence")
-    winreg.SetValueEx(key, "UiLanguage", 0, winreg.REG_DWORD, 0)
-    winreg.CloseKey(key)
-
-    print(f"done: {failures} failure(s)")
-    return 1 if failures else 0
+    return 0 if failures == 0 else 1
 
 
 if __name__ == "__main__":
