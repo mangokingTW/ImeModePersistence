@@ -143,8 +143,6 @@ class NotepadWindow:
         time.sleep(0.3)
         pydirectinput.write(key_sequence, interval=0.1)
         time.sleep(0.3)
-        pydirectinput.press('space')
-        time.sleep(0.2)
         pydirectinput.press('enter')
         time.sleep(0.4)
 
@@ -155,6 +153,38 @@ class NotepadWindow:
         time.sleep(0.2)
         pydirectinput.write(text, interval=interval)
         time.sleep(0.3)
+
+
+def minimize_background_windows():
+    """Minimizes terminal and host console windows so the desktop background is clean."""
+    SW_MINIMIZE = 6
+    kernel32 = ctypes.windll.kernel32
+    user32 = ctypes.windll.user32
+
+    # Minimize own console window if exists
+    console_hwnd = kernel32.GetConsoleWindow()
+    if console_hwnd:
+        user32.ShowWindow(console_hwnd, SW_MINIMIZE)
+
+    # Minimize other console / terminal windows
+    def enum_proc(hwnd, lparam):
+        if user32.IsWindowVisible(hwnd):
+            length = user32.GetWindowTextLengthW(hwnd)
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            title = buf.value.lower()
+            class_buf = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(hwnd, class_buf, 256)
+            cls = class_buf.value
+            if any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
+               cls in ["ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS"]:
+                user32.ShowWindow(hwnd, SW_MINIMIZE)
+        return True
+
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user32.EnumWindows(WNDENUMPROC(enum_proc), 0)
+    time.sleep(0.5)
+
 
 
     def set_chinese(self):
@@ -353,6 +383,9 @@ def main() -> int:
 
     time.sleep(0.3)
 
+    # Minimize all host / terminal / console windows before launching recording
+    minimize_background_windows()
+
     engine = subprocess.Popen([EXE])
     time.sleep(1.0)
 
@@ -382,8 +415,6 @@ def main() -> int:
         win_b.type_text("\n")
         time.sleep(2.0)
 
-
-
         # Step 3: Switch to English mode in Window B -> Type English test
         win_b.set_alphanumeric()
         time.sleep(0.5)
@@ -398,8 +429,6 @@ def main() -> int:
         win_a.type_text("\n")
         time.sleep(2.0)
 
-
-
         # Check actual text contents of Window A and Window B
         text_a = win_a.get_text()
         text_b = win_b.get_text()
@@ -408,10 +437,19 @@ def main() -> int:
         print(f"--- Window B Content ---\n{text_b}", flush=True)
         print(f"=================================================================\n", flush=True)
 
-        has_typed_chinese = ("測" in text_a) or ("試" in text_a) or ("測" in text_b) or ("試" in text_b)
-        has_english_leak = ("2g4" in text_a) or ("2g4" in text_b)
-        print(f"[VERIFY] Successfully typed real Chinese characters ('測'/'試'): {has_typed_chinese}", flush=True)
-        print(f"[VERIFY] Bopomofo leaked as raw English '2g4': {has_english_leak}", flush=True)
+        expected_a = "測試\npersistence test"
+        expected_b = "測試\nhello world"
+
+        norm_a = "\n".join([line.strip() for line in text_a.strip().splitlines() if line.strip()])
+        norm_b = "\n".join([line.strip() for line in text_b.strip().splitlines() if line.strip()])
+
+        print(f"[VERIFY] Window A exact content matching:\nExpected:\n{expected_a}\nActual:\n{norm_a}\n", flush=True)
+        print(f"[VERIFY] Window B exact content matching:\nExpected:\n{expected_b}\nActual:\n{norm_b}\n", flush=True)
+
+        assert norm_a == expected_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
+        assert norm_b == expected_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
+        print("[VERIFY] All window text contents strictly and perfectly matched without trailing spaces!", flush=True)
+
 
 
         all_frames = recorder.stop()
