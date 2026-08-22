@@ -35,10 +35,18 @@ jobs:
 
       - name: Install Traditional Chinese IME via Offline DISM Package
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ProgressPreference = 'SilentlyContinue'
           $cabDir = "C:\ime-cab-cache"
           if (-not (Test-Path $cabDir)) { New-Item -ItemType Directory -Path $cabDir -Force }
+
+          # Try instant download from Release storage (1 second download inside GitHub DC)
+          try {
+            gh release download ci-dependencies --pattern "*.cab" --dir $cabDir --repo ${{ github.repository }} -q
+          } catch {}
+
           $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
 
           if ($cachedCabs.Count -gt 0) {
@@ -51,13 +59,17 @@ jobs:
             Write-Host "First-time install: Adding capability from Windows Update..."
             dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
 
-            # Export installed CAB from servicing cache to cache directory
+            # Export installed CAB from servicing cache to cache directory & persist to Release
             Write-Host "Caching downloaded CAB packages for future instant 5s runs..."
             $downloaded = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\servicing\Packages" -Recurse -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
             foreach ($f in $downloaded) {
               Copy-Item $f.FullName -Destination "$cabDir\$($f.Name)" -Force -ErrorAction SilentlyContinue
+              try {
+                gh release upload ci-dependencies $f.FullName --clobber --repo ${{ github.repository }}
+              } catch {}
             }
           }
+
 
           $list = New-WinUserLanguageList "zh-TW"
           Set-WinUserLanguageList $list -Force
