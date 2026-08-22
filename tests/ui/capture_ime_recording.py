@@ -322,7 +322,18 @@ def main() -> int:
     winreg.SetValueEx(key, "PersistMode", 0, winreg.REG_DWORD, 1)
     winreg.CloseKey(key)
 
+    # Configure Microsoft Bopomofo default mode to Chinese ('中 ㄅ') and enable Shift switching
+    try:
+        ime_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\IME\15.0\IMETC")
+        winreg.SetValueEx(ime_key, "Default Input Mode", 0, winreg.REG_DWORD, 1)
+        winreg.SetValueEx(ime_key, "Left Shift Usage", 0, winreg.REG_DWORD, 1)
+        winreg.SetValueEx(ime_key, "Right Shift Usage", 0, winreg.REG_DWORD, 1)
+        winreg.CloseKey(ime_key)
+    except Exception:
+        pass
+
     subprocess.run(["taskkill", "/F", "/IM", "ImeModePersistence.exe"], capture_output=True)
+
     time.sleep(0.3)
 
     engine = subprocess.Popen([EXE])
