@@ -160,34 +160,6 @@ class NotepadWindow:
             except Exception:
                 pass
 
-
-
-
-
-    def set_alphanumeric(self):
-        for w in (self.edit_hwnd, self.hwnd):
-            ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
-            if ime_wnd:
-                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
-                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_ALPHANUMERIC)
-            himc = imm32.ImmGetContext(w)
-            if himc:
-                try:
-                    imm32.ImmSetOpenStatus(himc, 0)
-                    imm32.ImmSetConversionStatus(himc, IME_CMODE_ALPHANUMERIC, 0)
-                finally:
-                    imm32.ImmReleaseContext(w, himc)
-
-        scan = user32.MapVirtualKeyW(VK_SHIFT, 0) or 0x2A
-        user32.keybd_event(VK_SHIFT, scan, 0, 0)
-        time.sleep(0.05)
-        user32.keybd_event(VK_SHIFT, scan, KEYEVENTF_KEYUP, 0)
-
-    def close(self):
-        self.stop_event.set()
-        if self.hwnd:
-            user32.PostMessageW(self.hwnd, 0x0010, 0, 0)  # WM_CLOSE
-
 def grab_real_screen() -> Image.Image:
     w = user32.GetSystemMetrics(0)
     h = user32.GetSystemMetrics(1)
@@ -333,7 +305,6 @@ def main() -> int:
         win_a.type_text("Engine restores latest alphanumeric state automatically!\n")
         time.sleep(2.0)
 
-
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
 
@@ -383,7 +354,6 @@ def main() -> int:
                     print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
             except Exception as exc:
                 print(f"FFmpeg encoding error: {exc}")
-
 
     finally:
         win_a.close()
