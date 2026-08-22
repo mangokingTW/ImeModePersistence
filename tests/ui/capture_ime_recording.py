@@ -197,37 +197,19 @@ class ThreadedEditorWindow:
             user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
             time.sleep(delay_per_char)
 
-    def type_real_bopomofo_with_candidate(self, key_sequence: str):
-        """Sends genuine hardware keystrokes to trigger authentic Microsoft Bopomofo candidate window.
-
-        Example: '5j0 ' types ㄓㄨㄥ + Space, {DOWN} opens native candidate popup, {ENTER} commits.
-        """
+    def type_real_keys(self, key_sequence: list[str]):
+        """100% genuine physical keyboard typing sent directly to Microsoft Bopomofo TIP."""
         from pywinauto.keyboard import send_keys
 
         self.set_foreground()
         user32.SetFocus(self.edit_hwnd)
-        # Click edit box to establish active physical keyboard focus
-        user32.SendMessageW(self.edit_hwnd, 0x0201, 1, 0x00100010)  # WM_LBUTTONDOWN
-        user32.SendMessageW(self.edit_hwnd, 0x0202, 0, 0x00100010)  # WM_LBUTTONUP
         time.sleep(0.3)
 
-        # 1. Type raw bopomofo keys (e.g. 5j0 for ㄓㄨㄥ)
-        for ch in key_sequence:
-            if ch == ' ':
-                send_keys('{SPACE}', pause=0.08)
-            elif ch.isalnum():
-                send_keys(ch, pause=0.08)
-            time.sleep(0.06)
+        for key in key_sequence:
+            send_keys(key, pause=0.08)
+            time.sleep(0.1)
 
-        time.sleep(0.3)
 
-        # 2. Press Down Arrow to pop up the genuine Windows native Candidate List Window
-        send_keys('{DOWN}', pause=0.1)
-        time.sleep(0.8)  # Dwell to show native candidate window clearly in 60 FPS video
-
-        # 3. Press Enter to confirm and select the candidate
-        send_keys('{ENTER}', pause=0.1)
-        time.sleep(0.4)
 
 
 
@@ -406,24 +388,20 @@ def main() -> int:
         win_a.set_foreground()
         win_a.set_chinese()
         time.sleep(0.4)
-        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n實機注音輸入：", delay_per_char=0.04)
-        win_a.type_real_bopomofo_with_candidate("5j0 ")  # Types ㄓㄨㄥ + Space -> {DOWN} pops up native candidate window -> {ENTER} selects 中
-        win_a.type_real_bopomofo_with_candidate("jp6 ")  # Types ㄨㄣˊ + Space -> {DOWN} pops up native candidate window -> {ENTER} selects 文
+        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n注音輸入：", delay_per_char=0.04)
+        win_a.type_real_keys(["5", "j", "0", "{DOWN}", "{ENTER}"])
+        win_a.type_real_keys(["j", "p", "6", "{DOWN}", "{ENTER}"])
         win_a.type_text("\r\n", delay_per_char=0.04)
-        time.sleep(1.5)  # Dwell to let engine adopt Chinese mode
-        key_frames.append(grab_real_screen())
+        time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
         # Step 2: Switch to Window B -> Engine automatically maintains Chinese and native candidate selection
         win_b.set_foreground()
         time.sleep(0.8)
-        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n實機注音輸入：", delay_per_char=0.04)
-        win_b.type_real_bopomofo_with_candidate("5j0 ")
-        win_b.type_real_bopomofo_with_candidate("jp6 ")
+        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n注音輸入：", delay_per_char=0.04)
+        win_b.type_real_keys(["5", "j", "0", "{DOWN}", "{ENTER}"])
+        win_b.type_real_keys(["j", "p", "6", "{DOWN}", "{ENTER}"])
         win_b.type_text("\r\n", delay_per_char=0.04)
-        time.sleep(1.8)
-        key_frames.append(grab_real_screen())
-
-
+        time.sleep(2.0)
 
 
         # Step 3: Switch to English mode in Window B
@@ -432,7 +410,6 @@ def main() -> int:
         win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\r\n", delay_per_char=0.04)
         win_b.type_text("Typing in English without manual switching!\r\n", delay_per_char=0.04)
         time.sleep(1.8)  # Dwell to let engine adopt Alphanumeric mode
-        key_frames.append(grab_real_screen())
 
         # Step 4: Switch back to Window A -> Engine restores English mode
         win_a.set_foreground()
@@ -440,17 +417,12 @@ def main() -> int:
         win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n", delay_per_char=0.04)
         win_a.type_text("Engine restores latest alphanumeric state automatically!\r\n", delay_per_char=0.04)
         time.sleep(2.0)
-        key_frames.append(grab_real_screen())
-
-
 
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
 
-        for i, kf in enumerate(key_frames):
-            kf.save(os.path.join(OUT, f"ime-frame-{i}.png"))
+        # Save pristine 60 FPS H.264 MP4 video only (no screenshots)
 
-        # Save pristine 60 FPS H.264 MP4 video
         if len(all_frames) > 0:
             mp4_path = os.path.join(OUT, "ime-recording.mp4")
             # H.264 requires even width and height
