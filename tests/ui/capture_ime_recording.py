@@ -370,8 +370,8 @@ def main() -> int:
         win_a.set_foreground()
         win_a.set_chinese()
         time.sleep(0.5)
-        # 敲擊注音打出「測試」（hd4 = ㄘㄜˋ[測], g4 = ㄕˋ[試]）
-        win_a.type_bopomofo("hd4")
+        # 敲擊注音打出「測試」（hk4 = ㄘㄜˋ[測], g4 = ㄕˋ[試]）
+        win_a.type_bopomofo("hk4")
         win_a.type_bopomofo("g4")
         win_a.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
@@ -379,10 +379,11 @@ def main() -> int:
         # Step 2: Switch to Window B -> Engine automatically maintains Chinese mode
         win_b.set_foreground()
         time.sleep(0.8)
-        win_b.type_bopomofo("hd4")
+        win_b.type_bopomofo("hk4")
         win_b.type_bopomofo("g4")
         win_b.type_text("\n")
         time.sleep(2.0)
+
 
         # Step 3: Switch to English mode in Window B -> Type English test
         win_b.set_alphanumeric()
