@@ -125,7 +125,6 @@ def promote_all_tray_icons():
     except Exception:
         pass
 
-
 def minimize_background_windows():
     """Minimizes terminal and host console windows so the desktop background is clean."""
     SW_MINIMIZE = 6
@@ -155,7 +154,6 @@ def minimize_background_windows():
     WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
     user32.EnumWindows(WNDENUMPROC(enum_proc), 0)
     time.sleep(0.5)
-
 
 class NotepadWindow:
     """Manages a genuine Windows Notepad process with full Microsoft TSF IME candidate window support."""
@@ -210,7 +208,6 @@ class NotepadWindow:
         time.sleep(0.3)
 
     def set_chinese(self):
-
         self.set_foreground()
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
         if hkl:
@@ -278,9 +275,6 @@ class NotepadWindow:
 
         time.sleep(0.3)
 
-
-
-
     def get_text(self) -> str:
         """Reads text from Notepad control."""
         try:
@@ -295,7 +289,6 @@ class NotepadWindow:
             return edit.window_text()
         except Exception:
             return ""
-
 
     def close(self):
         try:
@@ -436,7 +429,6 @@ def main() -> int:
     promote_all_tray_icons()
     time.sleep(0.5)
 
-
     win_a = NotepadWindow(x=40, y=80, w=480, h=360)
     win_b = NotepadWindow(x=550, y=80, w=480, h=360)
     time.sleep(0.5)
@@ -497,8 +489,6 @@ def main() -> int:
         assert norm_a == expected_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
         assert norm_b == expected_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
         print("[VERIFY] All window text contents strictly and perfectly matched without trailing spaces!", flush=True)
-
-
 
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
