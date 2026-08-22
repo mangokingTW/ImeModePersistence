@@ -80,7 +80,6 @@ jobs:
 
 
       - name: Upload recording artifact
-
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
@@ -89,3 +88,11 @@ jobs:
             ime-recording/ime-recording.gif
             ime-recording/ime-frame-*.png
           if-no-files-found: warn
+
+      - name: Backup IME CAB packages as artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: ime-zh-tw-cab-packages
+          path: C:\ime-cache\*.cab
+          if-no-files-found: ignore
