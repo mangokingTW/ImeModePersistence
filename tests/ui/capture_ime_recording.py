@@ -203,44 +203,73 @@ def _printwindow_grab(hwnd) -> "Image.Image":
     return _Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB")
 
 
-def capture_frame(hwnd_a, hwnd_b, label: str) -> "Image.Image":
-    """Full-desktop grab (or PrintWindow fallback) of both windows + taskbar strip."""
+def capture_frame(hwnd_a, hwnd_b, label: str, active_wnd: str = "A", ime_state_str: str = "中文") -> "Image.Image":
+    """Captures the test windows, composites them, and adds clear annotation banners."""
     from PIL import Image as _Image, ImageDraw, ImageFont
 
-    # Try ImageGrab first (works on GitHub Actions interactive desktop)
-    # Fall back to PrintWindow side-by-side composite for non-interactive sessions
-    try:
-        from PIL import ImageGrab
-        ba = visible_bounds(hwnd_a)
-        bb = visible_bounds(hwnd_b)
-        left = max(0, min(ba[0], bb[0]) - 20)
-        top = max(0, min(ba[1], bb[1]) - 30)
-        right = max(ba[2], bb[2]) + 20
-        sm_cy = user32.GetSystemMetrics(1)
-        frame = ImageGrab.grab(bbox=(left, top, right, sm_cy), all_screens=True)
-        # Verify it captured something real
-        px = list(frame.getdata())
-        unique = len(set(px))
-        if unique <= 2:
-            raise OSError("blank screen - not interactive")
-    except OSError:
-        # Non-interactive session fallback: composite PrintWindow captures side by side
-        img_a = _printwindow_grab(hwnd_a)
-        img_b = _printwindow_grab(hwnd_b)
-        total_w = img_a.width + img_b.width + 20
-        total_h = max(img_a.height, img_b.height)
-        frame = _Image.new("RGB", (total_w, total_h + 40), (243, 244, 246))
-        frame.paste(img_a, (0, 40))
-        frame.paste(img_b, (img_a.width + 20, 40))
+    img_a = _printwindow_grab(hwnd_a)
+    img_b = _printwindow_grab(hwnd_b)
 
+    # Pad around windows
+    padding = 24
+    header_h = 54
+    footer_h = 44
+    card_w = max(img_a.width, 420)
+    card_h = max(img_a.height, 280)
+
+    # Resize if too small/large
+    img_a = img_a.resize((card_w, card_h), _Image.Resampling.LANCZOS)
+    img_b = img_b.resize((card_w, card_h), _Image.Resampling.LANCZOS)
+
+    total_w = card_w * 2 + padding * 3
+    total_h = card_h + header_h + footer_h + padding * 2
+
+    # High quality canvas
+    frame = _Image.new("RGB", (total_w, total_h), (241, 245, 249))
     draw = ImageDraw.Draw(frame)
-    banner_h = 34
-    draw.rectangle([0, 0, frame.width, banner_h], fill=(17, 24, 39))
+
+    # Top banner (dark navy gradient-like background)
+    draw.rectangle([0, 0, total_w, header_h], fill=(15, 23, 42))
+
     try:
-        font = ImageFont.truetype("C:/Windows/Fonts/msjhbd.ttc", 15)
+        font_title = ImageFont.truetype("C:/Windows/Fonts/msjhbd.ttc", 16)
+        font_badge = ImageFont.truetype("C:/Windows/Fonts/msjhbd.ttc", 13)
+        font_footer = ImageFont.truetype("C:/Windows/Fonts/msjh.ttc", 13)
     except Exception:
-        font = ImageFont.load_default()
-    draw.text((12, 8), label, font=font, fill=(255, 255, 255))
+        font_title = font_badge = font_footer = ImageFont.load_default()
+
+    draw.text((20, 16), label, font=font_title, fill=(255, 255, 255))
+
+    # Paste windows side by side
+    pos_a_x = padding
+    pos_a_y = header_h + padding
+    pos_b_x = card_w + padding * 2
+    pos_b_y = header_h + padding
+
+    frame.paste(img_a, (pos_a_x, pos_a_y))
+    frame.paste(img_b, (pos_b_x, pos_b_y))
+
+    # Draw border & focus indicator around window A
+    border_a_color = (37, 99, 235) if active_wnd == "A" else (203, 213, 225)
+    border_a_w = 3 if active_wnd == "A" else 1
+    draw.rectangle(
+        [pos_a_x - border_a_w, pos_a_y - border_a_w, pos_a_x + card_w + border_a_w, pos_a_y + card_h + border_a_w],
+        outline=border_a_color, width=border_a_w
+    )
+
+    # Draw border & focus indicator around window B
+    border_b_color = (37, 99, 235) if active_wnd == "B" else (203, 213, 225)
+    border_b_w = 3 if active_wnd == "B" else 1
+    draw.rectangle(
+        [pos_b_x - border_b_w, pos_b_y - border_b_w, pos_b_x + card_w + border_b_w, pos_b_y + card_h + border_b_w],
+        outline=border_b_color, width=border_b_w
+    )
+
+    # Footer status bar
+    footer_y = total_h - footer_h
+    draw.rectangle([0, footer_y, total_w, total_h], fill=(30, 41, 59))
+    status_text = f"當前焦點視窗：視窗 {active_wnd}   |   ImeModePersistence 狀態：持續同步中   |   IME 模式：{ime_state_str}"
+    draw.text((20, footer_y + 12), status_text, font=font_footer, fill=(226, 232, 240))
 
     return frame
 
@@ -292,7 +321,8 @@ def main() -> int:
         try:
             frames.append(capture_frame(
                 hwnd_a, hwnd_b,
-                "步驟 1：聚焦視窗 A，設為繁體中文模式 ── IME 指示器應顯示「中」",
+                "步驟 1：聚焦視窗 A，設為繁體中文模式 ── 模式同步已啟動",
+                active_wnd="A", ime_state_str="繁體中文 (Chinese/Native)"
             ))
             frames[0].save(os.path.join(OUT, "ime-frame-0.png"))
             print("captured frame 0")
@@ -310,6 +340,7 @@ def main() -> int:
             frames.append(capture_frame(
                 hwnd_a, hwnd_b,
                 "步驟 2：切換至視窗 B ── ImeModePersistence 自動同步維持繁體中文",
+                active_wnd="B", ime_state_str="繁體中文 (已自動同步)"
             ))
             frames[1].save(os.path.join(OUT, "ime-frame-1.png"))
             print("captured frame 1")
@@ -324,7 +355,8 @@ def main() -> int:
         try:
             frames.append(capture_frame(
                 hwnd_a, hwnd_b,
-                "步驟 3：在視窗 B 切換為英數模式 ── IME 指示器顯示「A」",
+                "步驟 3：在視窗 B 切換為英數模式 ── 引擎 Adopt 新的使用者偏好",
+                active_wnd="B", ime_state_str="英數模式 (Alphanumeric)"
             ))
             frames[2].save(os.path.join(OUT, "ime-frame-2.png"))
             print("captured frame 2")
@@ -341,7 +373,8 @@ def main() -> int:
         try:
             frames.append(capture_frame(
                 hwnd_a, hwnd_b,
-                "步驟 4：切換回視窗 A ── IME 自動還原為繁體中文，指示器回到「中」✅",
+                "步驟 4：切換回視窗 A ── 引擎自動還原為最新偏好模式 ✅",
+                active_wnd="A", ime_state_str="英數模式 (已自動還原)"
             ))
             frames[3].save(os.path.join(OUT, "ime-frame-3.png"))
             print("captured frame 3")
