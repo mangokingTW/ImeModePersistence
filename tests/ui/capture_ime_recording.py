@@ -123,16 +123,17 @@ class NotepadWindow:
         time.sleep(0.3)
 
     def type_bopomofo(self, key_sequence: str):
-        """Types authentic bopomofo keys using PyAutoGUI punchy syntax."""
-        import pyautogui
+        """Types authentic bopomofo keys via pydirectinput DirectX hardware scan codes."""
+        import pydirectinput
 
         self.set_foreground()
         time.sleep(0.3)
-        pyautogui.write(key_sequence, interval=0.1)
+        pydirectinput.write(key_sequence, interval=0.1)
         time.sleep(0.3)
-        pyautogui.press(['space', 'enter'])
+        pydirectinput.press('space')
+        time.sleep(0.2)
+        pydirectinput.press('enter')
         time.sleep(0.4)
-
 
     def set_chinese(self):
         self.set_foreground()
@@ -154,15 +155,16 @@ class NotepadWindow:
             finally:
                 imm32.ImmReleaseContext(self.hwnd, himc)
 
-        import pyautogui
-        pyautogui.press('shift')
+        import pydirectinput
+        pydirectinput.press('shift')
         time.sleep(0.3)
 
     def set_alphanumeric(self):
         self.set_foreground()
-        import pyautogui
-        pyautogui.press('shift')
+        import pydirectinput
+        pydirectinput.press('shift')
         time.sleep(0.3)
+
 
 
     def close(self):
