@@ -54,13 +54,14 @@ jobs:
 
       - name: Build
         run: |
-          # Debug, not Release: CodeQL only needs the code compiled to build its
-          # database, so skipping optimisation shaves build time and changes no
-          # findings.
-          cmake -S . -B build -A x64 -DBUILD_TESTING=OFF
-          cmake --build build --config Debug
+          # Use multi-processor compilation (/MP, --parallel) to minimize CodeQL tracer overhead
+          cmake -S . -B build -A x64 -DBUILD_TESTING=OFF -DCMAKE_CXX_FLAGS="/MP"
+          cmake --build build --config Debug --target ImeModePersistence --parallel
 
       - name: Analyze
         uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
         with:
           category: "/language:c-cpp"
+          threads: 0
+          ram: 6144
+
