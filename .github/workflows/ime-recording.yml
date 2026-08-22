@@ -49,8 +49,24 @@ jobs:
           }
 
           if (-not $downloadSuccess) {
-            Write-Host "Running first-time Install-Language from Windows Update..."
-            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+            Write-Host "Running first-time Install-Language from Windows Update (with live progress tracking)..."
+            $job = Start-Job -ScriptBlock {
+              Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+            }
+            $sw = [System.Diagnostics.Stopwatch]::StartNew()
+            while ($job.State -eq 'Running') {
+              $sec = [math]::Round($sw.Elapsed.TotalSeconds)
+              $downDir = "C:\Windows\SoftwareDistribution\Download"
+              $mb = 0
+              if (Test-Path $downDir) {
+                $mb = [math]::Round((Get-ChildItem $downDir -Recurse -File -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum).Sum / 1MB, 1)
+              }
+              Write-Host "[+$($sec)s] Installing Traditional Chinese (zh-TW)... Downloaded: ${mb} MB"
+              Start-Sleep -Seconds 15
+            }
+            Receive-Job $job -Wait -AutoRemoveJob
+            Write-Host "Installation completed in $([math]::Round($sw.Elapsed.TotalSeconds)) seconds."
+
 
             # Automatically package installed IME assets & create Draft Release
             try {
