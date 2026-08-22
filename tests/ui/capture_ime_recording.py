@@ -153,23 +153,21 @@ class NotepadWindow:
             user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
             user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 1)
 
-        himc = imm32.ImmGetContext(self.hwnd)
-        if himc:
-            try:
-                imm32.ImmSetOpenStatus(himc, 1)
-                imm32.ImmSetConversionStatus(himc, 1, 0)
-            finally:
-                imm32.ImmReleaseContext(self.hwnd, himc)
-
         import pydirectinput
-        pydirectinput.press('shift')
+        # Hold Shift to flip Bopomofo from [英] to [中 ㄅ]
+        pydirectinput.keyDown('shift')
+        time.sleep(0.12)
+        pydirectinput.keyUp('shift')
         time.sleep(0.3)
 
     def set_alphanumeric(self):
         self.set_foreground()
         import pydirectinput
-        pydirectinput.press('shift')
+        pydirectinput.keyDown('shift')
+        time.sleep(0.12)
+        pydirectinput.keyUp('shift')
         time.sleep(0.3)
+
 
     def get_text(self) -> str:
         """Reads text from Notepad control."""
