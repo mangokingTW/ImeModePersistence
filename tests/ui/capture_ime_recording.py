@@ -155,25 +155,65 @@ class NotepadWindow:
             user32.ActivateKeyboardLayout(hkl, 0)
             user32.SendMessageW(self.hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
 
+        # Attach thread input to directly control Notepad's IMM context across process boundary
+        target_tid = user32.GetWindowThreadProcessId(self.hwnd, None)
+        current_tid = kernel32.GetCurrentThreadId()
+        attached = user32.AttachThreadInput(current_tid, target_tid, True)
+        try:
+            user32.SetForegroundWindow(self.hwnd)
+            user32.SetFocus(self.hwnd)
+            himc = imm32.ImmGetContext(self.hwnd)
+            if himc:
+                try:
+                    imm32.ImmSetOpenStatus(himc, 1)
+                    imm32.ImmSetConversionStatus(himc, 1, 0)
+                finally:
+                    imm32.ImmReleaseContext(self.hwnd, himc)
+        finally:
+            if attached:
+                user32.AttachThreadInput(current_tid, target_tid, False)
+
         ime_wnd = imm32.ImmGetDefaultIMEWnd(self.hwnd)
         if ime_wnd:
             user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
             user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 1)
 
         import pydirectinput
-        # Hold Shift to flip Bopomofo from [英] to [中 ㄅ]
         pydirectinput.keyDown('shift')
-        time.sleep(0.12)
+        time.sleep(0.15)
         pydirectinput.keyUp('shift')
         time.sleep(0.3)
 
     def set_alphanumeric(self):
         self.set_foreground()
+        target_tid = user32.GetWindowThreadProcessId(self.hwnd, None)
+        current_tid = kernel32.GetCurrentThreadId()
+        attached = user32.AttachThreadInput(current_tid, target_tid, True)
+        try:
+            user32.SetForegroundWindow(self.hwnd)
+            user32.SetFocus(self.hwnd)
+            himc = imm32.ImmGetContext(self.hwnd)
+            if himc:
+                try:
+                    imm32.ImmSetOpenStatus(himc, 0)
+                    imm32.ImmSetConversionStatus(himc, 0, 0)
+                finally:
+                    imm32.ImmReleaseContext(self.hwnd, himc)
+        finally:
+            if attached:
+                user32.AttachThreadInput(current_tid, target_tid, False)
+
+        ime_wnd = imm32.ImmGetDefaultIMEWnd(self.hwnd)
+        if ime_wnd:
+            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
+            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 0)
+
         import pydirectinput
         pydirectinput.keyDown('shift')
-        time.sleep(0.12)
+        time.sleep(0.15)
         pydirectinput.keyUp('shift')
         time.sleep(0.3)
+
 
 
     def get_text(self) -> str:
@@ -356,8 +396,11 @@ def main() -> int:
         print(f"--- Window B Content ---\n{text_b}", flush=True)
         print(f"=================================================================\n", flush=True)
 
-        has_target_a = ("測" in text_a) or ("試" in text_a) or ("中" in text_a) or ("文" in text_a)
-        print(f"[VERIFY] Window A contained expected Chinese character: {has_target_a}", flush=True)
+        has_typed_chinese = ("測" in text_a) or ("試" in text_a) or ("測" in text_b) or ("試" in text_b)
+        has_english_leak = ("2g4" in text_a) or ("2g4" in text_b)
+        print(f"[VERIFY] Successfully typed real Chinese characters ('測'/'試'): {has_typed_chinese}", flush=True)
+        print(f"[VERIFY] Bopomofo leaked as raw English '2g4': {has_english_leak}", flush=True)
+
 
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")

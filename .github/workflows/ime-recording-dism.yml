@@ -33,6 +33,10 @@ jobs:
           $tips = (Get-WinUserLanguageList).InputMethodTips
           Write-Host "Active zh-TW InputMethodTips via DISM: $tips"
 
+          New-Item -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+
+
       - name: Install dependencies
         run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio==2.35.1 imageio-ffmpeg==0.5.1 pyautogui==0.9.54 pydirectinput==1.0.4
 
