@@ -47,7 +47,7 @@ jobs:
           Write-Host "zh-TW InputMethodTips: $tips"
 
       - name: Install dependencies
-        run: pip install pywinauto==0.6.9 pillow==10.4.0
+        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0
 
       - name: Capture IME persistence recording
         run: >
@@ -56,7 +56,8 @@ jobs:
           ime-recording
 
       - name: Run real-IME E2E tests
-        run: pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+        run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+
 
       - name: Upload recording artifact
 
