@@ -197,45 +197,18 @@ class ThreadedEditorWindow:
             user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
             time.sleep(delay_per_char)
 
-    def type_bopomofo_animated(self, bopomofo_words: list[tuple[list[str], str, list[str]]]):
-        """Renders live bopomofo keystroke composition, floating candidate popup window, and character commit.
+    def type_real_keys(self, key_sequence: list[str]):
+        """100% genuine physical keyboard typing sent directly to Microsoft Bopomofo TIP."""
+        from pywinauto.keyboard import send_keys
 
-        bopomofo_words format:
-        [
-            (["ㄓ", "ㄓㄨ", "ㄓㄨㄥ"], "中", ["1.中", "2.忠", "3.終", "4.鐘"]),
-            (["ㄨ", "ㄨㄣ", "ㄨㄣˊ"], "文", ["1.文", "2.紋", "3.聞", "4.吻"])
-        ]
-        """
-        for strokes, target_char, candidates in bopomofo_words:
-            # 1. Step through each bopomofo stroke dynamically
-            for stroke in strokes:
-                cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
-                user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
-                user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, f"[{stroke}]")
-                time.sleep(0.18)
+        self.set_foreground()
+        user32.SetFocus(self.edit_hwnd)
+        time.sleep(0.3)
 
-                # Remove temporary stroke prompt to advance
-                text_buf = ctypes.create_unicode_buffer(4096)
-                user32.GetWindowTextW(self.edit_hwnd, text_buf, 4096)
-                full_text = text_buf.value.replace(f"[{stroke}]", "")
-                user32.SetWindowTextW(self.edit_hwnd, full_text)
+        for key in key_sequence:
+            send_keys(key, pause=0.08)
+            time.sleep(0.1)
 
-            # 2. Show authentic floating Candidate Selection Box
-            final_stroke = strokes[-1]
-            cand_str = "  ".join(candidates)
-            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
-            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
-            user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, f"[{final_stroke}] ▼【選字: {cand_str}】")
-            time.sleep(0.85)  # Dwell to show candidate selection popup window in 60 FPS video
-
-            # 3. Commit the chosen character by replacing the popup with the target character
-            text_buf = ctypes.create_unicode_buffer(4096)
-            user32.GetWindowTextW(self.edit_hwnd, text_buf, 4096)
-            full_text = text_buf.value.replace(f"[{final_stroke}] ▼【選字: {cand_str}】", target_char)
-            user32.SetWindowTextW(self.edit_hwnd, full_text)
-            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
-            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
-            time.sleep(0.35)
 
 
 
@@ -411,15 +384,13 @@ def main() -> int:
         print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
-        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo strokes & candidate selection
+        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo
         win_a.set_foreground()
         win_a.set_chinese()
         time.sleep(0.4)
         win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n注音輸入：", delay_per_char=0.04)
-        win_a.type_bopomofo_animated([
-            (["ㄓ", "ㄓㄨ", "ㄓㄨㄥ"], "中", ["1.中", "2.忠", "3.終", "4.鐘"]),
-            (["ㄨ", "ㄨㄣ", "ㄨㄣˊ"], "文", ["1.文", "2.紋", "3.聞", "4.吻"]),
-        ])
+        win_a.type_real_keys(["5", "j", "0", "{DOWN}", "{ENTER}"])
+        win_a.type_real_keys(["j", "p", "6", "{DOWN}", "{ENTER}"])
         win_a.type_text("\r\n", delay_per_char=0.04)
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
@@ -427,12 +398,11 @@ def main() -> int:
         win_b.set_foreground()
         time.sleep(0.8)
         win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n注音輸入：", delay_per_char=0.04)
-        win_b.type_bopomofo_animated([
-            (["ㄓ", "ㄓㄨ", "ㄓㄨㄥ"], "中", ["1.中", "2.忠", "3.終", "4.鐘"]),
-            (["ㄨ", "ㄨㄣ", "ㄨㄣˊ"], "文", ["1.文", "2.紋", "3.聞", "4.吻"]),
-        ])
+        win_b.type_real_keys(["5", "j", "0", "{DOWN}", "{ENTER}"])
+        win_b.type_real_keys(["j", "p", "6", "{DOWN}", "{ENTER}"])
         win_b.type_text("\r\n", delay_per_char=0.04)
         time.sleep(2.0)
+
 
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
