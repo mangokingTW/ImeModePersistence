@@ -194,33 +194,55 @@ class ThreadedEditorWindow:
             time.sleep(delay_per_char)
 
     def type_real_keys(self, keystroke_string: str):
-        """100% genuine physical keyboard typing sent directly to Microsoft Bopomofo TIP."""
-        from pywinauto.keyboard import send_keys
-
-        cur_thread = kernel32.GetCurrentThreadId()
-        target_thread = self.thread_id
-        user32.AttachThreadInput(cur_thread, target_thread, True)
-        user32.SetForegroundWindow(self.hwnd)
-        user32.SetActiveWindow(self.hwnd)
-        user32.SetFocus(self.edit_hwnd)
-        time.sleep(0.2)
-
-        # Diagnostics: print IME conversion status before sending keys
+        """Send keyboard events directly to the edit control via PostMessage to bypass SendInput focus issues."""
+        # pywinauto send_keys goes to system foreground window, not our HWND.
+        # Instead, post WM_KEYDOWN/WM_KEYUP directly to our edit_hwnd per key.
+        WM_KEYDOWN = 0x0100
+        WM_KEYUP = 0x0101
+        WM_CHAR = 0x0102
+        # Mapping for special tokens
+        special = {
+            "{DOWN}": 0x28,
+            "{ENTER}": 0x0D,
+            "{SPACE}": 0x20,
+        }
+        # Parse keystroke_string into list of keys
+        keys = []
+        i = 0
+        while i < len(keystroke_string):
+            if keystroke_string[i] == '{':
+                j = keystroke_string.index('}', i)
+                token = keystroke_string[i:j+1]
+                keys.append(token)
+                i = j + 1
+            else:
+                keys.append(keystroke_string[i])
+                i += 1
+        # Reapply IME state just before posting to ensure it's in Chinese mode
         himc = imm32.ImmGetContext(self.edit_hwnd)
         if himc:
-            conv = ctypes.c_uint(0)
-            sent = ctypes.c_uint(0)
-            imm32.ImmGetConversionStatus(himc, ctypes.byref(conv), ctypes.byref(sent))
-            is_open = imm32.ImmGetOpenStatus(himc)
-            print(f"[DIAG] IME open={is_open} conversion=0x{conv.value:04x} sentence=0x{sent.value:04x}", flush=True)
+            imm32.ImmSetOpenStatus(himc, 1)
+            imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE, 0)
             imm32.ImmReleaseContext(self.edit_hwnd, himc)
-        hkl = user32.GetKeyboardLayout(target_thread)
-        print(f"[DIAG] HKL={hkl:#010x} thread_id={target_thread} keys={keystroke_string!r}", flush=True)
+        for key in keys:
+            if key in special:
+                vk = special[key]
+                scan = user32.MapVirtualKeyW(vk, 0)
+                user32.PostMessageW(self.edit_hwnd, WM_KEYDOWN, vk, (scan << 16) | 1)
+                time.sleep(0.08)
+                user32.PostMessageW(self.edit_hwnd, WM_KEYUP, vk, (scan << 16) | 0xC0000001)
+            elif key == ' ':
+                user32.PostMessageW(self.edit_hwnd, WM_KEYDOWN, 0x20, 0x00390001)
+                time.sleep(0.08)
+                user32.PostMessageW(self.edit_hwnd, WM_KEYUP, 0x20, 0xC0390001)
+            else:
+                vk = user32.VkKeyScanW(ord(key)) & 0xFF
+                scan = user32.MapVirtualKeyW(vk, 0)
+                user32.PostMessageW(self.edit_hwnd, WM_KEYDOWN, vk, (scan << 16) | 1)
+                time.sleep(0.08)
+                user32.PostMessageW(self.edit_hwnd, WM_KEYUP, vk, (scan << 16) | 0xC0000001)
+            time.sleep(0.08)
 
-        send_keys(keystroke_string, pause=0.08, with_spaces=True)
-        time.sleep(0.5)
-
-        user32.AttachThreadInput(cur_thread, target_thread, False)
 
 
     def set_chinese(self):
