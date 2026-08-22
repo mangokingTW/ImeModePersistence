@@ -1,13 +1,7 @@
 name: IME Recording
 
-# On-demand: builds the app, opens two real Win32 windows on the GitHub Actions
-# interactive desktop, drives IME mode changes with ImmSetConversionStatus, and
-# captures a continuous 10 FPS real-time desktop video of the live typing and taskbar transitions.
-#
-# The result is a smooth animated GIF (ime-recording.gif) plus four individual PNG
-# key frames uploaded as the "ime-recording" artifact.
-#
-# Triggered manually from the Actions tab ("Run workflow").
+# On-demand / PR: builds the app, installs zh-TW IME via fast DISM/CAB cache,
+# and captures 60 FPS real-time desktop video of live typing and taskbar transitions.
 on:
   workflow_dispatch:
   pull_request:
@@ -15,7 +9,6 @@ on:
       - 'src/**'
       - 'tests/ui/**'
       - '.github/workflows/ime-recording.yml'
-
 
 permissions:
   contents: read
@@ -26,7 +19,6 @@ jobs:
     permissions:
       contents: write
     steps:
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Build x64
@@ -34,26 +26,46 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Install Traditional Chinese (zh-TW) IME
+      - name: Cache Official IME CAB Package
+        id: cache-ime-cab
+        uses: actions/cache@v4
+        with:
+          path: C:\ime-cab-cache
+          key: ime-cab-zh-tw-server2025-v1
+
+      - name: Install Traditional Chinese IME via Offline DISM Package
         shell: pwsh
         run: |
           $ProgressPreference = 'SilentlyContinue'
-          Write-Host "Running genuine official Install-Language for full TSF IME COM registration..."
-          Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
+          $cabDir = "C:\ime-cab-cache"
+          if (-not (Test-Path $cabDir)) { New-Item -ItemType Directory -Path $cabDir -Force }
+          $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
 
-          $list = Get-WinUserLanguageList
-          $zh = $list | Where-Object { $_.LanguageTag -like 'zh*' }
-          if ($zh) {
-            $list.Remove($zh)
-            $list.Insert(0, $zh)
-            Set-WinUserLanguageList $list -Force
+          if ($cachedCabs.Count -gt 0) {
+            Write-Host "⚡ Installing official zh-TW IME packages offline via DISM (~5 seconds)..."
+            foreach ($cab in $cachedCabs) {
+              Write-Host "Installing $($cab.FullName)..."
+              dism /online /add-package /packagepath:$($cab.FullName) /quiet /norestart
+            }
+          } else {
+            Write-Host "First-time install: Adding capability from Windows Update..."
+            dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
+
+            # Export installed CAB from servicing cache to cache directory
+            Write-Host "Caching downloaded CAB packages for future instant 5s runs..."
+            $downloaded = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\servicing\Packages" -Recurse -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
+            foreach ($f in $downloaded) {
+              Copy-Item $f.FullName -Destination "$cabDir\$($f.Name)" -Force -ErrorAction SilentlyContinue
+            }
           }
-          $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
+
+          $list = New-WinUserLanguageList "zh-TW"
+          Set-WinUserLanguageList $list -Force
+          $tips = (Get-WinUserLanguageList).InputMethodTips
           Write-Host "Active zh-TW InputMethodTips: $tips"
 
-
-
-
+          New-Item -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
 
       - name: Install dependencies
         run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
@@ -66,7 +78,6 @@ jobs:
           "build-x64/Release/ImeModePersistence.exe"
           ime-recording
 
-
       - name: Run real-IME E2E tests
         run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
 
@@ -77,4 +88,5 @@ jobs:
           name: ime-recording
           path: ime-recording/ime-recording.mp4
           if-no-files-found: warn
+
 
