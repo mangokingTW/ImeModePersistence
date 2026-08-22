@@ -44,8 +44,9 @@ jobs:
 
           # Try instant download from Release storage (1 second download inside GitHub DC)
           try {
-            gh release download ci-dependencies --pattern "*.cab" --dir $cabDir --repo ${{ github.repository }} -q
+            gh release download ci-dependencies --pattern "*.cab" -D $cabDir --repo ${{ github.repository }} --clobber
           } catch {}
+
 
           $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
 
