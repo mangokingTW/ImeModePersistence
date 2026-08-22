@@ -148,6 +148,15 @@ class NotepadWindow:
         pydirectinput.press('enter')
         time.sleep(0.4)
 
+    def type_english(self, text: str, interval: float = 0.08):
+        """Types raw English keys via pydirectinput to demonstrate direct alphanumeric input."""
+        import pydirectinput
+        self.set_foreground()
+        time.sleep(0.2)
+        pydirectinput.write(text, interval=interval)
+        time.sleep(0.3)
+
+
     def set_chinese(self):
         self.set_foreground()
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
@@ -381,16 +390,19 @@ def main() -> int:
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
         time.sleep(0.4)
-        win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\n")
-        win_b.type_text("Typing in English without manual switching!\n")
+        win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\n英文輸入：")
+        win_b.type_english("Hello World from English mode!")
+        win_b.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Alphanumeric mode
 
         # Step 4: Switch back to Window A -> Engine restores English mode
         win_a.set_foreground()
         time.sleep(0.8)
-        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\n")
-        win_a.type_text("Engine restores latest alphanumeric state automatically!\n")
+        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\n英文輸入：")
+        win_a.type_english("Persistence restored to English!")
+        win_a.type_text("\n")
         time.sleep(2.0)
+
 
         # Check actual text contents of Window A and Window B
         text_a = win_a.get_text()
