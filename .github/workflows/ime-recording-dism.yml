@@ -64,7 +64,8 @@ jobs:
 
 
       - name: Install dependencies
-        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio==2.35.1 imageio-ffmpeg==0.5.1 pyautogui==0.9.54 pydirectinput==1.0.4
+        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
+
 
       - name: Capture continuous IME persistence recording
         env:
