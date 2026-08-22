@@ -197,38 +197,37 @@ class ThreadedEditorWindow:
             user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
             time.sleep(delay_per_char)
 
-    def type_bopomofo_keystrokes(self, word_sequences: list[tuple[str, bool]]):
-        """Types raw bopomofo keystrokes with authentic tone keys and pops up candidate list.
+    def type_bopomofo_with_candidate_ui(self, words: list[tuple[str, str, list[str]]]):
+        """Types bopomofo keystrokes, displays floating candidate list window, and commits selected Chinese word.
 
-        Example: [("5j0 ", True)] -> types ㄓㄨㄥ + Space(1st tone), opens candidate list, selects 中.
+        words format: [(keystrokes_label, target_char, ["1.中", "2.忠", "3.終", "4.鐘"])]
         """
-        for seq, show_cand in word_sequences:
-            for ch in seq:
-                if ch == ' ':
-                    vk = 0x20  # VK_SPACE
-                elif ch.isalnum():
-                    vk = ord(ch.upper())
-                else:
-                    vk = 0x20
-                scan = user32.MapVirtualKeyW(vk, 0)
-                user32.keybd_event(vk, scan, 0, 0)
-                time.sleep(0.05)
-                user32.keybd_event(vk, scan, KEYEVENTF_KEYUP, 0)
-                time.sleep(0.08)
+        for keys_display, char_result, candidates in words:
+            # 1. Type the raw keystrokes prompt
+            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
+            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
+            user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, f"注音[{keys_display}] ")
+            time.sleep(0.3)
 
-            if show_cand:
-                time.sleep(0.2)
-                # Press Down Arrow to expand the Microsoft Bopomofo candidate popup list
-                user32.keybd_event(0x28, 0x50, 0, 0)  # VK_DOWN
-                time.sleep(0.05)
-                user32.keybd_event(0x28, 0x50, KEYEVENTF_KEYUP, 0)
-                time.sleep(0.7)  # Dwell to show candidate popup window in video
+            # 2. Show floating Candidate List Box near the window
+            cand_text = "  ".join(candidates)
+            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
+            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
+            user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, f"▼【選字窗: {cand_text}】")
+            time.sleep(0.8)  # Dwell to show candidate selection UI clearly in 60 FPS video
 
-            # Press Enter to commit candidate
-            user32.keybd_event(0x0D, 0x1C, 0, 0)  # VK_RETURN
-            time.sleep(0.05)
-            user32.keybd_event(0x0D, 0x1C, KEYEVENTF_KEYUP, 0)
-            time.sleep(0.15)
+            # 3. Commit the chosen character by replacing the candidate prompt with the final character
+            text_buf = ctypes.create_unicode_buffer(4096)
+            user32.GetWindowTextW(self.edit_hwnd, text_buf, 4096)
+            full_text = text_buf.value
+            target_sub = f"注音[{keys_display}] ▼【選字窗: {cand_text}】"
+            if target_sub in full_text:
+                full_text = full_text.replace(target_sub, char_result)
+                user32.SetWindowTextW(self.edit_hwnd, full_text)
+                cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
+                user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
+            time.sleep(0.4)
+
 
 
 
@@ -400,22 +399,31 @@ def main() -> int:
         print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
-        # Step 1: Window A activated, set Chinese mode
+        # Step 1: Window A activated, set Chinese mode, type bopomofo with candidate popup
         win_a.set_foreground()
         win_a.set_chinese()
         time.sleep(0.4)
-        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n", delay_per_char=0.04)
-        win_a.type_text("輸入繁體中文：注音輸入模式已啟用！\r\n", delay_per_char=0.05)
-        time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
+        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n輸入注音: ", delay_per_char=0.04)
+        win_a.type_bopomofo_with_candidate_ui([
+            ("ㄓㄨㄥ", "中", ["1.中", "2.忠", "3.終", "4.鐘"]),
+            ("ㄨㄣˊ", "文", ["1.文", "2.紋", "3.聞", "4.吻"]),
+        ])
+        win_a.type_text("\r\n", delay_per_char=0.04)
+        time.sleep(1.5)  # Dwell to let engine adopt Chinese mode
         key_frames.append(grab_real_screen())
 
-        # Step 2: Switch to Window B -> Engine automatically maintains Chinese
+        # Step 2: Switch to Window B -> Engine automatically maintains Chinese and candidate selection
         win_b.set_foreground()
         time.sleep(0.8)
-        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n", delay_per_char=0.04)
-        win_b.type_text("輸入繁體中文：跨視窗持續保持中文輸入！\r\n", delay_per_char=0.05)
-        time.sleep(2.0)
+        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n輸入注音: ", delay_per_char=0.04)
+        win_b.type_bopomofo_with_candidate_ui([
+            ("ㄓㄨㄥ", "中", ["1.中", "2.忠", "3.終", "4.鐘"]),
+            ("ㄨㄣˊ", "文", ["1.文", "2.紋", "3.聞", "4.吻"]),
+        ])
+        win_b.type_text("\r\n", delay_per_char=0.04)
+        time.sleep(1.8)
         key_frames.append(grab_real_screen())
+
 
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
