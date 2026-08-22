@@ -155,64 +155,67 @@ class NotepadWindow:
             user32.ActivateKeyboardLayout(hkl, 0)
             user32.SendMessageW(self.hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
 
-        # Attach thread input to directly control Notepad's IMM context across process boundary
-        target_tid = user32.GetWindowThreadProcessId(self.hwnd, None)
-        current_tid = kernel32.GetCurrentThreadId()
-        attached = user32.AttachThreadInput(current_tid, target_tid, True)
-        try:
-            user32.SetForegroundWindow(self.hwnd)
-            user32.SetFocus(self.hwnd)
-            himc = imm32.ImmGetContext(self.hwnd)
-            if himc:
-                try:
-                    imm32.ImmSetOpenStatus(himc, 1)
-                    imm32.ImmSetConversionStatus(himc, 1, 0)
-                finally:
-                    imm32.ImmReleaseContext(self.hwnd, himc)
-        finally:
-            if attached:
-                user32.AttachThreadInput(current_tid, target_tid, False)
+        # 1. Focus child targeting via GetGUIThreadInfo (identical to ImeModePersistence C++ engine)
+        class GUITHREADINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD),
+                ("flags", wintypes.DWORD),
+                ("hwndActive", wintypes.HWND),
+                ("hwndFocus", wintypes.HWND),
+                ("hwndCapture", wintypes.HWND),
+                ("hwndMenuOwner", wintypes.HWND),
+                ("hwndMoveSize", wintypes.HWND),
+                ("hwndCaret", wintypes.HWND),
+                ("rcCaret", wintypes.RECT),
+            ]
 
-        ime_wnd = imm32.ImmGetDefaultIMEWnd(self.hwnd)
-        if ime_wnd:
-            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
-            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 1)
+        thread_id = user32.GetWindowThreadProcessId(self.hwnd, None)
+        gti = GUITHREADINFO()
+        gti.cbSize = ctypes.sizeof(GUITHREADINFO)
+        targets = [self.hwnd]
+        if user32.GetGUIThreadInfo(thread_id, ctypes.byref(gti)) and gti.hwndFocus:
+            if gti.hwndFocus not in targets:
+                targets.insert(0, gti.hwndFocus)
 
-        import pydirectinput
-        pydirectinput.keyDown('shift')
-        time.sleep(0.15)
-        pydirectinput.keyUp('shift')
+        for target in targets:
+            ime_wnd = imm32.ImmGetDefaultIMEWnd(target)
+            if ime_wnd:
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 1)  # IME_CMODE_NATIVE (1)
+
         time.sleep(0.3)
 
     def set_alphanumeric(self):
         self.set_foreground()
-        target_tid = user32.GetWindowThreadProcessId(self.hwnd, None)
-        current_tid = kernel32.GetCurrentThreadId()
-        attached = user32.AttachThreadInput(current_tid, target_tid, True)
-        try:
-            user32.SetForegroundWindow(self.hwnd)
-            user32.SetFocus(self.hwnd)
-            himc = imm32.ImmGetContext(self.hwnd)
-            if himc:
-                try:
-                    imm32.ImmSetOpenStatus(himc, 0)
-                    imm32.ImmSetConversionStatus(himc, 0, 0)
-                finally:
-                    imm32.ImmReleaseContext(self.hwnd, himc)
-        finally:
-            if attached:
-                user32.AttachThreadInput(current_tid, target_tid, False)
+        class GUITHREADINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD),
+                ("flags", wintypes.DWORD),
+                ("hwndActive", wintypes.HWND),
+                ("hwndFocus", wintypes.HWND),
+                ("hwndCapture", wintypes.HWND),
+                ("hwndMenuOwner", wintypes.HWND),
+                ("hwndMoveSize", wintypes.HWND),
+                ("hwndCaret", wintypes.HWND),
+                ("rcCaret", wintypes.RECT),
+            ]
 
-        ime_wnd = imm32.ImmGetDefaultIMEWnd(self.hwnd)
-        if ime_wnd:
-            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
-            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 0)
+        thread_id = user32.GetWindowThreadProcessId(self.hwnd, None)
+        gti = GUITHREADINFO()
+        gti.cbSize = ctypes.sizeof(GUITHREADINFO)
+        targets = [self.hwnd]
+        if user32.GetGUIThreadInfo(thread_id, ctypes.byref(gti)) and gti.hwndFocus:
+            if gti.hwndFocus not in targets:
+                targets.insert(0, gti.hwndFocus)
 
-        import pydirectinput
-        pydirectinput.keyDown('shift')
-        time.sleep(0.15)
-        pydirectinput.keyUp('shift')
+        for target in targets:
+            ime_wnd = imm32.ImmGetDefaultIMEWnd(target)
+            if ime_wnd:
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 0)  # IME_CMODE_ALPHANUMERIC (0)
+
         time.sleep(0.3)
+
 
 
 
