@@ -353,33 +353,39 @@ def main() -> int:
         for i, kf in enumerate(key_frames):
             kf.save(os.path.join(OUT, f"ime-frame-{i}.png"))
 
+        # Save pristine 60 FPS H.264 MP4 video
         if len(all_frames) > 0:
-            sample_w = min(1280, all_frames[0].width)
-            sample_h = int(all_frames[0].height * (sample_w / all_frames[0].width))
-            resized_frames = [f.resize((sample_w, sample_h), Image.Resampling.LANCZOS) for f in all_frames]
+            mp4_path = os.path.join(OUT, "ime-recording.mp4")
+            # H.264 requires even width and height
+            w = all_frames[0].width - (all_frames[0].width % 2)
+            h = all_frames[0].height - (all_frames[0].height % 2)
 
-            webp_path = os.path.join(OUT, "ime-recording.webp")
-            resized_frames[0].save(
-                webp_path,
-                save_all=True,
-                append_images=resized_frames[1:],
-                duration=16,
-                loop=0,
-                quality=90,
-            )
-            print(f"Saved true 60 FPS WebP: {webp_path}")
+            ffmpeg_cmd = [
+                "ffmpeg", "-y",
+                "-f", "rawvideo",
+                "-vcodec", "rawvideo",
+                "-s", f"{w}x{h}",
+                "-pix_fmt", "rgb24",
+                "-r", "60",
+                "-i", "-",
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-preset", "medium",
+                "-crf", "18",
+                mp4_path,
+            ]
+            try:
+                proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                for f in all_frames:
+                    if f.size != (w, h):
+                        f = f.resize((w, h), Image.Resampling.BILINEAR)
+                    proc.stdin.write(f.tobytes())
+                proc.stdin.close()
+                proc.wait(timeout=30)
+                print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
+            except Exception as exc:
+                print(f"FFmpeg encoding error: {exc}")
 
-            gif_path = os.path.join(OUT, "ime-recording.gif")
-            gif_frames = resized_frames[::2]
-            gif_frames[0].save(
-                gif_path,
-                save_all=True,
-                append_images=gif_frames[1:],
-                duration=33,
-                loop=0,
-                optimize=True,
-            )
-            print(f"Saved smooth GIF @ 30 FPS: {gif_path}")
 
     finally:
         win_a.close()
