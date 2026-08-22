@@ -28,15 +28,12 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Install Traditional Chinese (zh-TW) IME (Fast FOD)
+      - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
         run: |
-          # Fast FOD install: only install Language.Basic (IME core), skipping TTS/OCR/Speech/Handwriting
-          $basic = Get-WindowsCapability -Online | Where-Object { $_.Name -like "Language.Basic*zh-TW*" }
-          if ($basic -and $basic.State -ne 'Installed') {
-            Write-Host "Installing Language.Basic for zh-TW: $($basic.Name)..."
-            Add-WindowsCapability -Online -Name $basic.Name
-          }
+          # Genuine Microsoft Bopomofo installation via Windows Update
+          # Note: On GitHub-hosted clean Windows runner this takes ~20-30 min, which is why it only runs in this manual on-demand workflow.
+          Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
           $list = Get-WinUserLanguageList
           if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
             $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
@@ -47,7 +44,7 @@ jobs:
           Write-Host "zh-TW InputMethodTips: $tips"
 
       - name: Install dependencies
-        run: pip install pywinauto==0.6.9 pillow==10.4.0
+        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0
 
       - name: Capture IME persistence recording
         run: >
@@ -56,7 +53,8 @@ jobs:
           ime-recording
 
       - name: Run real-IME E2E tests
-        run: pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+        run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+
 
       - name: Upload recording artifact
 
