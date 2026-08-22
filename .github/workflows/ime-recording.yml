@@ -50,7 +50,11 @@ jobs:
           "build-x64/Release/ImeModePersistence.exe"
           ime-recording
 
+      - name: Run real-IME E2E tests
+        run: pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+
       - name: Upload recording artifact
+
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:

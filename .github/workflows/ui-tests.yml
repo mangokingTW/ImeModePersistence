@@ -25,28 +25,9 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Install Traditional Chinese (zh-TW) IME
-        shell: pwsh
-        run: |
-          # Install Microsoft Bopomofo / JhengHei IME so real-IME E2E tests
-          # get a genuine input method context, not just IMM32 API stubs.
-          Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
-          $list = Get-WinUserLanguageList
-          if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
-            $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
-            $list.Insert(0, $lang)
-            Set-WinUserLanguageList $list -Force
-          }
-          $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
-          Write-Host "zh-TW InputMethodTips: $tips"
-          if (-not ($tips -match 'B2F9C502')) {
-            Write-Warning "Microsoft Bopomofo IME GUID not found; real-IME tests will be skipped."
-          } else {
-            Write-Host "Microsoft Bopomofo IME installed successfully."
-          }
-
       - name: Install UI-test dependencies
         run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0
+
 
       - name: Run UI and E2E tests
         run: pytest tests/ui/ -v --tb=short
