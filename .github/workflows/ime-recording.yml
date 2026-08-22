@@ -26,71 +26,12 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Cache Official IME CAB Package
-        id: cache-ime-cab
-        uses: actions/cache@v4
-        with:
-          path: C:\ime-cab-cache
-          key: ime-cab-zh-tw-server2025-v1
-
-      - name: Install Traditional Chinese IME via Offline DISM Package
+      - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           $ProgressPreference = 'SilentlyContinue'
-          $cabDir = "C:\ime-cab-cache"
-          if (-not (Test-Path $cabDir)) { New-Item -ItemType Directory -Path $cabDir -Force }
-
-          # Try instant download from Release storage (1 second download inside GitHub DC)
-          try {
-            gh release download ci-dependencies --pattern "*LanguageFeatures-Basic-zh-tw*.cab" -D $cabDir --repo ${{ github.repository }} --clobber
-          } catch {}
-
-          $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
-
-          if ($cachedCabs.Count -gt 0) {
-            Write-Host "Installing official zh-TW IME packages offline via DISM (~5 seconds)..."
-            foreach ($cab in $cachedCabs) {
-              Write-Host "Installing $($cab.FullName) ($([math]::Round($cab.Length/1MB, 2)) MB)..."
-              dism /online /add-package /packagepath:$($cab.FullName) /quiet /norestart
-            }
-          } else {
-            Write-Host "No cached CAB found in Release. Starting real-time background CAB capturer..."
-            $capturer = Start-Job -ScriptBlock {
-              param($dest)
-              for ($i = 0; $i -lt 1800; $i++) {
-                $cabs = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\Temp", "$env:TEMP" -Recurse -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
-                foreach ($c in $cabs) {
-                  if ($c.Length -gt 5MB) {
-                    Copy-Item $c.FullName -Destination "$dest\$($c.Name)" -Force -ErrorAction SilentlyContinue
-                  }
-                }
-                Start-Sleep -Seconds 1
-              }
-            } -ArgumentList $cabDir
-
-            Write-Host "Adding capability from Windows Update..."
-            dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
-
-            Stop-Job $capturer -ErrorAction SilentlyContinue
-            Remove-Job $capturer -ErrorAction SilentlyContinue
-
-            # Upload captured official CAB to Release ci-dependencies for permanent 5s runs
-            $capturedCabs = Get-ChildItem -Path $cabDir -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
-            Write-Host "Captured $($capturedCabs.Count) official CAB package(s)!"
-            foreach ($cab in $capturedCabs) {
-              Write-Host "Uploading official $($cab.Name) ($([math]::Round($cab.Length/1MB, 2)) MB) to Release 'ci-dependencies'..."
-              try {
-                gh release upload ci-dependencies $cab.FullName --clobber --repo ${{ github.repository }}
-              } catch {
-                Write-Host "Release upload note: $_"
-              }
-            }
-          }
-
-
-
+          Write-Host "Installing Traditional Chinese (zh-TW) IME via DISM..."
+          dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
 
           $list = New-WinUserLanguageList "zh-TW"
           Set-WinUserLanguageList $list -Force
@@ -101,6 +42,7 @@ jobs:
           Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
           New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Force -ErrorAction SilentlyContinue
           Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Name "EnableAutoTray" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
 
 
       - name: Install dependencies
