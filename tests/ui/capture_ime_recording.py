@@ -353,6 +353,14 @@ class ContinuousRecorder:
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
 
+    # Configure taskbar to always show all notification tray icons directly (EnableAutoTray = 0)
+    try:
+        exp_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer")
+        winreg.SetValueEx(exp_key, "EnableAutoTray", 0, winreg.REG_DWORD, 0)
+        winreg.CloseKey(exp_key)
+    except Exception:
+        pass
+
     # Enable PersistMode in registry
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\ImeModePersistence")
     winreg.SetValueEx(key, "UiLanguage", 0, winreg.REG_DWORD, 2)
@@ -373,6 +381,7 @@ def main() -> int:
             winreg.SetValueEx(ime_key, "Enable Compatibility Mode", 0, winreg.REG_DWORD, 1)
             winreg.CloseKey(ime_key)
         except Exception:
+
             pass
 
     # Activate zh-TW layout as primary in the recording process
