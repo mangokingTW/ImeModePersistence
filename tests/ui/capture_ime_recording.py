@@ -193,24 +193,22 @@ class ThreadedEditorWindow:
             user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
             time.sleep(delay_per_char)
 
-    def type_real_keys(self, vk_list: list[int]):
-        """Sends genuine keyboard events via standard Win32 keybd_event to Microsoft Bopomofo TIP."""
+    def type_real_keys(self, keystroke_str: str):
+        """Standard, robust UI Automation typing directly on the Edit control."""
+        from pywinauto import Application
+
         self.set_foreground()
-        user32.SetFocus(self.edit_hwnd)
-        time.sleep(0.3)
-
-        for vk in vk_list:
-            scan = user32.MapVirtualKeyW(vk, 0)
-            # Key Down
-            user32.keybd_event(vk, scan, 0, 0)
-            time.sleep(0.08)
-            # Key Up
-            user32.keybd_event(vk, scan, 2, 0)
-            time.sleep(0.08)
-
-
-
-
+        time.sleep(0.2)
+        try:
+            app = Application().connect(handle=self.hwnd)
+            ctrl = app.window(handle=self.hwnd).child_window(handle=self.edit_hwnd)
+            ctrl.set_focus()
+            time.sleep(0.2)
+            ctrl.type_keys(keystroke_str, with_spaces=True, pause=0.08)
+        except Exception:
+            from pywinauto.keyboard import send_keys
+            send_keys(keystroke_str, with_spaces=True, pause=0.08)
+        time.sleep(0.5)
 
     def set_chinese(self):
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
@@ -223,15 +221,16 @@ class ThreadedEditorWindow:
             ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
             if ime_wnd:
                 user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
-                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE)
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_NATIVE)
             himc = imm32.ImmGetContext(w)
             if himc:
                 try:
                     imm32.ImmSetOpenStatus(himc, 1)
-                    imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE, 0)
+                    imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE, 0)
                 finally:
                     imm32.ImmReleaseContext(w, himc)
         time.sleep(0.2)
+
 
     def set_alphanumeric(self):
         for w in (self.edit_hwnd, self.hwnd):
@@ -375,10 +374,8 @@ def main() -> int:
         win_a.set_chinese()
         time.sleep(0.4)
         win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n注音輸入：", delay_per_char=0.04)
-        # Type '5'(ㄓ), 'j'(ㄨ), '0'(ㄥ), Space(一聲), Down(候選), Enter(選中'中')
-        win_a.type_real_keys([0x35, 0x4A, 0x30, 0x20, 0x28, 0x0D])
-        # Type 'j'(ㄨ), 'p'(ㄣ), '6'(二聲ˊ), Down(候選), Enter(選中'文')
-        win_a.type_real_keys([0x4A, 0x50, 0x36, 0x28, 0x0D])
+        win_a.type_real_keys("5j0 {DOWN}{ENTER}")
+        win_a.type_real_keys("jp6{DOWN}{ENTER}")
         win_a.type_text("\r\n", delay_per_char=0.04)
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
@@ -386,10 +383,11 @@ def main() -> int:
         win_b.set_foreground()
         time.sleep(0.8)
         win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n注音輸入：", delay_per_char=0.04)
-        win_b.type_real_keys([0x35, 0x4A, 0x30, 0x20, 0x28, 0x0D])
-        win_b.type_real_keys([0x4A, 0x50, 0x36, 0x28, 0x0D])
+        win_b.type_real_keys("5j0 {DOWN}{ENTER}")
+        win_b.type_real_keys("jp6{DOWN}{ENTER}")
         win_b.type_text("\r\n", delay_per_char=0.04)
         time.sleep(2.0)
+
 
 
 
