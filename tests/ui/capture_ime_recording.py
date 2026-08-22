@@ -189,10 +189,14 @@ class ThreadedEditorWindow:
         time.sleep(0.3)
 
 
-    def append_text(self, text: str):
-        cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
-        user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
-        user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, text)
+    def type_text(self, text: str, delay_per_char: float = 0.045):
+        """Simulates authentic real-time keyboard typing character by character."""
+        for ch in text:
+            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
+            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
+            user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
+            time.sleep(delay_per_char)
+
 
     def set_chinese(self):
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
@@ -354,30 +358,31 @@ def main() -> int:
         win_a.set_foreground()
         win_a.set_chinese()
         time.sleep(0.3)
-        win_a.append_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n")
+        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n", delay_per_char=0.05)
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
         key_frames.append(grab_real_screen())
 
         # Step 2: Switch to Window B -> Engine automatically maintains Chinese
         win_b.set_foreground()
         time.sleep(0.8)
-        win_b.append_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n")
+        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n", delay_per_char=0.05)
         time.sleep(2.0)
         key_frames.append(grab_real_screen())
 
         # Step 3: Switch to English mode in Window B
         win_b.set_alphanumeric()
         time.sleep(0.3)
-        win_b.append_text("【視窗 B】手動切換為英數模式 (Switch to English)\r\n")
+        win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\r\n", delay_per_char=0.04)
         time.sleep(1.8)  # Dwell to let engine adopt Alphanumeric mode
         key_frames.append(grab_real_screen())
 
         # Step 4: Switch back to Window A -> Engine restores English mode
         win_a.set_foreground()
         time.sleep(0.8)
-        win_a.append_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n")
+        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n", delay_per_char=0.05)
         time.sleep(2.0)
         key_frames.append(grab_real_screen())
+
 
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
