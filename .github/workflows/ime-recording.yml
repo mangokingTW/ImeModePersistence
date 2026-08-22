@@ -28,20 +28,20 @@ jobs:
           cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
-      - name: Configure Traditional Chinese (zh-TW) IME
+      - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
         run: |
-          # Instant Language & InputMethodTip configuration (0-second setup, no Windows Update download needed)
+          # Genuine Microsoft Bopomofo installation via Windows Update
+          # Note: On GitHub-hosted clean Windows runner this takes ~20-30 min, which is why it only runs in this manual on-demand workflow.
+          Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
           $list = Get-WinUserLanguageList
           if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
             $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
-            $lang.InputMethodTips.Clear()
-            $lang.InputMethodTips.Add('0404:{B115690A-EA02-48D5-A231-E3578D2FDF80}{B2F9C502-1742-11D4-9790-0080C882687E}')
             $list.Insert(0, $lang)
             Set-WinUserLanguageList $list -Force
           }
           $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
-          Write-Host "zh-TW InputMethodTips configured: $tips"
+          Write-Host "zh-TW InputMethodTips: $tips"
 
       - name: Install dependencies
         run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0
