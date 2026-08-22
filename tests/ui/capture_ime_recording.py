@@ -159,7 +159,14 @@ class NotepadWindow:
         pydirectinput.press('shift')
         time.sleep(0.3)
 
+    def set_alphanumeric(self):
+        self.set_foreground()
+        import pydirectinput
+        pydirectinput.press('shift')
+        time.sleep(0.3)
+
     def get_text(self) -> str:
+
         """Reads text from Notepad control."""
         try:
             edit = self.dlg.child_window(class_name="Edit")
