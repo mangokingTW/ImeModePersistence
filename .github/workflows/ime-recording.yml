@@ -95,6 +95,8 @@ jobs:
         with:
           name: ime-recording
           path: |
+            ime-recording/ime-recording.webp
             ime-recording/ime-recording.gif
             ime-recording/ime-frame-*.png
+
           if-no-files-found: warn
