@@ -35,14 +35,25 @@ permissions:
 jobs:
   analyze:
     name: analyze
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     permissions:
       security-events: write
       actions: read
       contents: read
 
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        with:
+          fetch-depth: 1
+
+      - name: Cache CodeQL database
+        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9 # v4.0.2
+        with:
+
+          path: ~/.codeql
+          key: ${{ runner.os }}-codeql-${{ hashFiles('**/CMakeLists.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-codeql-
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
@@ -62,6 +73,6 @@ jobs:
         uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
         with:
           category: "/language:c-cpp"
-          threads: 0
-          ram: 6144
+          threads: 4
+          ram: 8192
 
