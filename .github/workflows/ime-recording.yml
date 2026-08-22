@@ -33,17 +33,18 @@ jobs:
         uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4.2.2
         with:
           path: C:\ime-cache
-          key: ime-zh-tw-cache-v1
+          key: ime-zh-tw-cache-v2
 
       - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
         run: |
           $cacheDir = "C:\ime-cache"
           if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force }
-          $cabs = Get-ChildItem $cacheDir -Filter "*.cab" -ErrorAction SilentlyContinue
+          # Only target LanguageFeatures (Basic & Fonts) CABs, ignoring unrelated apps
+          $cabs = Get-ChildItem $cacheDir -Filter "*LanguageFeatures*.cab" -ErrorAction SilentlyContinue
 
           if ($cabs.Count -gt 0) {
-            Write-Host "Found $($cabs.Count) cached IME package(s)! Installing offline via DISM in ~40 seconds..."
+            Write-Host "Found $($cabs.Count) targeted IME Language package(s)! Installing offline via DISM in ~20 seconds..."
             foreach ($cab in $cabs) {
               Write-Host "Installing $($cab.Name)..."
               dism.exe /Online /Add-Package /PackagePath:$($cab.FullName) /NoRestart /Quiet
@@ -51,10 +52,11 @@ jobs:
           } else {
             Write-Host "No cached CAB packages found. Running Install-Language from Windows Update (first-time seed)..."
             Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
-            # Save downloaded FOD CABs to cache directory for future ultra-fast runs
-            Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Filter "*.cab" -Recurse -ErrorAction SilentlyContinue |
+            # Save only the LanguageFeatures (IME/Fonts) CABs to cache directory
+            Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download" -Filter "*LanguageFeatures*.cab" -Recurse -ErrorAction SilentlyContinue |
               Copy-Item -Destination $cacheDir -Force -ErrorAction SilentlyContinue
           }
+
 
           $list = Get-WinUserLanguageList
           if (-not ($list | Where-Object { $_.LanguageTag -like 'zh*' })) {
