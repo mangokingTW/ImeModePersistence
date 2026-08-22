@@ -6,6 +6,7 @@ and keyboard layout (HKL) without simulating keyboard strokes.
 """
 
 import ctypes
+import subprocess
 import threading
 import time
 from ctypes import wintypes
@@ -38,6 +39,32 @@ ES_MULTILINE = 0x0004
 user32 = ctypes.windll.user32
 imm32 = ctypes.windll.imm32
 kernel32 = ctypes.windll.kernel32
+
+
+def has_chinese_ime() -> bool:
+    """Returns True if Microsoft Bopomofo or JhengHei IME is installed on this machine.
+
+    Queries the Windows language list for zh-TW / zh-Hans entries and checks
+    for the well-known Bopomofo IME GUID (B2F9C502) or JhengHei GUID (B115690A).
+    This function is safe to call on non-Chinese machines; it returns False quickly.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "powershell", "-NonInteractive", "-Command",
+                "(Get-WinUserLanguageList | "
+                " Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips "
+                "-join ','",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        tips = result.stdout.strip()
+        return "B2F9C502" in tips or "B115690A" in tips
+    except Exception:
+        return False
+
 
 WNDPROC = ctypes.WINFUNCTYPE(
     wintypes.LPARAM, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
@@ -243,6 +270,9 @@ def _test_window_wndproc(hwnd, msg, wparam, lparam):
         if msg == 0x0002:  # WM_DESTROY
             user32.PostQuitMessage(0)
             return 0
+        if msg == 0x0006:  # WM_ACTIVATE
+            if wparam & 0xFFFF != 0:  # WA_ACTIVE or WA_CLICKACTIVE
+                user32.SetFocus(hwnd)
         return user32.DefWindowProcW(hwnd, msg, wparam, lparam)
     except Exception:
         return 0
@@ -315,11 +345,25 @@ class ImeTestWindow:
     def set_foreground(self):
         """Brings the window to the foreground and focuses its edit control."""
         user32.keybd_event(0, 0, 0, 0)  # Standard Windows foreground lock bypass
+        cur_thread = kernel32.GetCurrentThreadId()
+        fg_wnd = user32.GetForegroundWindow()
+        fg_thread = user32.GetWindowThreadProcessId(fg_wnd, None) if fg_wnd else 0
+        target_thread = get_window_thread_id(self.hwnd)
+
+        if fg_thread and fg_thread != target_thread:
+            user32.AttachThreadInput(cur_thread, target_thread, True)
+            user32.AttachThreadInput(fg_thread, target_thread, True)
+
         user32.ShowWindow(self.hwnd, 9)  # SW_RESTORE
         user32.SetForegroundWindow(self.hwnd)
         user32.BringWindowToTop(self.hwnd)
         user32.SetFocus(self.edit_hwnd or self.hwnd)
-        time.sleep(0.15)
+
+        if fg_thread and fg_thread != target_thread:
+            user32.AttachThreadInput(fg_thread, target_thread, False)
+            user32.AttachThreadInput(cur_thread, target_thread, False)
+
+        time.sleep(0.2)
 
     def is_foreground(self) -> bool:
         fg = user32.GetForegroundWindow()
