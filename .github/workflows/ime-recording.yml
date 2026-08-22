@@ -44,13 +44,13 @@ jobs:
 
           # Try instant download from Release storage (1 second download inside GitHub DC)
           try {
-            gh release download ci-dependencies --pattern "*.cab" -D $cabDir --repo ${{ github.repository }} --clobber
+            gh release download ci-dependencies --pattern "*LanguageFeatures-Basic-zh-tw*.cab" -D $cabDir --repo ${{ github.repository }} --clobber
           } catch {}
 
-          $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
+          $cachedCabs = Get-ChildItem -Path $cabDir -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
 
           if ($cachedCabs.Count -gt 0) {
-            Write-Host "⚡ Installing official zh-TW IME packages offline via DISM (~5 seconds)..."
+            Write-Host "Installing official zh-TW IME packages offline via DISM (~5 seconds)..."
             foreach ($cab in $cachedCabs) {
               Write-Host "Installing $($cab.FullName) ($([math]::Round($cab.Length/1MB, 2)) MB)..."
               dism /online /add-package /packagepath:$($cab.FullName) /quiet /norestart
@@ -60,7 +60,7 @@ jobs:
             $capturer = Start-Job -ScriptBlock {
               param($dest)
               for ($i = 0; $i -lt 1800; $i++) {
-                $cabs = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\Temp", "$env:TEMP" -Recurse -Filter "*.cab" -ErrorAction SilentlyContinue
+                $cabs = Get-ChildItem -Path "C:\Windows\SoftwareDistribution\Download", "C:\Windows\Temp", "$env:TEMP" -Recurse -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
                 foreach ($c in $cabs) {
                   if ($c.Length -gt 5MB) {
                     Copy-Item $c.FullName -Destination "$dest\$($c.Name)" -Force -ErrorAction SilentlyContinue
@@ -77,7 +77,7 @@ jobs:
             Remove-Job $capturer -ErrorAction SilentlyContinue
 
             # Upload captured official CAB to Release ci-dependencies for permanent 5s runs
-            $capturedCabs = Get-ChildItem -Path $cabDir -Filter "*.cab" -ErrorAction SilentlyContinue
+            $capturedCabs = Get-ChildItem -Path $cabDir -Filter "*LanguageFeatures-Basic-zh-tw*.cab" -ErrorAction SilentlyContinue
             Write-Host "Captured $($capturedCabs.Count) official CAB package(s)!"
             foreach ($cab in $capturedCabs) {
               Write-Host "Uploading official $($cab.Name) ($([math]::Round($cab.Length/1MB, 2)) MB) to Release 'ci-dependencies'..."
@@ -88,6 +88,7 @@ jobs:
               }
             }
           }
+
 
 
 
