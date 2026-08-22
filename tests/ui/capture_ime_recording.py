@@ -103,6 +103,29 @@ def _window_wndproc(hwnd, msg, wparam, lparam):
         wintypes.WPARAM(wparam), wintypes.LPARAM(lparam),
     )
 
+def promote_all_tray_icons():
+    """Forces Windows taskbar to promote all notification icons (including ImeModePersistence) to visible taskbar."""
+    try:
+        exp_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer")
+        winreg.SetValueEx(exp_key, "EnableAutoTray", 0, winreg.REG_DWORD, 0)
+        winreg.CloseKey(exp_key)
+    except Exception:
+        pass
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\NotifyIconSettings", 0, winreg.KEY_ALL_ACCESS) as notify_key:
+            num_subkeys = winreg.QueryInfoKey(notify_key)[0]
+            for idx in range(num_subkeys):
+                try:
+                    subkey_name = winreg.EnumKey(notify_key, idx)
+                    with winreg.OpenKey(notify_key, subkey_name, 0, winreg.KEY_SET_VALUE) as subkey:
+                        winreg.SetValueEx(subkey, "IsPromoted", 0, winreg.REG_DWORD, 1)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
 def minimize_background_windows():
     """Minimizes terminal and host console windows so the desktop background is clean."""
     SW_MINIMIZE = 6
@@ -182,13 +205,12 @@ class NotepadWindow:
         """Types raw English keys via pydirectinput to demonstrate direct alphanumeric input."""
         import pydirectinput
         self.set_foreground()
-        time.sleep(0.2)
+        time.sleep(0.3)
         pydirectinput.write(text, interval=interval)
         time.sleep(0.3)
 
-
-
     def set_chinese(self):
+
         self.set_foreground()
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
         if hkl:
@@ -411,6 +433,9 @@ def main() -> int:
 
     engine = subprocess.Popen([EXE])
     time.sleep(1.0)
+    promote_all_tray_icons()
+    time.sleep(0.5)
+
 
     win_a = NotepadWindow(x=40, y=80, w=480, h=360)
     win_b = NotepadWindow(x=550, y=80, w=480, h=360)
