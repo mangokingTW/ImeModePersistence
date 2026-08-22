@@ -1,11 +1,15 @@
 """Continuous real-time screen recorder for ImeModePersistence cross-window demo.
 
-Records a high-framerate (10 FPS) continuous video/GIF of the real desktop and Windows taskbar
-while driving an interactive typing and window-switching workflow:
+Records a true 60 FPS continuous real-time desktop video of the live typing and taskbar transitions:
   1. Window A active: activate zh-TW Bopomofo and set Chinese mode ("中 ㄅ").
   2. Switch focus to Window B: ImeModePersistence automatically syncs Chinese mode.
   3. Window B switched to English ("英 ㄅ") and types alphanumeric text.
   4. Switch focus back to Window A: ImeModePersistence restores English mode automatically.
+
+Outputs:
+  - ime-recording.webp: True 60 FPS native ultra-smooth animation.
+  - ime-recording.gif: High-framerate smooth GIF for broad compatibility.
+  - ime-frame-*.png: Key step static screenshots.
 
 Usage:
     python tests/ui/capture_ime_recording.py [exe] [out-dir]
@@ -225,11 +229,11 @@ def grab_real_screen() -> Image.Image:
 
 
 # ---------------------------------------------------------------------------
-# Continuous Recorder Worker
+# Continuous Recorder Worker (60 FPS)
 # ---------------------------------------------------------------------------
 
 class ContinuousRecorder:
-    def __init__(self, fps: int = 10):
+    def __init__(self, fps: int = 60):
         self.interval = 1.0 / fps
         self.frames: list[Image.Image] = []
         self.stop_event = threading.Event()
@@ -249,7 +253,7 @@ class ContinuousRecorder:
             except Exception:
                 pass
             elapsed = time.monotonic() - t0
-            sleep_time = max(0.01, self.interval - elapsed)
+            sleep_time = max(0.001, self.interval - elapsed)
             time.sleep(sleep_time)
 
     def stop(self) -> list[Image.Image]:
@@ -287,11 +291,11 @@ def main() -> int:
 
     _pump_messages_briefly(0.5)
 
-    recorder = ContinuousRecorder(fps=10)
+    recorder = ContinuousRecorder(fps=60)
     key_frames = []
 
     try:
-        print("Starting continuous real-time desktop recording (10 FPS)...")
+        print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
         # Step 1: Focus Window A, set Chinese, type text
@@ -329,7 +333,6 @@ def main() -> int:
         time.sleep(2.0)
         key_frames.append(grab_real_screen())
 
-
         # Stop recording
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
@@ -338,22 +341,37 @@ def main() -> int:
         for i, kf in enumerate(key_frames):
             kf.save(os.path.join(OUT, f"ime-frame-{i}.png"))
 
-        # Save high-framerate fluid animated GIF
+        # Save true 60 FPS animations
         if len(all_frames) > 0:
-            gif_path = os.path.join(OUT, "ime-recording.gif")
             sample_w = min(1280, all_frames[0].width)
             sample_h = int(all_frames[0].height * (sample_w / all_frames[0].width))
             resized_frames = [f.resize((sample_w, sample_h), Image.Resampling.LANCZOS) for f in all_frames]
 
+            # 1. Native 60 FPS Animated WebP (16.6ms / frame, pristine quality)
+            webp_path = os.path.join(OUT, "ime-recording.webp")
             resized_frames[0].save(
-                gif_path,
+                webp_path,
                 save_all=True,
                 append_images=resized_frames[1:],
-                duration=100,  # 100ms per frame = 10 FPS
+                duration=16,  # 16.6ms = 60 FPS
+                loop=0,
+                quality=90,
+            )
+            print(f"Saved true 60 FPS WebP ({len(all_frames)} frames): {webp_path}")
+
+            # 2. Smooth High-FPS Animated GIF
+            gif_path = os.path.join(OUT, "ime-recording.gif")
+            # Sample every 2nd frame for GIF to stay within browser GIF limits and compact size
+            gif_frames = resized_frames[::2]
+            gif_frames[0].save(
+                gif_path,
+                save_all=True,
+                append_images=gif_frames[1:],
+                duration=33,  # 30 FPS smooth GIF playback
                 loop=0,
                 optimize=True,
             )
-            print(f"Saved smooth video recording GIF ({len(all_frames)} frames @ 10 FPS): {gif_path}")
+            print(f"Saved smooth GIF ({len(gif_frames)} frames @ 30 FPS): {gif_path}")
 
     finally:
         user32.DestroyWindow(hwnd_a)
