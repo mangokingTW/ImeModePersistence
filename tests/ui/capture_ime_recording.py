@@ -2,7 +2,7 @@
 
 Records a high-framerate (10 FPS) continuous video/GIF of the real desktop and Windows taskbar
 while driving an interactive typing and window-switching workflow:
-  1. Window A active: type Chinese with Microsoft Bopomofo ("中 ㄅ").
+  1. Window A active: activate zh-TW Bopomofo and set Chinese mode ("中 ㄅ").
   2. Switch focus to Window B: ImeModePersistence automatically syncs Chinese mode.
   3. Window B switched to English ("英 ㄅ") and types alphanumeric text.
   4. Switch focus back to Window A: ImeModePersistence restores English mode automatically.
@@ -52,8 +52,13 @@ ES_MULTILINE = 0x0004
 WM_DESTROY = 0x0002
 WM_SETFONT = 0x0030
 WM_SETTEXT = 0x000C
+WM_INPUTLANGCHANGEREQUEST = 0x0050
 WM_IME_CONTROL = 0x0283
+
+IMC_GETCONVERSIONMODE = 0x0001
 IMC_SETCONVERSIONMODE = 0x0002
+IMC_GETOPENSTATUS = 0x0005
+IMC_SETOPENSTATUS = 0x0006
 
 IME_CMODE_ALPHANUMERIC = 0x0000
 IME_CMODE_NATIVE = 0x0001
@@ -144,12 +149,42 @@ def append_text(hwnd_edit: wintypes.HWND, text: str) -> None:
     user32.SendMessageW(hwnd_edit, 0x00C2, 0, text)  # EM_REPLACESEL
 
 
+def set_chinese_mode(hwnd: wintypes.HWND, edit_hwnd: wintypes.HWND) -> None:
+    """Explicitly activate zh-TW Bopomofo layout and enable Chinese mode ('中 ㄅ')."""
+    hkl_tw = user32.LoadKeyboardLayoutW("00000404", 1)  # KLF_ACTIVATE
+    if hkl_tw:
+        user32.ActivateKeyboardLayout(hkl_tw, 0)
+        user32.SendMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl_tw)
+        user32.SendMessageW(edit_hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl_tw)
+
+    for target_hwnd in (edit_hwnd, hwnd):
+        ime_wnd = imm32.ImmGetDefaultIMEWnd(target_hwnd)
+        if ime_wnd:
+            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
+            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, CHINESE_MODE)
+        himc = imm32.ImmGetContext(target_hwnd)
+        if himc:
+            try:
+                imm32.ImmSetOpenStatus(himc, 1)
+                imm32.ImmSetConversionStatus(himc, CHINESE_MODE, 0)
+            finally:
+                imm32.ImmReleaseContext(target_hwnd, himc)
 
 
-def set_ime_mode(hwnd: wintypes.HWND, mode: int) -> None:
-    ime_wnd = imm32.ImmGetDefaultIMEWnd(hwnd)
-    if ime_wnd:
-        user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, mode)
+def set_alphanumeric_mode(hwnd: wintypes.HWND, edit_hwnd: wintypes.HWND) -> None:
+    """Set IME mode to Alphanumeric / English ('英 ㄅ')."""
+    for target_hwnd in (edit_hwnd, hwnd):
+        ime_wnd = imm32.ImmGetDefaultIMEWnd(target_hwnd)
+        if ime_wnd:
+            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
+            user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, ALPHANUMERIC_MODE)
+        himc = imm32.ImmGetContext(target_hwnd)
+        if himc:
+            try:
+                imm32.ImmSetOpenStatus(himc, 0)
+                imm32.ImmSetConversionStatus(himc, ALPHANUMERIC_MODE, 0)
+            finally:
+                imm32.ImmReleaseContext(target_hwnd, himc)
 
 
 def grab_real_screen() -> Image.Image:
@@ -262,7 +297,7 @@ def main() -> int:
         # Step 1: Focus Window A, set Chinese, type text
         user32.SetForegroundWindow(hwnd_a)
         user32.SetFocus(edit_a)
-        set_ime_mode(hwnd_a, CHINESE_MODE)
+        set_chinese_mode(hwnd_a, edit_a)
         _pump_messages_briefly(0.2)
         append_text(edit_a, "正在視窗 A 使用繁體中文注音輸入模式...\r\n")
         time.sleep(1.2)
@@ -278,7 +313,7 @@ def main() -> int:
         key_frames.append(grab_real_screen())
 
         # Step 3: Switch to English mode in Window B
-        set_ime_mode(hwnd_b, ALPHANUMERIC_MODE)
+        set_alphanumeric_mode(hwnd_b, edit_b)
         _pump_messages_briefly(0.2)
         time.sleep(0.5)
         append_text(edit_b, "Switch to English alphanumeric mode.\r\n")
@@ -305,16 +340,15 @@ def main() -> int:
         # Save high-framerate fluid animated GIF
         if len(all_frames) > 0:
             gif_path = os.path.join(OUT, "ime-recording.gif")
-            # Downsample slightly to optimize filesize while keeping high framerate
             sample_w = min(1280, all_frames[0].width)
             sample_h = int(all_frames[0].height * (sample_w / all_frames[0].width))
             resized_frames = [f.resize((sample_w, sample_h), Image.Resampling.LANCZOS) for f in all_frames]
-            
+
             resized_frames[0].save(
                 gif_path,
                 save_all=True,
                 append_images=resized_frames[1:],
-                duration=100,  # 100ms per frame = 10 FPS smooth video playback
+                duration=100,  # 100ms per frame = 10 FPS
                 loop=0,
                 optimize=True,
             )
