@@ -67,6 +67,9 @@ def main():
     app_details = api_request(base_url, token=token)
     pending_sub = app_details.get("pendingApplicationSubmission")
 
+    if not app_details.get("hasAdvancedListingPermission", False):
+        print("WARNING: hasAdvancedListingPermission=false, trailers may not be supported for this app!")
+
     if pending_sub:
         pending_id = pending_sub["id"]
         print(f"Deleting leftover draft submission: {pending_id}...")
@@ -87,17 +90,20 @@ def main():
     file_upload_url = sub["fileUploadUrl"]
     print(f"Created submission ID: {sub_id}")
 
-    # 3. Pack ONLY 1080p video + thumbnail into zip
+    # 3. Pack 1080p video + thumbnail into zip WITH CORRECT DIRECTORY PATHS
+    # Paths inside the zip must match the videoFileName / fileName values in the JSON
     zip_path = pathlib.Path("trailers_assets.zip")
+    zip_contents = []
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(video_path, arcname="store-preview.mp4")
-        zf.write(thumb_path, arcname="store-preview-thumb.png")
-    print(f"Packed {zip_path.name} containing: {zf.namelist()}")
+        zf.write(video_path, arcname="Trailers/store-preview.mp4")
+        zf.write(thumb_path, arcname="Images/store-preview-thumb.png")
+        zip_contents = zf.namelist()
+    print(f"Packed {zip_path.name} containing: {zip_contents}")
 
     # 4. Upload zip to Azure Blob Storage
     upload_zip_to_blob(file_upload_url, zip_path)
 
-    # 5. Inject 5-language trailers (zh-tw, en-us, zh-cn, ja, ko)
+    # 5. Inject 5-language trailers at the TOP-LEVEL sub["trailers"] with correct trailerAssets structure
     titles = {
         "zh-tw": "即時輸入法模式維持與游標指示器動態演示",
         "zh-hant": "即時輸入法模式維持與游標指示器動態演示",
@@ -106,27 +112,49 @@ def main():
         "ja": "アプリごとのIME入力モード維持＆カーソルインジケーター実演",
         "ko": "앱별 IME 입력 모드 유지 및 커서 표시기 실시간 시연"
     }
+    default_title = "Per-App IME Mode Persistence & Live Caret Indicator Demo"
 
+    # Build trailerAssets keyed by locale, matching the listings returned by the API
+    trailer_assets = {}
     if "listings" in sub:
-        for key, listing in sub["listings"].items():
-            base_listing = listing.get("baseListing", {})
+        for key in sub["listings"].keys():
             k_lower = key.lower()
-            chosen_title = "Per-App IME Mode Persistence & Live Caret Indicator Demo"
+            chosen_title = default_title
             for lang_key, t in titles.items():
                 if lang_key in k_lower:
                     chosen_title = t
                     break
+            trailer_assets[k_lower] = {
+                "title": chosen_title,
+                "imageList": [
+                    {
+                        "fileName": "Images\\store-preview-thumb.png",
+                        "description": "Trailer thumbnail"
+                    }
+                ]
+            }
 
-            base_listing["trailers"] = [
+    # Fallback: ensure at least en-us is present
+    if not trailer_assets:
+        trailer_assets["en-us"] = {
+            "title": default_title,
+            "imageList": [
                 {
-                    "videoFileName": "store-preview.mp4",
-                    "imageFileName": "store-preview-thumb.png",
-                    "title": chosen_title
+                    "fileName": "Images\\store-preview-thumb.png",
+                    "description": "Trailer thumbnail"
                 }
             ]
-            listing["baseListing"] = base_listing
+        }
 
-    print("Updating submission details with 5-language trailers...")
+    # Set trailers at submission top-level (correct API location)
+    sub["trailers"] = [
+        {
+            "videoFileName": "Trailers\\store-preview.mp4",
+            "trailerAssets": trailer_assets
+        }
+    ]
+
+    print(f"Updating submission with trailers for {len(trailer_assets)} locale(s): {list(trailer_assets.keys())}")
     updated_sub = api_request(f"{base_url}/submissions/{sub_id}", method="PUT", token=token, body=sub)
     print("Updated submission JSON successfully!")
 
@@ -141,10 +169,12 @@ def main():
     print("Live Submission Status:", json.dumps(status_res, indent=2))
 
     current_sub = api_request(f"{base_url}/submissions/{sub_id}", token=token)
-    print("Server Verified Listings Trailers:")
-    for lang, l in current_sub.get("listings", {}).items():
-        trailers = l.get("baseListing", {}).get("trailers", [])
-        print(f"  [{lang}] Trailers count: {len(trailers)}, Data: {trailers}")
+    print("Server Verified Trailers:")
+    for trailer in current_sub.get("trailers", []):
+        print(f"  videoFileName: {trailer.get('videoFileName')}")
+        for locale, assets in trailer.get("trailerAssets", {}).items():
+            img_count = len(assets.get("imageList", []))
+            print(f"    [{locale}] title={assets.get('title')!r}, images={img_count}")
 
     print("=== Successfully verified 1080p Trailers on Microsoft Store via API! ===")
 
