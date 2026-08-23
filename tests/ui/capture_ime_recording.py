@@ -110,7 +110,6 @@ def promote_all_tray_icons():
         winreg.CloseKey(exp_key)
     except Exception:
         pass
-
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\NotifyIconSettings", 0, winreg.KEY_ALL_ACCESS) as notify_key:
             num_subkeys = winreg.QueryInfoKey(notify_key)[0]
@@ -123,6 +122,9 @@ def promote_all_tray_icons():
                     pass
     except Exception:
         pass
+    HWND_BROADCAST = 0xFFFF
+    WM_SETTINGCHANGE = 0x001A
+    user32.PostMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 0)
 
 def minimize_background_windows():
     """Minimizes terminal and host console windows so the desktop background is clean."""
