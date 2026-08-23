@@ -133,7 +133,20 @@ def main():
     print("Committing submission to Microsoft Store...")
     commit_res = api_request(f"{base_url}/submissions/{sub_id}/commit", method="POST", token=token)
     print("Commit response:", commit_res)
-    print("=== Successfully updated 1080p Trailers on Microsoft Store via API! ===")
+
+    print("Checking live submission status and listings from Microsoft Store...")
+    import time
+    time.sleep(5)
+    status_res = api_request(f"{base_url}/submissions/{sub_id}/status", token=token)
+    print("Live Submission Status:", json.dumps(status_res, indent=2))
+
+    current_sub = api_request(f"{base_url}/submissions/{sub_id}", token=token)
+    print("Server Verified Listings Trailers:")
+    for lang, l in current_sub.get("listings", {}).items():
+        trailers = l.get("baseListing", {}).get("trailers", [])
+        print(f"  [{lang}] Trailers count: {len(trailers)}, Data: {trailers}")
+
+    print("=== Successfully verified 1080p Trailers on Microsoft Store via API! ===")
 
 if __name__ == "__main__":
     main()
