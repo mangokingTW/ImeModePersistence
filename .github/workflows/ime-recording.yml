@@ -16,55 +16,7 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
-
-      - name: Build x64
-        run: |
-          cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
-          cmake --build build-x64 --config Release
-
-      - name: Install Traditional Chinese (zh-TW) IME
-        shell: pwsh
-        run: |
-          $ProgressPreference = 'SilentlyContinue'
-          Write-Host "Installing Traditional Chinese (zh-TW) IME via DISM..."
-          dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
-
-          $list = New-WinUserLanguageList "zh-TW"
-          Set-WinUserLanguageList $list -Force
-          $tips = (Get-WinUserLanguageList).InputMethodTips
-          Write-Host "Active zh-TW InputMethodTips: $tips"
-
-          New-Item -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Force -ErrorAction SilentlyContinue
-          Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
-          New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Force -ErrorAction SilentlyContinue
-          Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Name "EnableAutoTray" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
-
-          New-Item -Path "HKCU:\Software\ImeModePersistence" -Force -ErrorAction SilentlyContinue
-          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "ShowCaretIndicator" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
-          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "PersistMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
-          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "UiLanguage" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
-
-          $notifyPath = "HKCU:\Control Panel\NotifyIconSettings"
-          if (Test-Path $notifyPath) {
-            Get-ChildItem $notifyPath | ForEach-Object {
-              Set-ItemProperty -Path $_.PSPath -Name "IsPromoted" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
-            }
-          }
-
-      - name: Install dependencies
-        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
-
-      - name: Capture continuous IME persistence recording
-        env:
-          PYTHONIOENCODING: utf-8
-        run: >
-          python tests/ui/capture_ime_recording.py
-          "build-x64/Release/ImeModePersistence.exe"
-          ime-recording
-
-      - name: Run real-IME E2E tests
-        run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
-
+      - uses: ./.github/actions/ime-recording
       - name: Upload recording artifact
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
