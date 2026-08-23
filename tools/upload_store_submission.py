@@ -93,21 +93,22 @@ def main():
     # Ensure video has an audio track (Microsoft Store requires audio channels on trailer videos)
     import subprocess
     import shutil
-    if shutil.which("ffmpeg"):
-        temp_audio_video = pathlib.Path("store-preview-audio.mp4")
-        print("Ensuring video has an audio track via ffmpeg (adding silent stereo AAC if needed)...")
-        subprocess.run([
-            "ffmpeg", "-y",
-            "-i", str(video_path),
-            "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-            "-c:v", "copy",
-            "-c:a", "aac",
-            "-shortest",
-            str(temp_audio_video)
-        ], check=True)
-        video_to_pack = temp_audio_video
-    else:
-        video_to_pack = video_path
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
+        raise RuntimeError("ffmpeg executable not found in PATH! Required to add audio channels to trailer video.")
+
+    temp_audio_video = pathlib.Path("store-preview-audio.mp4")
+    print("Ensuring video has an audio track via ffmpeg (adding silent stereo AAC)...")
+    subprocess.run([
+        ffmpeg_bin, "-y",
+        "-i", str(video_path),
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-c:v", "copy",
+        "-c:a", "aac",
+        "-shortest",
+        str(temp_audio_video)
+    ], check=True)
+    video_to_pack = temp_audio_video
 
     # 3. Pack 1080p video + thumbnail into zip WITH CORRECT DIRECTORY PATHS
     # Paths inside the zip must match the videoFileName / fileName values in the JSON
