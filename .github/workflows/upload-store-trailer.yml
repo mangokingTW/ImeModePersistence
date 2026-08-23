@@ -1,7 +1,6 @@
-name: Upload Store Trailers in PR
+name: Upload Store Trailer
 
 on:
-  pull_request:
   workflow_dispatch:
 
 permissions:
