@@ -18,7 +18,20 @@ jobs:
         with:
           version: v0.3.9
 
-      - name: Update Trailers on Microsoft Store
+      - name: Build x64
+        run: |
+          cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
+          cmake --build build-x64 --config Release
+
+      - name: Build Store MSIX
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File packaging/msix/build.ps1 -Configuration Release -Architecture x64
+          $msix = Get-ChildItem -Path dist -Filter *.msix | Select-Object -First 1
+          if (-not $msix) { throw 'MSIX package not found' }
+          "MSIX_PATH=$($msix.FullName)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Submit to Microsoft Store with 5-Language Trailers
         shell: pwsh
         env:
           TENANT: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
@@ -30,6 +43,16 @@ jobs:
           msstore reconfigure --tenantId $env:TENANT --sellerId $env:SELLERID --clientId $env:CLIENTID --clientSecret $env:CLIENTSECRET
           if ($LASTEXITCODE) { throw 'msstore reconfigure failed' }
 
+          # Delete any leftover draft/pending submission
+          msstore submission delete $storeId --no-confirm
+          $global:LASTEXITCODE = 0
+
+          # Create a fresh draft submission with the MSIX
+          Write-Host "Creating fresh draft submission with MSIX..."
+          msstore publish $env:MSIX_PATH -id $storeId -nc
+          if ($LASTEXITCODE) { throw 'msstore publish (-nc) failed' }
+
+          # Retrieve submission JSON and inject trailers & notes
           $raw = ((msstore submission get $storeId) -join '')
           $s = $raw.IndexOf('{'); $e = $raw.LastIndexOf('}')
           if ($s -ge 0 -and $e -gt $s) {
@@ -66,6 +89,9 @@ jobs:
             msstore submission update $storeId ($obj | ConvertTo-Json -Depth 100)
             if ($LASTEXITCODE) { throw 'msstore submission update failed' }
             Write-Host "Store trailers updated successfully!"
-          } else {
-            throw "Could not retrieve Store submission JSON"
           }
+
+          Write-Host "Publishing (committing) submission to Microsoft Store..."
+          msstore submission publish $storeId
+          if ($LASTEXITCODE) { throw 'msstore submission publish failed' }
+          Write-Host "Submission successfully published to Microsoft Store!"
