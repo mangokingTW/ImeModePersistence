@@ -7,6 +7,16 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.5.6
+
+Microsoft Store visual assets and project maintenance:
+
+- Store listing trailers: Added multi-language preview video and live demonstration assets for Traditional Chinese, English, Simplified Chinese, Japanese, and Korean Store listings.
+
+繁體中文:微軟商店視覺資源與維護更新：
+
+- 應用商店預覽影片：為繁體中文、英文、簡體中文、日文與韓文等微軟商店頁面配置即時動態預覽影片與在地化標題展示。
+
 ## v1.5.5
 
 Documentation and project maintenance release:
