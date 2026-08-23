@@ -51,68 +51,49 @@ def main():
     tenant_id = os.environ["PARTNER_CENTER_TENANT_ID"]
     client_id = os.environ["PARTNER_CENTER_CLIENT_ID"]
     client_secret = os.environ["PARTNER_CENTER_CLIENT_SECRET"]
-    msix_path = pathlib.Path(os.environ["MSIX_PATH"])
     video_path = pathlib.Path("packaging/store/store-preview.mp4")
     thumb_path = pathlib.Path("packaging/store/store-preview-thumb.png")
     app_id = "9P05QQZ2P5XC"
 
-    print("Authenticating with Azure AD (DevCenter Resource)...")
+    print("Authenticating with Azure AD...")
     token = get_token(tenant_id, client_id, client_secret, "https://manage.devcenter.microsoft.com")
     base_url = f"https://manage.devcenter.microsoft.com/v1.0/my/applications/{app_id}"
 
-    # Check / Delete existing pending submission
-    print("Checking app status...")
-    try:
-        app_details = api_request(base_url, token=token)
-        print("App Name:", app_details.get("primaryName"))
-        if app_details.get("pendingApplicationSubmission"):
-            pending_id = app_details["pendingApplicationSubmission"]["id"]
-            print(f"Deleting existing pending submission: {pending_id}...")
-            urllib.request.urlopen(urllib.request.Request(
-                f"{base_url}/submissions/{pending_id}",
-                headers={"Authorization": f"Bearer {token}"},
-                method="DELETE"
-            ))
-            print("Deleted pending submission.")
-    except Exception as e:
-        print("App status check / delete note:", e)
+    # 1. Check existing pending submission or create new draft
+    print("Checking application status...")
+    app_details = api_request(base_url, token=token)
+    pending_sub = app_details.get("pendingApplicationSubmission")
 
-    # Create fresh submission
-    print("Creating new application submission...")
-    sub = api_request(f"{base_url}/submissions", method="POST", token=token)
-    sub_id = sub["id"]
+    if pending_sub:
+        sub_id = pending_sub["id"]
+        print(f"Using existing draft submission: {sub_id}")
+        sub = api_request(f"{base_url}/submissions/{sub_id}", token=token)
+    else:
+        print("Creating new draft submission...")
+        sub = api_request(f"{base_url}/submissions", method="POST", token=token)
+        sub_id = sub["id"]
+        print(f"Created submission ID: {sub_id}")
+
     file_upload_url = sub["fileUploadUrl"]
-    print(f"Created submission ID: {sub_id}")
 
-    # Pack MSIX + 1080p MP4 + 1080p PNG into submission.zip
-    zip_path = pathlib.Path("submission_assets.zip")
+    # 2. Pack ONLY video + thumbnail into zip
+    zip_path = pathlib.Path("trailers_assets.zip")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(msix_path, arcname=msix_path.name)
         zf.write(video_path, arcname="store-preview.mp4")
         zf.write(thumb_path, arcname="store-preview-thumb.png")
     print(f"Packed {zip_path.name} containing: {zf.namelist()}")
 
-    # Upload zip to Azure Blob
+    # 3. Upload zip to Azure Blob Storage
     upload_zip_to_blob(file_upload_url, zip_path)
 
-    # Configure packages
-    sub["applicationPackages"] = [
-        {
-            "fileName": msix_path.name,
-            "fileStatus": "PendingUpload",
-            "minimumDirectXVersion": "None",
-            "minimumSystemRam": "None"
-        }
-    ]
-
-    # Inject 5-language trailers
+    # 4. Inject 5-language trailers (leaving MSIX/packages completely untouched)
     titles = {
         "zh-tw": "即時輸入法模式維持與游標指示器動態演示",
         "zh-hant": "即時輸入法模式維持與游標指示器動態演示",
         "zh-cn": "实时输入法模式保持与光标指示器动态演示",
         "zh-hans": "实时输入法模式保持与光标指示器动态演示",
         "ja-jp": "アプリごとのIME入力モード維持＆カーソルインジケーター実演",
-        "ja": "アプリごとのIME入力モード維持＆カーソルインジケーター実演",
+        "ja": "アプリごとのIME入力モード維持＆カーソルインジケーター實演",
         "ko-kr": "앱별 IME 입력 모드 유지 및 커서 표시기 실시간 시연",
         "ko": "앱별 IME 입력 모드 유지 및 커서 표시기 실시간 시연"
     }
@@ -136,14 +117,14 @@ def main():
             ]
             listing["baseListing"] = base_listing
 
-    print("Updating submission details with 5-language 1080p trailers...")
+    print("Updating submission details with 5-language trailers...")
     updated_sub = api_request(f"{base_url}/submissions/{sub_id}", method="PUT", token=token, body=sub)
     print("Updated submission JSON successfully!")
 
-    print("Committing (publishing) submission to Microsoft Partner Center...")
+    print("Committing submission to Microsoft Store...")
     commit_res = api_request(f"{base_url}/submissions/{sub_id}/commit", method="POST", token=token)
     print("Commit response:", commit_res)
-    print("=== Successfully uploaded 1080p Trailers and committed Store submission via REST API! ===")
+    print("=== Successfully updated 1080p Trailers on Microsoft Store via API! ===")
 
 if __name__ == "__main__":
     main()

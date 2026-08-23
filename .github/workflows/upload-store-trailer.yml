@@ -12,20 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
-      - name: Build x64
-        run: |
-          cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
-          cmake --build build-x64 --config Release
-
-      - name: Build Store MSIX
-        shell: pwsh
-        run: |
-          powershell -ExecutionPolicy Bypass -File packaging/msix/build.ps1 -Configuration Release -Architecture x64
-          $msix = Get-ChildItem -Path dist -Filter *.msix | Select-Object -First 1
-          if (-not $msix) { throw 'MSIX package not found' }
-          "MSIX_PATH=$($msix.FullName)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-
-      - name: Upload 1080p Trailers and MSIX via Microsoft REST API
+      - name: Upload 1080p Trailers to Microsoft Store
         env:
           PARTNER_CENTER_TENANT_ID: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
           PARTNER_CENTER_SELLER_ID: ${{ secrets.PARTNER_CENTER_SELLER_ID }}
