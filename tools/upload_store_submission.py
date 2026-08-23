@@ -62,33 +62,42 @@ def main():
     token = get_token(tenant_id, client_id, client_secret, "https://manage.devcenter.microsoft.com")
     base_url = f"https://manage.devcenter.microsoft.com/v1.0/my/applications/{app_id}"
 
+    # 1. Clean up any existing pending submission
     print("Checking application status...")
     app_details = api_request(base_url, token=token)
     pending_sub = app_details.get("pendingApplicationSubmission")
 
     if pending_sub:
-        sub_id = pending_sub["id"]
-        print(f"Using existing draft submission: {sub_id}")
-        sub = api_request(f"{base_url}/submissions/{sub_id}", token=token)
-    else:
-        print("Creating new draft submission...")
-        sub = api_request(f"{base_url}/submissions", method="POST", token=token)
-        sub_id = sub["id"]
-        print(f"Created submission ID: {sub_id}")
+        pending_id = pending_sub["id"]
+        print(f"Deleting leftover draft submission: {pending_id}...")
+        try:
+            urllib.request.urlopen(urllib.request.Request(
+                f"{base_url}/submissions/{pending_id}",
+                headers={"Authorization": f"Bearer {token}"},
+                method="DELETE"
+            ))
+            print("Deleted leftover submission.")
+        except Exception as e:
+            print("Delete note:", e)
 
+    # 2. Create a clean new draft submission
+    print("Creating new draft submission...")
+    sub = api_request(f"{base_url}/submissions", method="POST", token=token)
+    sub_id = sub["id"]
     file_upload_url = sub["fileUploadUrl"]
+    print(f"Created submission ID: {sub_id}")
 
-    # 1. Pack ONLY video + thumbnail into zip
+    # 3. Pack ONLY 1080p video + thumbnail into zip
     zip_path = pathlib.Path("trailers_assets.zip")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(video_path, arcname="store-preview.mp4")
         zf.write(thumb_path, arcname="store-preview-thumb.png")
     print(f"Packed {zip_path.name} containing: {zf.namelist()}")
 
-    # 2. Upload zip to Azure Blob Storage
+    # 4. Upload zip to Azure Blob Storage
     upload_zip_to_blob(file_upload_url, zip_path)
 
-    # 3. Inject 5-language trailers (zh-tw, en-us, zh-cn, ja, ko)
+    # 5. Inject 5-language trailers (zh-tw, en-us, zh-cn, ja, ko)
     titles = {
         "zh-tw": "即時輸入法模式維持與游標指示器動態演示",
         "zh-hant": "即時輸入法模式維持與游標指示器動態演示",
