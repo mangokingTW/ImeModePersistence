@@ -16,7 +16,11 @@ permissions:
 
 jobs:
   gate:
-    uses: ./.github/workflows/ime-recording.yml
+    name: Release Gate (Real-IME E2E & Recording)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: ./.github/actions/ime-recording
 
   release:
     needs: [gate]
