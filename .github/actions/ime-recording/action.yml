@@ -52,3 +52,10 @@ runs:
     - name: Run real-IME E2E tests
       shell: pwsh
       run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+
+    - name: Upload recording artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+      with:
+        name: ime-recording
+        path: ime-recording/ime-recording.mp4
+        if-no-files-found: warn
