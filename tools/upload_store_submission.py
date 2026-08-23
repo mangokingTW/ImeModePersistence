@@ -7,6 +7,9 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 def get_token(tenant_id, client_id, client_secret, resource):
     url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
     data = urllib.parse.urlencode({
@@ -73,40 +76,25 @@ def main():
         sub_id = sub["id"]
         print(f"Created submission ID: {sub_id}")
 
-    print("Submission keys:", list(sub.keys()))
-    if "listings" in sub:
-        print("Listings keys:", list(sub["listings"].keys()))
-        for k, v in sub["listings"].items():
-            base = v.get("baseListing", {})
-            print(f"Listing [{k}] baseListing keys:", list(base.keys()))
-            if "trailers" in base:
-                print(f"Listing [{k}] existing trailers:", base["trailers"])
-            if "images" in base:
-                print(f"Listing [{k}] image count: {len(base['images'])}")
-                for img in base["images"]:
-                    print(f"  Image: {img}")
-
     file_upload_url = sub["fileUploadUrl"]
 
-    # 2. Pack ONLY video + thumbnail into zip
+    # 1. Pack ONLY video + thumbnail into zip
     zip_path = pathlib.Path("trailers_assets.zip")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(video_path, arcname="store-preview.mp4")
         zf.write(thumb_path, arcname="store-preview-thumb.png")
     print(f"Packed {zip_path.name} containing: {zf.namelist()}")
 
-    # 3. Upload zip to Azure Blob Storage
+    # 2. Upload zip to Azure Blob Storage
     upload_zip_to_blob(file_upload_url, zip_path)
 
-    # 4. Inject 5-language trailers (leaving MSIX/packages completely untouched)
+    # 3. Inject 5-language trailers (zh-tw, en-us, zh-cn, ja, ko)
     titles = {
         "zh-tw": "即時輸入法模式維持與游標指示器動態演示",
         "zh-hant": "即時輸入法模式維持與游標指示器動態演示",
         "zh-cn": "实时输入法模式保持与光标指示器动态演示",
         "zh-hans": "实时输入法模式保持与光标指示器动态演示",
-        "ja-jp": "アプリごとのIME入力モード維持＆カーソルインジケーター実演",
-        "ja": "アプリごとのIME入力モード維持＆カーソルインジケーター實演",
-        "ko-kr": "앱별 IME 입력 모드 유지 및 커서 표시기 실시간 시연",
+        "ja": "アプリごとのIME入力モード維持＆カーソルインジケーター実演",
         "ko": "앱별 IME 입력 모드 유지 및 커서 표시기 실시간 시연"
     }
 
@@ -130,9 +118,8 @@ def main():
             listing["baseListing"] = base_listing
 
     print("Updating submission details with 5-language trailers...")
-    print("Payload listing zh-tw baseListing:", json.dumps(sub.get("listings", {}).get("zh-tw", {}).get("baseListing", {}), indent=2, ensure_ascii=False))
     updated_sub = api_request(f"{base_url}/submissions/{sub_id}", method="PUT", token=token, body=sub)
-    print("Updated submission response zh-tw baseListing:", json.dumps(updated_sub.get("listings", {}).get("zh-tw", {}).get("baseListing", {}), indent=2, ensure_ascii=False))
+    print("Updated submission JSON successfully!")
 
     print("Committing submission to Microsoft Store...")
     commit_res = api_request(f"{base_url}/submissions/{sub_id}/commit", method="POST", token=token)
