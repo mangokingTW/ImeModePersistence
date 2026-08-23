@@ -255,10 +255,10 @@ jobs:
                   '---',
                   '',
                   '### Install',
-                  '`scoop install mango/ImeModePersistence` · `winget install mangokingTW.ImeModePersistence` · `choco install imemodepersistence` — or the setup / portable zip below. Verify a download with `gh attestation verify <file> --repo mangokingTW/ImeModePersistence`.',
+                  '[Microsoft Store](https://apps.microsoft.com/detail/9P05QQZ2P5XC) · `scoop install mango/ImeModePersistence` · `winget install mangokingTW.ImeModePersistence` · `choco install imemodepersistence` — or the setup / portable zip below. Verify a download with `gh attestation verify <file> --repo mangokingTW/ImeModePersistence`.',
                   '',
-                  "The Microsoft Store (MSIX) build can't elevate; for apps run as administrator or anti-cheat games, use the desktop build run as administrator.",
-                  '安裝:上方任一套件管理器,或下方安裝檔／免安裝 zip。Store 版無法提權,提權目標請用桌面版並以系統管理員執行。'
+                  'All builds (including Microsoft Store) support modern WinUI apps and elevated / anti-cheat targets via the optional Sidecar Helper in the tray menu.',
+                  '安裝:微軟商店、上方任一套件管理器,或下方安裝檔／免安裝 zip。所有版本（含市集版）皆可透過托盤選單啟用 Sidecar Helper 支援 WinUI 與管理員／反作弊目標。'
                 ) -join "`n"
                 [System.IO.File]::WriteAllText("$PWD/relnotes.md", ($text + "`n" + $footer).Trim() + "`n")
                 $notesArgs = @('--notes-file', "$PWD/relnotes.md")
