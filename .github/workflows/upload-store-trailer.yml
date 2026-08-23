@@ -1,0 +1,96 @@
+name: Upload Store Trailers in PR
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  upload-store-trailers:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Set up Microsoft Store CLI
+        uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
+        with:
+          version: v0.3.9
+
+      - name: Build x64
+        run: |
+          cmake -S . -B build-x64 -A x64 -DBUILD_TESTING=OFF
+          cmake --build build-x64 --config Release
+
+      - name: Build Store MSIX
+        shell: pwsh
+        run: |
+          powershell -ExecutionPolicy Bypass -File packaging/msix/build.ps1 -Configuration Release -Architecture x64
+          $msix = Get-ChildItem -Path dist -Filter *.msix | Select-Object -First 1
+          if (-not $msix) { throw 'MSIX package not found' }
+          "MSIX_PATH=$($msix.FullName)" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: Submit 1080p Trailers to Microsoft Store
+        shell: pwsh
+        env:
+          TENANT: ${{ secrets.PARTNER_CENTER_TENANT_ID }}
+          SELLERID: ${{ secrets.PARTNER_CENTER_SELLER_ID }}
+          CLIENTID: ${{ secrets.PARTNER_CENTER_CLIENT_ID }}
+          CLIENTSECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
+        run: |
+          $storeId = '9P05QQZ2P5XC'
+          msstore reconfigure --tenantId $env:TENANT --sellerId $env:SELLERID --clientId $env:CLIENTID --clientSecret $env:CLIENTSECRET
+          if ($LASTEXITCODE) { throw 'msstore reconfigure failed' }
+
+          # Delete leftover submission if any
+          msstore submission delete $storeId --no-confirm
+          $global:LASTEXITCODE = 0
+
+          # Create fresh draft submission with MSIX
+          Write-Host "Creating fresh draft submission with MSIX: $env:MSIX_PATH"
+          msstore publish $env:MSIX_PATH -id $storeId -nc
+          if ($LASTEXITCODE) { throw 'msstore publish (-nc) failed' }
+
+          # Retrieve submission JSON and inject 1080p trailers
+          $raw = ((msstore submission get $storeId) -join '')
+          $s = $raw.IndexOf('{'); $e = $raw.LastIndexOf('}')
+          if ($s -ge 0 -and $e -gt $s) {
+            $obj = $raw.Substring($s, $e - $s + 1) | ConvertFrom-Json
+            $listed = @($obj.listings.PSObject.Properties | Where-Object { $_.Value.baseListing })
+            foreach ($p in $listed) {
+              $trailerTitle = if ($p.Name -like '*tw*' -or $p.Name -like '*hant*') {
+                '即時輸入法模式維持與游標指示器動態演示'
+              } elseif ($p.Name -like '*cn*' -or $p.Name -like '*hans*') {
+                '实时输入法模式保持与光标指示器动态演示'
+              } elseif ($p.Name -like '*ja*' -or $p.Name -like '*jp*') {
+                'アプリごとのIME入力モード維持＆カーソルインジケーター実演'
+              } elseif ($p.Name -like '*ko*' -or $p.Name -like '*kr*') {
+                '앱별 IME 입력 모드 유지 및 커서 표시기 실시간 시연'
+              } else {
+                'Per-App IME Mode Persistence & Live Caret Indicator Demo'
+              }
+
+              $trailerObj = @(
+                @{
+                  videoFileName = 'store-preview.mp4'
+                  imageFileName = 'store-preview-thumb.png'
+                  title         = $trailerTitle
+                }
+              )
+              if ($p.Value.baseListing.PSObject.Properties['trailers']) {
+                $p.Value.baseListing.trailers = $trailerObj
+              } else {
+                $p.Value.baseListing | Add-Member -MemberType NoteProperty -Name 'trailers' -Value $trailerObj
+              }
+            }
+
+            Write-Host "Updating Store submission JSON with 5-language 1080p trailers..."
+            msstore submission update $storeId ($obj | ConvertTo-Json -Depth 100)
+            if ($LASTEXITCODE) { throw 'msstore submission update failed' }
+            Write-Host "Store trailers updated successfully!"
+          }
+
+          Write-Host "Publishing submission to Microsoft Store..."
+          msstore submission publish $storeId
+          if ($LASTEXITCODE) { throw 'msstore submission publish failed' }
+          Write-Host "Submission successfully published to Microsoft Store!"
