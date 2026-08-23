@@ -7,6 +7,16 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.5.5
+
+Documentation and project maintenance release:
+
+- Documentation & preview assets: Updated README and Microsoft Store listings with live demonstrations of input mode persistence and caret indicators.
+
+繁體中文:說明文件與維護更新：
+
+- 說明文件與預覽資源更新：更新專案首頁與應用商店資訊，提供直觀的輸入法模式維持與游標指示器動態預覽。
+
 ## v1.5.4
 
 Fix shell window detection for tray overflow and modern flyouts:

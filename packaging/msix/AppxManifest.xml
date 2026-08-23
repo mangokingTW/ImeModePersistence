@@ -20,7 +20,7 @@
   <Identity
     Name="MangoYen.IMEModePersistence"
     Publisher="CN=B64E145E-DB3F-473D-9BA6-BDF6CF2E8081"
-    Version="1.5.4.0" />
+    Version="1.5.5.0" />
 
   <Properties>
     <DisplayName>IME Mode Persistence</DisplayName>
