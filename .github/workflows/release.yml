@@ -15,7 +15,11 @@ permissions:
   contents: read
 
 jobs:
+  gate:
+    uses: ./.github/workflows/ime-recording.yml
+
   release:
+    needs: [gate]
     runs-on: windows-latest
     permissions:
       # Create the release and upload assets.
