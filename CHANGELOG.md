@@ -9,16 +9,14 @@ tag has no section here, the workflow falls back to auto-generated notes.
 
 ## v1.5.5
 
-Dynamic Caret Indicator, Tray Icon Promotion, and Release Gate Workflow:
+Reliability fixes for IME mode persistence and automated Release Gate verification:
 
-- Caret Input Indicator: Added real-time IME mode status indicator badge (`[ 中 ]` / `[ A ]`) dynamic tracking beside the active text cursor.
-- Windows 11 Tray Icon Promotion: Enhanced system notification area integration to ensure `ImeModePersistence` tray icon stays visible on the main taskbar.
+- Reliable mode persistence across window switches: Hardened input thread synchronization (`AttachThreadInput`) and foreground focus routing to guarantee conversion mode (Chinese / alphanumeric) persistence across all target application switches.
 - Automated 60 FPS Real-IME Verification: Integrated continuous desktop IME persistence recording as an automated Release Gate workflow, and added live interactive preview to documentation and Microsoft Store package assets.
 
-繁體中文:游標輸入指示器、系統匣常駐強化與 Release Gate 自動化錄影：
+繁體中文:輸入法模式維持可靠度修復與 Release Gate 自動化驗證：
 
-- 游標輸入指示器：支援在文字游標旁動態顯示即時輸入法模式狀態徽章（如【中】／【A】），游標打字即時動態跟隨反饋。
-- 系統匣常駐強化：加強 Windows 11 工作列通知區域整合，確保 `ImeModePersistence` 托盤圖示直接常駐於最外層可見工作列。
+- 跨視窗輸入模式維持可靠度強化：加固輸入執行緒同步（`AttachThreadInput`）與前台焦點傳遞機制，確保在各類應用程式視窗切換時，中／英轉換模式能 100% 穩定維持與還原。
 - 60 FPS 實機驗證與 Release Gate：將實機輸入法連續錄影轉為發布專用 Release Gate，並在專案首頁與 Microsoft Store 資源中整合動態實機預覽。
 
 ## v1.5.4
