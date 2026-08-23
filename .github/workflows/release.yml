@@ -366,21 +366,47 @@ jobs:
                 $enFile = "$PWD/storenotes.en.md"; $zhFile = "$PWD/storenotes.zh.md"
                 $listed = @($obj.listings.PSObject.Properties | Where-Object { $_.Value.baseListing })
                 foreach ($p in $listed) {
-                  # Only the Traditional Chinese listing gets the Chinese note;
-                  # every other listing (English, Simplified Chinese, Japanese,
-                  # Korean) gets English -- we don't maintain the What's-new in
-                  # those languages. Match both zh-tw and zh-Hant naming. A
-                  # single-listing app keeps the bilingual note so nothing drops.
-                  $f = if ($listed.Count -gt 1 -and ($p.Name -like '*tw*' -or $p.Name -like '*hant*') -and (Test-Path $zhFile)) { $zhFile }
-                       elseif ($listed.Count -gt 1 -and (Test-Path $enFile)) { $enFile }
-                       else { $notesFile }
+                  # Release notes per language
+                  $f = if ($listed.Count -gt 1 -and ($p.Name -like '*tw*' -or $p.Name -like '*hant*')) {
+                    if (Test-Path $zhFile) { $zhFile } else { $notesFile }
+                  } elseif ($listed.Count -gt 1 -and (Test-Path $enFile)) {
+                    $enFile
+                  } else {
+                    $notesFile
+                  }
                   $p.Value.baseListing.releaseNotes = (& $read1500 $f)
+
+                  # 5-language trailers (video preview)
+                  $trailerTitle = if ($p.Name -like '*tw*' -or $p.Name -like '*hant*') {
+                    '即時輸入法模式維持與游標指示器動態演示'
+                  } elseif ($p.Name -like '*cn*' -or $p.Name -like '*hans*') {
+                    '实时输入法模式保持与光标指示器动态演示'
+                  } elseif ($p.Name -like '*ja*' -or $p.Name -like '*jp*') {
+                    'アプリごとのIME入力モード維持＆カーソルインジケーター実演'
+                  } elseif ($p.Name -like '*ko*' -or $p.Name -like '*kr*') {
+                    '앱별 IME 입력 모드 유지 및 커서 표시기 실시간 시연'
+                  } else {
+                    'Per-App IME Mode Persistence & Live Caret Indicator Demo'
+                  }
+
+                  $trailerObj = @(
+                    @{
+                      videoFileName = 'store-preview.mp4'
+                      imageFileName = 'store-preview-thumb.png'
+                      title         = $trailerTitle
+                    }
+                  )
+                  if ($p.Value.baseListing.PSObject.Properties['trailers']) {
+                    $p.Value.baseListing.trailers = $trailerObj
+                  } else {
+                    $p.Value.baseListing | Add-Member -MemberType NoteProperty -Name 'trailers' -Value $trailerObj
+                  }
                 }
                 msstore submission update $storeId ($obj | ConvertTo-Json -Depth 100)
               } else {
                 Write-Host 'could not parse submission JSON; keeping previous notes'
               }
-            } catch { Write-Host "release-notes update skipped: $_" }
+            } catch { Write-Host "release-notes and trailers update skipped: $_" }
             $global:LASTEXITCODE = 0
 
             msstore submission publish $storeId
