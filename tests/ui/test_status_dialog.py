@@ -18,7 +18,6 @@ STATUS_TITLES = {
     5: r".*현재 상태.*",
 }
 
-
 def find_status_dialog(proc, timeout=15):
     """Locates the Status TaskDialog window for the given process."""
     from pywinauto import Application, Desktop
@@ -33,7 +32,6 @@ def find_status_dialog(proc, timeout=15):
             pass
         time.sleep(0.3)
     return Desktop(backend="uia").window(title_re=r".*(Persistence|延續|延续|維持|유지|status|狀態|状态|状態|상태).*")
-
 
 def test_status_dialog_content_and_dismiss(app_runner, registry_sandbox):
     """Verifies that the status TaskDialog opens, contains diagnostic text, and closes cleanly."""
@@ -52,7 +50,6 @@ def test_status_dialog_content_and_dismiss(app_runner, registry_sandbox):
     else:
         dlg.type_keys("{ENTER}")
     time.sleep(0.3)
-
 
 @pytest.mark.parametrize("lang_id,lang_code", [
     (1, "en"),
@@ -75,7 +72,6 @@ def test_status_dialog_multilingual(lang_id, lang_code, app_runner, registry_san
     if ok_btn.exists():
         ok_btn.click()
     time.sleep(0.3)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

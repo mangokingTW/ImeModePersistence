@@ -43,15 +43,12 @@ DWMWA_EXTENDED_FRAME_BOUNDS = 9
 _user32 = ctypes.windll.user32
 _dwmapi = ctypes.windll.dwmapi
 
-
 def set_language(value):
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, KEY)
     winreg.SetValueEx(key, "UiLanguage", 0, winreg.REG_DWORD, value)
     winreg.CloseKey(key)
 
-
 THEME_KEY = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"
-
 
 def set_theme(light):
     """Switch Windows between light and dark. Each app is launched fresh after
@@ -62,7 +59,6 @@ def set_theme(light):
     winreg.SetValueEx(key, "SystemUsesLightTheme", 0, winreg.REG_DWORD, value)
     winreg.CloseKey(key)
     time.sleep(1.0)  # let the setting settle / broadcast
-
 
 def visible_bounds(hwnd):
     """The true visible rectangle: DWM extended frame bounds, falling back to
@@ -75,11 +71,9 @@ def visible_bounds(hwnd):
         _user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect))
     return (rect.left, rect.top, rect.right, rect.bottom)
 
-
 def grab(hwnd, out_path):
     from PIL import ImageGrab
     ImageGrab.grab(bbox=visible_bounds(hwnd), all_screens=True).save(out_path)
-
 
 def largest_visible_window(pid):
     """Handle of the process's largest visible top-level window (the dialog),
@@ -103,7 +97,6 @@ def largest_visible_window(pid):
         time.sleep(0.5)
     raise RuntimeError("no visible window found for the process")
 
-
 def popup_menu_window():
     """Handle of the transient popup menu (window class #32768)."""
     for _ in range(20):
@@ -113,9 +106,7 @@ def popup_menu_window():
         time.sleep(0.5)
     raise RuntimeError("popup menu window (#32768) not found")
 
-
 THEMES = [(True, "light"), (False, "dark")]
-
 
 def main():
     os.makedirs(OUT, exist_ok=True)
@@ -151,7 +142,6 @@ def main():
     set_theme(True)
     print(f"done: {failures} failure(s)")
     return 1 if failures else 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

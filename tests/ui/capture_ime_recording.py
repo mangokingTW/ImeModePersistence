@@ -25,13 +25,19 @@ import subprocess
 from ctypes import wintypes
 from PIL import Image
 
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
 EXE = sys.argv[1] if len(sys.argv) > 1 else r"build-x64\Release\ImeModePersistence.exe"
+
 OUT = sys.argv[2] if len(sys.argv) > 2 else "ime-recording"
 
 # ---------------------------------------------------------------------------
 # Win32 & IME Constants
 # ---------------------------------------------------------------------------
-
 user32 = ctypes.windll.user32
 gdi32 = ctypes.windll.gdi32
 imm32 = ctypes.windll.imm32
@@ -67,7 +73,6 @@ WNDPROC = ctypes.WINFUNCTYPE(
     ctypes.c_long, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
 )
 
-
 class WNDCLASSEXW(ctypes.Structure):
     _fields_ = [
         ("cbSize", wintypes.UINT),
@@ -84,7 +89,6 @@ class WNDCLASSEXW(ctypes.Structure):
         ("hIconSm", wintypes.HANDLE),
     ]
 
-
 @WNDPROC
 def _window_wndproc(hwnd, msg, wparam, lparam):
     if msg == WM_DESTROY:
@@ -98,176 +102,202 @@ def _window_wndproc(hwnd, msg, wparam, lparam):
         wintypes.WPARAM(wparam), wintypes.LPARAM(lparam),
     )
 
+def promote_all_tray_icons():
+    """Forces Windows taskbar to promote all notification icons (including ImeModePersistence) to visible taskbar."""
+    try:
+        exp_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer")
+        winreg.SetValueEx(exp_key, "EnableAutoTray", 0, winreg.REG_DWORD, 0)
+        winreg.CloseKey(exp_key)
+    except Exception:
+        pass
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Control Panel\NotifyIconSettings", 0, winreg.KEY_ALL_ACCESS) as notify_key:
+            num_subkeys = winreg.QueryInfoKey(notify_key)[0]
+            for idx in range(num_subkeys):
+                try:
+                    subkey_name = winreg.EnumKey(notify_key, idx)
+                    with winreg.OpenKey(notify_key, subkey_name, 0, winreg.KEY_SET_VALUE) as subkey:
+                        winreg.SetValueEx(subkey, "IsPromoted", 0, winreg.REG_DWORD, 1)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    HWND_BROADCAST = 0xFFFF
+    WM_SETTINGCHANGE = 0x001A
+    user32.PostMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 0)
 
-class ThreadedEditorWindow:
-    """A standalone Win32 editor window on its own thread with isolated IME context."""
+def minimize_background_windows():
+    """Minimizes terminal and host console windows so the desktop background is clean."""
+    SW_MINIMIZE = 6
+    kernel32 = ctypes.windll.kernel32
+    user32 = ctypes.windll.user32
 
-    _registered = False
-    _lock = threading.Lock()
-    CLASS_NAME = "ImeRecorderWindowClass"
+    # Minimize own console window if exists
+    console_hwnd = kernel32.GetConsoleWindow()
+    if console_hwnd:
+        user32.ShowWindow(console_hwnd, SW_MINIMIZE)
 
-    def __init__(self, title: str, x: int, y: int, w: int, h: int):
-        self.title = title
-        self.x, self.y, self.w, self.h = x, y, w, h
-        self.hwnd = None
-        self.edit_hwnd = None
-        self.thread_id = 0
-        self.ready_event = threading.Event()
-        self.stop_event = threading.Event()
+    # Minimize other console / terminal windows
+    def enum_proc(hwnd, lparam):
+        if user32.IsWindowVisible(hwnd):
+            length = user32.GetWindowTextLengthW(hwnd)
+            buf = ctypes.create_unicode_buffer(length + 1)
+            user32.GetWindowTextW(hwnd, buf, length + 1)
+            title = buf.value.lower()
+            class_buf = ctypes.create_unicode_buffer(256)
+            user32.GetClassNameW(hwnd, class_buf, 256)
+            cls = class_buf.value
+            if any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
+               cls in ["ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS"]:
+                user32.ShowWindow(hwnd, SW_MINIMIZE)
+        return True
 
-        self.thread = threading.Thread(target=self._run, daemon=True)
-        self.thread.start()
-        if not self.ready_event.wait(timeout=5.0):
-            raise TimeoutError(f"Window '{title}' failed to initialize.")
+    WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    user32.EnumWindows(WNDENUMPROC(enum_proc), 0)
+    time.sleep(0.5)
 
-    def _run(self):
-        hinst = kernel32.GetModuleHandleW(None)
-        with ThreadedEditorWindow._lock:
-            if not ThreadedEditorWindow._registered:
-                wcex = WNDCLASSEXW()
-                wcex.cbSize = ctypes.sizeof(WNDCLASSEXW)
-                wcex.style = 0x0003
-                wcex.lpfnWndProc = _window_wndproc
-                wcex.hInstance = hinst
-                wcex.hbrBackground = wintypes.HANDLE(6)
-                wcex.lpszClassName = ThreadedEditorWindow.CLASS_NAME
-                user32.RegisterClassExW(ctypes.byref(wcex))
-                ThreadedEditorWindow._registered = True
+class NotepadWindow:
+    """Manages a genuine Windows Notepad process with full Microsoft TSF IME candidate window support."""
 
-        self.hwnd = user32.CreateWindowExW(
-            0, ThreadedEditorWindow.CLASS_NAME, self.title,
-            WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-            self.x, self.y, self.w, self.h,
-            None, None, hinst, None,
-        )
+    def __init__(self, x: int, y: int, w: int, h: int):
 
-        self.edit_hwnd = user32.CreateWindowExW(
-            0, "EDIT", "",
-            WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | ES_AUTOVSCROLL,
-            15, 15, self.w - 45, self.h - 70,
-            self.hwnd, None, hinst, None,
-        )
+        from pywinauto.application import Application
 
-        font = gdi32.CreateFontW(
-            22, 0, 0, 0, 400, 0, 0, 0, 1, 0, 0, 2, 0, "Microsoft JhengHei"
-        )
-        if font:
-            user32.SendMessageW(self.edit_hwnd, WM_SETFONT, font, 1)
+        self.proc = subprocess.Popen(["notepad.exe"])
+        time.sleep(1.0)
+        self.app = Application(backend="uia").connect(process=self.proc.pid)
+        self.dlg = self.app.top_window()
+        self.hwnd = self.dlg.handle
 
-        pid = wintypes.DWORD()
-        self.thread_id = user32.GetWindowThreadProcessId(self.hwnd, ctypes.byref(pid))
-        self.ready_event.set()
-
-        msg = ctypes.create_string_buffer(48)
-        while not self.stop_event.is_set():
-            if user32.PeekMessageW(msg, None, 0, 0, 1):
-                user32.TranslateMessage(msg)
-                user32.DispatchMessageW(msg)
-            else:
-                time.sleep(0.01)
+        # Move and resize window
+        user32.MoveWindow(self.hwnd, x, y, w, h, True)
+        self.set_foreground()
 
     def set_foreground(self):
-        user32.keybd_event(0, 0, 0, 0)  # Bypass Windows foreground lock
-        cur_thread = kernel32.GetCurrentThreadId()
-        fg_wnd = user32.GetForegroundWindow()
-        fg_thread = user32.GetWindowThreadProcessId(fg_wnd, None) if fg_wnd else 0
-        target_thread = self.thread_id
-
-        if fg_thread and fg_thread != target_thread:
-            user32.AttachThreadInput(cur_thread, target_thread, True)
-            user32.AttachThreadInput(fg_thread, target_thread, True)
-
-        user32.ShowWindow(self.hwnd, 9)  # SW_RESTORE
-        user32.SetForegroundWindow(self.hwnd)
-        user32.BringWindowToTop(self.hwnd)
-        user32.SetFocus(self.edit_hwnd or self.hwnd)
-
-        if fg_thread and fg_thread != target_thread:
-            user32.AttachThreadInput(fg_thread, target_thread, False)
-            user32.AttachThreadInput(cur_thread, target_thread, False)
-
+        user32.keybd_event(0, 0, 0, 0)
+        self.dlg.set_focus()
+        time.sleep(0.2)
+        try:
+            edit = self.dlg.child_window(control_type="Edit")
+            edit.click_input()
+        except Exception:
+            pass
         time.sleep(0.3)
 
+    def type_text(self, text: str, delay_per_char: float = 0.04):
+        self.set_foreground()
+        self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
+        time.sleep(0.3)
 
-    def type_text(self, text: str, delay_per_char: float = 0.045):
-        """Simulates authentic real-time keyboard typing character by character."""
-        for ch in text:
-            cur_len = user32.GetWindowTextLengthW(self.edit_hwnd)
-            user32.SendMessageW(self.edit_hwnd, 0x00B1, cur_len, cur_len)
-            user32.SendMessageW(self.edit_hwnd, 0x00C2, 0, ch)
-            time.sleep(delay_per_char)
-
-    def type_real_keys(self, key_sequence: list[str]):
-        """100% genuine physical keyboard typing sent directly to Microsoft Bopomofo TIP."""
-        from pywinauto.keyboard import send_keys
+    def type_bopomofo(self, key_sequence: str):
+        """Types authentic bopomofo keys via pydirectinput DirectX hardware scan codes."""
+        import pydirectinput
 
         self.set_foreground()
-        user32.SetFocus(self.edit_hwnd)
+        time.sleep(0.3)
+        pydirectinput.write(key_sequence, interval=0.1)
+        time.sleep(0.3)
+        pydirectinput.press('enter')
+        time.sleep(0.4)
+
+    def type_english(self, text: str, interval: float = 0.08):
+        """Types raw English keys via pydirectinput to demonstrate direct alphanumeric input."""
+        import pydirectinput
+        self.set_foreground()
+        time.sleep(0.3)
+        pydirectinput.write(text, interval=interval)
         time.sleep(0.3)
 
-        for key in key_sequence:
-            send_keys(key, pause=0.08)
-            time.sleep(0.1)
-
-
-
-
-
-
-
-
-
     def set_chinese(self):
+        self.set_foreground()
         hkl = user32.LoadKeyboardLayoutW("00000404", 1)
         if hkl:
             user32.ActivateKeyboardLayout(hkl, 0)
             user32.SendMessageW(self.hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
-            user32.SendMessageW(self.edit_hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
 
-        for w in (self.edit_hwnd, self.hwnd):
-            ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
+        # 1. Focus child targeting via GetGUIThreadInfo (identical to ImeModePersistence C++ engine)
+        class GUITHREADINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD),
+                ("flags", wintypes.DWORD),
+                ("hwndActive", wintypes.HWND),
+                ("hwndFocus", wintypes.HWND),
+                ("hwndCapture", wintypes.HWND),
+                ("hwndMenuOwner", wintypes.HWND),
+                ("hwndMoveSize", wintypes.HWND),
+                ("hwndCaret", wintypes.HWND),
+                ("rcCaret", wintypes.RECT),
+            ]
+
+        thread_id = user32.GetWindowThreadProcessId(self.hwnd, None)
+        gti = GUITHREADINFO()
+        gti.cbSize = ctypes.sizeof(GUITHREADINFO)
+        targets = [self.hwnd]
+        if user32.GetGUIThreadInfo(thread_id, ctypes.byref(gti)) and gti.hwndFocus:
+            if gti.hwndFocus not in targets:
+                targets.insert(0, gti.hwndFocus)
+
+        for target in targets:
+            ime_wnd = imm32.ImmGetDefaultIMEWnd(target)
             if ime_wnd:
                 user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 1)
-                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE)
-            himc = imm32.ImmGetContext(w)
-            if himc:
-                try:
-                    imm32.ImmSetOpenStatus(himc, 1)
-                    imm32.ImmSetConversionStatus(himc, IME_CMODE_NATIVE | IME_CMODE_FULLSHAPE, 0)
-                finally:
-                    imm32.ImmReleaseContext(w, himc)
-
-        # Trigger Shift press with hardware scan code 0x2A for Microsoft Bopomofo TIP indicator
-        scan = user32.MapVirtualKeyW(VK_SHIFT, 0) or 0x2A
-        user32.keybd_event(VK_SHIFT, scan, 0, 0)
-        time.sleep(0.05)
-        user32.keybd_event(VK_SHIFT, scan, KEYEVENTF_KEYUP, 0)
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 1)  # IME_CMODE_NATIVE (1)
+        time.sleep(0.3)
 
     def set_alphanumeric(self):
-        for w in (self.edit_hwnd, self.hwnd):
-            ime_wnd = imm32.ImmGetDefaultIMEWnd(w)
+        self.set_foreground()
+        class GUITHREADINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD),
+                ("flags", wintypes.DWORD),
+                ("hwndActive", wintypes.HWND),
+                ("hwndFocus", wintypes.HWND),
+                ("hwndCapture", wintypes.HWND),
+                ("hwndMenuOwner", wintypes.HWND),
+                ("hwndMoveSize", wintypes.HWND),
+                ("hwndCaret", wintypes.HWND),
+                ("rcCaret", wintypes.RECT),
+            ]
+
+        thread_id = user32.GetWindowThreadProcessId(self.hwnd, None)
+        gti = GUITHREADINFO()
+        gti.cbSize = ctypes.sizeof(GUITHREADINFO)
+        targets = [self.hwnd]
+        if user32.GetGUIThreadInfo(thread_id, ctypes.byref(gti)) and gti.hwndFocus:
+            if gti.hwndFocus not in targets:
+                targets.insert(0, gti.hwndFocus)
+
+        for target in targets:
+            ime_wnd = imm32.ImmGetDefaultIMEWnd(target)
             if ime_wnd:
                 user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETOPENSTATUS, 0)
-                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, IME_CMODE_ALPHANUMERIC)
-            himc = imm32.ImmGetContext(w)
-            if himc:
-                try:
-                    imm32.ImmSetOpenStatus(himc, 0)
-                    imm32.ImmSetConversionStatus(himc, IME_CMODE_ALPHANUMERIC, 0)
-                finally:
-                    imm32.ImmReleaseContext(w, himc)
+                user32.SendMessageW(ime_wnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, 0)  # IME_CMODE_ALPHANUMERIC (0)
+        time.sleep(0.3)
 
-        scan = user32.MapVirtualKeyW(VK_SHIFT, 0) or 0x2A
-        user32.keybd_event(VK_SHIFT, scan, 0, 0)
-        time.sleep(0.05)
-        user32.keybd_event(VK_SHIFT, scan, KEYEVENTF_KEYUP, 0)
-
+    def get_text(self) -> str:
+        """Reads text from Notepad control."""
+        try:
+            edit = self.dlg.child_window(control_type="Edit")
+            val = edit.get_value()
+            if val:
+                return val
+        except Exception:
+            pass
+        try:
+            edit = self.dlg.child_window(class_name="Edit")
+            return edit.window_text()
+        except Exception:
+            return ""
 
     def close(self):
-        self.stop_event.set()
-        if self.hwnd:
-            user32.PostMessageW(self.hwnd, 0x0010, 0, 0)  # WM_CLOSE
-
+        try:
+            self.proc.terminate()
+            self.proc.wait(timeout=2)
+        except Exception:
+            try:
+                self.proc.kill()
+            except Exception:
+                pass
 
 def grab_real_screen() -> Image.Image:
     w = user32.GetSystemMetrics(0)
@@ -304,7 +334,6 @@ def grab_real_screen() -> Image.Image:
 
     return Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB")
 
-
 class ContinuousRecorder:
     def __init__(self, fps: int = 60):
         self.interval = 1.0 / fps
@@ -335,14 +364,35 @@ class ContinuousRecorder:
             self.thread.join(timeout=3)
         return self.frames
 
-
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
 
-    # Enable PersistMode in registry
+    # Configure taskbar to always show all notification tray icons directly (EnableAutoTray = 0 and NotifyIconSettings IsPromoted = 1)
+    try:
+        exp_key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer")
+        winreg.SetValueEx(exp_key, "EnableAutoTray", 0, winreg.REG_DWORD, 0)
+        winreg.CloseKey(exp_key)
+    except Exception:
+        pass
+
+    try:
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Control Panel\NotifyIconSettings") as notify_key:
+            num_subkeys = winreg.QueryInfoKey(notify_key)[0]
+            for idx in range(num_subkeys):
+                try:
+                    subkey_name = winreg.EnumKey(notify_key, idx)
+                    with winreg.OpenKey(notify_key, subkey_name, 0, winreg.KEY_SET_VALUE) as subkey:
+                        winreg.SetValueEx(subkey, "IsPromoted", 0, winreg.REG_DWORD, 1)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    # Enable PersistMode and ShowCaretIndicator (Caret / Cursor indicator) in registry
     key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, r"Software\ImeModePersistence")
     winreg.SetValueEx(key, "UiLanguage", 0, winreg.REG_DWORD, 2)
     winreg.SetValueEx(key, "PersistMode", 0, winreg.REG_DWORD, 1)
+    winreg.SetValueEx(key, "ShowCaretIndicator", 0, winreg.REG_DWORD, 1)
     winreg.CloseKey(key)
 
     # Configure Microsoft Bopomofo default mode to Chinese ('中 ㄅ') and enable Shift switching & compatibility mode
@@ -370,59 +420,79 @@ def main() -> int:
 
     time.sleep(0.3)
 
+    # Minimize all host / terminal / console windows before launching recording
+    minimize_background_windows()
+
     engine = subprocess.Popen([EXE])
     time.sleep(1.0)
+    promote_all_tray_icons()
+    time.sleep(0.5)
 
-    win_a = ThreadedEditorWindow("【視窗 A】繁體中文編輯區 (Window A)", x=40, y=80, w=480, h=360)
-    win_b = ThreadedEditorWindow("【視窗 B】英數編輯區 (Window B)", x=550, y=80, w=480, h=360)
+    win_a = NotepadWindow(x=40, y=80, w=480, h=360)
+    win_b = NotepadWindow(x=550, y=80, w=480, h=360)
     time.sleep(0.5)
 
     recorder = ContinuousRecorder(fps=60)
-    key_frames = []
 
     try:
         print("Starting continuous real-time desktop recording (60 FPS)...")
         recorder.start()
 
-        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo
+        # Step 1: Window A activated, set Chinese mode, type authentic bopomofo 測試
         win_a.set_foreground()
         win_a.set_chinese()
-        time.sleep(0.4)
-        win_a.type_text("【視窗 A】已啟用微軟注音繁體中文模式...\r\n注音輸入：", delay_per_char=0.04)
-        win_a.type_real_keys(["5", "j", "0", "{DOWN}", "{ENTER}"])
-        win_a.type_real_keys(["j", "p", "6", "{DOWN}", "{ENTER}"])
-        win_a.type_text("\r\n", delay_per_char=0.04)
+        time.sleep(0.5)
+        # 敲擊整組注音詞彙打出「測試」（hk4g4 = ㄘㄜˋㄕˋ ➔ 測試）
+        win_a.type_bopomofo("hk4g4")
+        win_a.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Chinese mode
 
-        # Step 2: Switch to Window B -> Engine automatically maintains Chinese and native candidate selection
+        # Step 2: Switch to Window B -> Engine automatically maintains Chinese mode
         win_b.set_foreground()
         time.sleep(0.8)
-        win_b.type_text("【視窗 B】切換至此視窗，ImeModePersistence 自動同步維持繁中模式！\r\n注音輸入：", delay_per_char=0.04)
-        win_b.type_real_keys(["5", "j", "0", "{DOWN}", "{ENTER}"])
-        win_b.type_real_keys(["j", "p", "6", "{DOWN}", "{ENTER}"])
-        win_b.type_text("\r\n", delay_per_char=0.04)
+        win_b.type_bopomofo("hk4g4")
+        win_b.type_text("\n")
         time.sleep(2.0)
 
-
-        # Step 3: Switch to English mode in Window B
+        # Step 3: Switch to English mode in Window B -> Type English test
         win_b.set_alphanumeric()
-        time.sleep(0.4)
-        win_b.type_text("【視窗 B】手動切換為英數模式 (Switch to English)\r\n", delay_per_char=0.04)
-        win_b.type_text("Typing in English without manual switching!\r\n", delay_per_char=0.04)
+        time.sleep(0.5)
+        win_b.type_english("hello world")
+        win_b.type_text("\n")
         time.sleep(1.8)  # Dwell to let engine adopt Alphanumeric mode
 
-        # Step 4: Switch back to Window A -> Engine restores English mode
+        # Step 4: Switch back to Window A -> Engine restores English mode -> Type English test
         win_a.set_foreground()
         time.sleep(0.8)
-        win_a.type_text("【視窗 A】切換回視窗 A，引擎自動還原為最新英數模式！\r\n", delay_per_char=0.04)
-        win_a.type_text("Engine restores latest alphanumeric state automatically!\r\n", delay_per_char=0.04)
+        win_a.type_english("persistence test")
+        win_a.type_text("\n")
         time.sleep(2.0)
+
+        # Check actual text contents of Window A and Window B
+        text_a = win_a.get_text()
+        text_b = win_b.get_text()
+        print(f"\n==================== [CONTENT VERIFICATION] ====================", flush=True)
+        print(f"--- Window A Content ---\n{text_a}", flush=True)
+        print(f"--- Window B Content ---\n{text_b}", flush=True)
+        print(f"=================================================================\n", flush=True)
+
+        expected_a = "測試\npersistence test"
+        expected_b = "測試\nhello world"
+
+        norm_a = "\n".join([line.strip() for line in text_a.strip().splitlines() if line.strip()])
+        norm_b = "\n".join([line.strip() for line in text_b.strip().splitlines() if line.strip()])
+
+        print(f"[VERIFY] Window A exact content matching:\nExpected:\n{expected_a}\nActual:\n{norm_a}\n", flush=True)
+        print(f"[VERIFY] Window B exact content matching:\nExpected:\n{expected_b}\nActual:\n{norm_b}\n", flush=True)
+
+        assert norm_a == expected_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
+        assert norm_b == expected_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
+        print("[VERIFY] All window text contents strictly and perfectly matched without trailing spaces!", flush=True)
 
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
 
         # Save pristine 60 FPS H.264 MP4 video only (no screenshots)
-
         if len(all_frames) > 0:
             mp4_path = os.path.join(OUT, "ime-recording.mp4")
             # H.264 requires even width and height
@@ -450,18 +520,23 @@ def main() -> int:
                 mp4_path,
             ]
             try:
-                proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                for f in all_frames:
-                    if f.size != (w, h):
-                        f = f.resize((w, h), Image.Resampling.BILINEAR)
-                    proc.stdin.write(f.tobytes())
-                proc.stdin.close()
-                proc.wait(timeout=30)
-                print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
+                proc = subprocess.Popen(
+                    ffmpeg_cmd,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                )
+                raw_bytes = b"".join(
+                    (f.resize((w, h), Image.Resampling.BILINEAR) if f.size != (w, h) else f).tobytes()
+                    for f in all_frames
+                )
+                _, stderr_data = proc.communicate(input=raw_bytes, timeout=60)
+                if proc.returncode != 0:
+                    print(f"FFmpeg returned error code {proc.returncode}: {stderr_data.decode('utf-8', errors='ignore')}")
+                else:
+                    print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
             except Exception as exc:
                 print(f"FFmpeg encoding error: {exc}")
-
-
 
     finally:
         win_a.close()
@@ -473,7 +548,6 @@ def main() -> int:
             engine.kill()
 
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -14,7 +14,6 @@ from pywinauto import Desktop
 
 user32 = ctypes.windll.user32
 
-
 def popup_menu_window(timeout=10):
     """Finds the transient popup menu window (#32768)."""
     deadline = time.time() + timeout
@@ -24,7 +23,6 @@ def popup_menu_window(timeout=10):
             return hwnd
         time.sleep(0.3)
     return None
-
 
 def test_tray_context_menu_items(app_runner, registry_sandbox):
     """Verifies that the Tray Context Menu opens with all expected action items."""
@@ -42,7 +40,6 @@ def test_tray_context_menu_items(app_runner, registry_sandbox):
     # Close popup menu cleanly by sending Escape
     user32.PostMessageW(hwnd, 0x0100, 0x1B, 0)  # WM_KEYDOWN VK_ESCAPE
     time.sleep(0.3)
-
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

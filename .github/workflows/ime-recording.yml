@@ -1,15 +1,10 @@
-name: IME Recording
+name: IME Recording (Release Gate)
 
-# On-demand: builds the app, opens two real Win32 windows on the GitHub Actions
-# interactive desktop, drives IME mode changes with ImmSetConversionStatus, and
-# captures a continuous 10 FPS real-time desktop video of the live typing and taskbar transitions.
-#
-# The result is a smooth animated GIF (ime-recording.gif) plus four individual PNG
-# key frames uploaded as the "ime-recording" artifact.
-#
-# Triggered manually from the Actions tab ("Run workflow").
+# Release Gate & On-demand verification: builds the app, installs official zh-TW IME,
+# and captures 60 FPS real-time desktop video verifying live typing, caret indicator, and taskbar transitions.
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -20,7 +15,6 @@ jobs:
     permissions:
       contents: write
     steps:
-
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Build x64
@@ -30,62 +24,39 @@ jobs:
 
       - name: Install Traditional Chinese (zh-TW) IME
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          $ProgressPreference = 'Continue'
-          $cacheDir = "C:\ime-cache"
-          if (-not (Test-Path $cacheDir)) { New-Item -ItemType Directory -Path $cacheDir -Force }
+          $ProgressPreference = 'SilentlyContinue'
+          Write-Host "Installing Traditional Chinese (zh-TW) IME via DISM..."
+          dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
 
-          # Try downloading pre-cached assets from Draft Release 'ci-dependencies' (2-second download)
-          $downloadSuccess = $false
-          try {
-            Write-Host "Checking for offline IME assets in hidden Draft Release 'ci-dependencies'..."
-            gh release download ci-dependencies --repo ${{ github.repository }} --pattern "zh-tw-ime-assets.zip" --dir $cacheDir
-            $zip = "$cacheDir\zh-tw-ime-assets.zip"
-            if (Test-Path $zip) {
-              Write-Host "Found cached IME package! Restoring offline in ~5 seconds..."
-              Expand-Archive -Path $zip -DestinationPath "C:\Windows\System32\IME\IMETC" -Force
-              $downloadSuccess = $true
-            }
-          } catch {
-            Write-Host "Draft Release not populated yet. Falling back to Windows Update..."
-          }
-
-          if (-not $downloadSuccess) {
-            Write-Host "Running first-time Install-Language from Windows Update..."
-            Install-Language -Language zh-TW -CopyToSettings -ErrorAction Stop
-
-            # Automatically package installed IME assets & create Draft Release
-            try {
-              Write-Host "Creating Draft Release 'ci-dependencies' for future ultra-fast offline runs..."
-              $zipPath = "$cacheDir\zh-tw-ime-assets.zip"
-              Compress-Archive -Path "C:\Windows\System32\IME\IMETC" -DestinationPath $zipPath -Force
-              gh release create ci-dependencies $zipPath --draft --title "CI Dependencies" --notes "Pre-cached IME components for fast CI offline installation" --repo ${{ github.repository }}
-              Write-Host "Successfully created hidden Draft Release 'ci-dependencies'!"
-            } catch {
-              Write-Host "Draft Release auto-creation note: $_"
-            }
-          }
-
-          $list = Get-WinUserLanguageList
-          $zh = $list | Where-Object { $_.LanguageTag -like 'zh*' }
-          if ($zh) {
-            $list.Remove($zh)
-            $list.Insert(0, $zh)
-          } else {
-            $lang = [Microsoft.InternationalSettings.Commands.WinUserLanguage]::new('zh-TW')
-            $list.Insert(0, $lang)
-          }
+          $list = New-WinUserLanguageList "zh-TW"
           Set-WinUserLanguageList $list -Force
-          $tips = (Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'zh*' }).InputMethodTips
-          Write-Host "zh-TW InputMethodTips (Primary): $tips"
+          $tips = (Get-WinUserLanguageList).InputMethodTips
+          Write-Host "Active zh-TW InputMethodTips: $tips"
 
+          New-Item -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Name "EnableAutoTray" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
+          New-Item -Path "HKCU:\Software\ImeModePersistence" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "ShowCaretIndicator" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "PersistMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "UiLanguage" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+
+          $notifyPath = "HKCU:\Control Panel\NotifyIconSettings"
+          if (Test-Path $notifyPath) {
+            Get-ChildItem $notifyPath | ForEach-Object {
+              Set-ItemProperty -Path $_.PSPath -Name "IsPromoted" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            }
+          }
 
       - name: Install dependencies
-        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio==2.35.1 imageio-ffmpeg==0.5.1
+        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
 
       - name: Capture continuous IME persistence recording
+        env:
+          PYTHONIOENCODING: utf-8
         run: >
           python tests/ui/capture_ime_recording.py
           "build-x64/Release/ImeModePersistence.exe"
@@ -101,4 +72,3 @@ jobs:
           name: ime-recording
           path: ime-recording/ime-recording.mp4
           if-no-files-found: warn
-

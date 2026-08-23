@@ -67,4 +67,3 @@ jobs:
           category: "/language:c-cpp"
           threads: 0
           ram: 6144
-

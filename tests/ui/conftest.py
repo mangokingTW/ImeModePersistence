@@ -17,7 +17,6 @@ import pytest
 REG_KEY_PATH = r"Software\ImeModePersistence"
 DEFAULT_EXE = os.path.abspath(r"build-x64\Release\ImeModePersistence.exe")
 
-
 def pytest_configure(config):
     """Report Chinese IME availability at session start so CI logs are easy to read."""
     try:
@@ -39,7 +38,6 @@ def pytest_configure(config):
     except Exception as exc:
         print(f"\n[IME-CONFIG] Could not query IME status: {exc}")
 
-
 def pytest_addoption(parser):
     parser.addoption(
         "--exe",
@@ -47,7 +45,6 @@ def pytest_addoption(parser):
         default=DEFAULT_EXE,
         help="Path to ImeModePersistence.exe binary",
     )
-
 
 @pytest.fixture(scope="session")
 def app_exe(request):
@@ -57,7 +54,6 @@ def app_exe(request):
     if not os.path.exists(exe_path):
         pytest.fail(f"Executable not found at: {exe_path}. Build the project first.")
     return exe_path
-
 
 @pytest.fixture(autouse=True)
 def registry_sandbox():
@@ -126,7 +122,6 @@ def registry_sandbox():
         except OSError:
             pass
 
-
 @pytest.fixture
 def app_runner(app_exe):
     """Spawns an instance of ImeModePersistence and guarantees process termination."""
@@ -159,7 +154,6 @@ def app_runner(app_exe):
     yield _launch
 
     _cleanup()
-
 
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item, call):
