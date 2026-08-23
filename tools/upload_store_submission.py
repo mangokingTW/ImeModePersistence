@@ -90,12 +90,31 @@ def main():
     file_upload_url = sub["fileUploadUrl"]
     print(f"Created submission ID: {sub_id}")
 
+    # Ensure video has an audio track (Microsoft Store requires audio channels on trailer videos)
+    import subprocess
+    import shutil
+    if shutil.which("ffmpeg"):
+        temp_audio_video = pathlib.Path("store-preview-audio.mp4")
+        print("Ensuring video has an audio track via ffmpeg (adding silent stereo AAC if needed)...")
+        subprocess.run([
+            "ffmpeg", "-y",
+            "-i", str(video_path),
+            "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+            "-c:v", "copy",
+            "-c:a", "aac",
+            "-shortest",
+            str(temp_audio_video)
+        ], check=True)
+        video_to_pack = temp_audio_video
+    else:
+        video_to_pack = video_path
+
     # 3. Pack 1080p video + thumbnail into zip WITH CORRECT DIRECTORY PATHS
     # Paths inside the zip must match the videoFileName / fileName values in the JSON
     zip_path = pathlib.Path("trailers_assets.zip")
     zip_contents = []
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(video_path, arcname="Trailers/store-preview.mp4")
+        zf.write(video_to_pack, arcname="Trailers/store-preview.mp4")
         zf.write(thumb_path, arcname="Images/store-preview-thumb.png")
         zip_contents = zf.namelist()
     print(f"Packed {zip_path.name} containing: {zip_contents}")
@@ -162,11 +181,29 @@ def main():
     commit_res = api_request(f"{base_url}/submissions/{sub_id}/commit", method="POST", token=token)
     print("Commit response:", commit_res)
 
-    print("Checking live submission status and listings from Microsoft Store...")
+    print("Polling live submission status from Microsoft Store...")
     import time
-    time.sleep(5)
-    status_res = api_request(f"{base_url}/submissions/{sub_id}/status", token=token)
-    print("Live Submission Status:", json.dumps(status_res, indent=2))
+    max_retries = 30
+    final_status = None
+    for attempt in range(1, max_retries + 1):
+        time.sleep(6)
+        status_res = api_request(f"{base_url}/submissions/{sub_id}/status", token=token)
+        curr_status = status_res.get("status")
+        print(f"[{attempt}/{max_retries}] Current Submission Status: {curr_status}")
+        
+        errors = status_res.get("statusDetails", {}).get("errors", [])
+        if errors:
+            print("Errors detected:", json.dumps(errors, indent=2))
+        
+        if curr_status == "CommitFailed":
+            raise RuntimeError(f"Submission commit failed with errors: {errors}")
+        
+        if curr_status not in ("CommitStarted", "PendingCommit"):
+            final_status = curr_status
+            print("Live Submission Status Details:", json.dumps(status_res, indent=2, ensure_ascii=False))
+            break
+    else:
+        print("Note: Submission is still processing commit asynchronously.")
 
     current_sub = api_request(f"{base_url}/submissions/{sub_id}", token=token)
     print("Server Verified Trailers:")
