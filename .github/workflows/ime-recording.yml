@@ -17,10 +17,3 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: ./.github/actions/ime-recording
-      - name: Upload recording artifact
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
-        with:
-          name: ime-recording
-          path: ime-recording/ime-recording.mp4
-          if-no-files-found: warn
