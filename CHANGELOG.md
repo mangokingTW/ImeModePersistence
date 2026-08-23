@@ -9,13 +9,13 @@ tag has no section here, the workflow falls back to auto-generated notes.
 
 ## v1.5.5
 
-Reliability fixes for IME mode persistence across window switches:
+Documentation and project maintenance release:
 
-- Strengthened input thread synchronization (`AttachThreadInput`) and foreground focus routing to guarantee reliable conversion mode (Chinese / alphanumeric) persistence across application switches.
+- Documentation & preview assets: Updated README and Microsoft Store listings with live demonstrations of input mode persistence and caret indicators.
 
-繁體中文:跨視窗輸入法模式維持可靠度修復：
+繁體中文:說明文件與維護更新：
 
-- 強化輸入執行緒同步（`AttachThreadInput`）與前台焦點傳遞機制，確保在各類應用程式視窗切換時，中／英轉換模式能更穩定地維持與還原。
+- 說明文件與預覽資源更新：更新專案首頁與應用商店資訊，提供直觀的輸入法模式維持與游標指示器動態預覽。
 
 ## v1.5.4
 
