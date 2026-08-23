@@ -24,7 +24,7 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 已在實機上與**微軟注音**確認可用，支援**游標輸入指示器**（在文字游標旁動態顯示 `中` / `A` 狀態徽章）。
 
-> **實機演示影片**：專案包含 Windows 11 / Server 2025 原生環境下 60 FPS 實機連續輸入法狀態維持與游標指示器測試錄影（見 [`docs/demo-recording.mp4`](docs/demo-recording.mp4)）。
+![IME Mode Persistence 實機連續輸入與游標指示器演示](docs/demo.webp)
 
 ## 為什麼會需要它
 
@@ -159,7 +159,7 @@ Type Chinese in window A → switch to B, Chinese is restored. Press Shift in B 
 
 Confirmed working with **Microsoft Bopomofo** on real hardware, with optional **Caret Input Indicator** (dynamic `中` / `A` status badge next to your text cursor).
 
-> **Live Demo Video**: 60 FPS real-time desktop typing and taskbar persistence recording in Windows 11 / Server 2025 (see [`docs/demo-recording.mp4`](docs/demo-recording.mp4)).
+![IME Mode Persistence Live Typing and Caret Indicator Demo](docs/demo.webp)
 
 ## Why you would want it
 
