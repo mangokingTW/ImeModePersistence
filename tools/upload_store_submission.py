@@ -59,7 +59,6 @@ def main():
     token = get_token(tenant_id, client_id, client_secret, "https://manage.devcenter.microsoft.com")
     base_url = f"https://manage.devcenter.microsoft.com/v1.0/my/applications/{app_id}"
 
-    # 1. Check existing pending submission or create new draft
     print("Checking application status...")
     app_details = api_request(base_url, token=token)
     pending_sub = app_details.get("pendingApplicationSubmission")
@@ -73,6 +72,19 @@ def main():
         sub = api_request(f"{base_url}/submissions", method="POST", token=token)
         sub_id = sub["id"]
         print(f"Created submission ID: {sub_id}")
+
+    print("Submission keys:", list(sub.keys()))
+    if "listings" in sub:
+        print("Listings keys:", list(sub["listings"].keys()))
+        for k, v in sub["listings"].items():
+            base = v.get("baseListing", {})
+            print(f"Listing [{k}] baseListing keys:", list(base.keys()))
+            if "trailers" in base:
+                print(f"Listing [{k}] existing trailers:", base["trailers"])
+            if "images" in base:
+                print(f"Listing [{k}] image count: {len(base['images'])}")
+                for img in base["images"]:
+                    print(f"  Image: {img}")
 
     file_upload_url = sub["fileUploadUrl"]
 
@@ -118,8 +130,9 @@ def main():
             listing["baseListing"] = base_listing
 
     print("Updating submission details with 5-language trailers...")
+    print("Payload listing zh-tw baseListing:", json.dumps(sub.get("listings", {}).get("zh-tw", {}).get("baseListing", {}), indent=2, ensure_ascii=False))
     updated_sub = api_request(f"{base_url}/submissions/{sub_id}", method="PUT", token=token, body=sub)
-    print("Updated submission JSON successfully!")
+    print("Updated submission response zh-tw baseListing:", json.dumps(updated_sub.get("listings", {}).get("zh-tw", {}).get("baseListing", {}), indent=2, ensure_ascii=False))
 
     print("Committing submission to Microsoft Store...")
     commit_res = api_request(f"{base_url}/submissions/{sub_id}/commit", method="POST", token=token)
