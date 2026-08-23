@@ -1,14 +1,10 @@
-name: IME Recording
+name: IME Recording (Release Gate)
 
-# On-demand / PR: builds the app, installs zh-TW IME via fast DISM/CAB cache,
-# and captures 60 FPS real-time desktop video of live typing and taskbar transitions.
+# Release Gate & On-demand verification: builds the app, installs official zh-TW IME,
+# and captures 60 FPS real-time desktop video verifying live typing, caret indicator, and taskbar transitions.
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'tests/ui/**'
-      - '.github/workflows/ime-recording.yml'
+  workflow_call:
 
 permissions:
   contents: read

@@ -50,3 +50,13 @@ Keeps your IME conversion mode (Chinese/alphanumeric) consistent across windows 
 
 **Suggested search keywords:**
 IME, input method, IME mode, Chinese input, Bopomofo, keyboard language, input language, per-app, per-application, conversion mode, tray utility
+
+---
+
+## 4. Store Preview Video (Trailers)
+
+- **Video Asset**: `store-preview.mp4` (1080p, 60 FPS)
+- **Features Demonstrated**:
+  1. Live dual-window IME persistence (Window A Chinese ➔ Window B Chinese maintained ➔ Window B switched to Alphanumeric ➔ Window A Alphanumeric restored).
+  2. Dynamic Caret / Cursor indicator badge (【中】 / 【A】 following typing position).
+  3. Windows 11 native notification area tray icon and status synchronization.

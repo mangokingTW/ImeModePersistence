@@ -22,7 +22,9 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 在 A 視窗用中文輸入 → 切到 B 視窗，中文模式被還原。你在 B 按 Shift 改成英數 → 切到 C 視窗，還原的是英數。全域目標跟著你最近一次的手動切換走，可以在托盤選單關閉。
 
-已在實機上與**微軟注音**確認可用。
+已在實機上與**微軟注音**確認可用，支援**游標輸入指示器**（在文字游標旁動態顯示 `中` / `A` 狀態徽章）。
+
+> **實機演示影片**：專案包含 Windows 11 / Server 2025 原生環境下 60 FPS 實機連續輸入法狀態維持與游標指示器測試錄影（見 [`docs/demo-recording.mp4`](docs/demo-recording.mp4)）。
 
 ## 為什麼會需要它
 
@@ -155,7 +157,9 @@ Step-by-step guides are in the **[wiki](https://github.com/mangokingTW/ImeModePe
 
 Type Chinese in window A → switch to B, Chinese is restored. Press Shift in B to go alphanumeric → switch to C, alphanumeric is restored. The global target follows your most recent deliberate change, and can be turned off from the tray menu.
 
-Confirmed working with **Microsoft Bopomofo** on real hardware.
+Confirmed working with **Microsoft Bopomofo** on real hardware, with optional **Caret Input Indicator** (dynamic `中` / `A` status badge next to your text cursor).
+
+> **Live Demo Video**: 60 FPS real-time desktop typing and taskbar persistence recording in Windows 11 / Server 2025 (see [`docs/demo-recording.mp4`](docs/demo-recording.mp4)).
 
 ## Why you would want it
 
