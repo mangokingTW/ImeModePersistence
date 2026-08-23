@@ -7,13 +7,13 @@ import urllib.request
 import urllib.parse
 import urllib.error
 
-def get_access_token(tenant_id, client_id, client_secret):
-    url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+def get_token(tenant_id, client_id, client_secret, resource):
+    url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
     data = urllib.parse.urlencode({
         "grant_type": "client_credentials",
         "client_id": client_id,
         "client_secret": client_secret,
-        "scope": "https://api.partner.microsoft.com/.default"
+        "resource": resource
     }).encode("utf-8")
     req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/x-www-form-urlencoded"})
     with urllib.request.urlopen(req) as resp:
@@ -28,7 +28,8 @@ def api_request(url, method="GET", token=None, body=None):
     data = json.dumps(body).encode("utf-8") if body is not None else None
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
     with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        content = resp.read().decode("utf-8")
+        return json.loads(content) if content else {}
 
 def upload_zip_to_blob(file_upload_url, zip_path):
     print(f"Uploading {zip_path} ({os.path.getsize(zip_path)} bytes) to Azure Blob Storage...")
@@ -44,7 +45,7 @@ def upload_zip_to_blob(file_upload_url, zip_path):
         method="PUT"
     )
     with urllib.request.urlopen(req) as resp:
-        print(f"Blob upload finished with status code: {resp.status}")
+        print(f"Blob upload finished with HTTP status: {resp.status}")
 
 def main():
     tenant_id = os.environ["PARTNER_CENTER_TENANT_ID"]
@@ -55,52 +56,46 @@ def main():
     thumb_path = pathlib.Path("packaging/store/store-preview-thumb.png")
     app_id = "9P05QQZ2P5XC"
 
-    print("Authenticating with Azure AD...")
-    token = get_access_token(tenant_id, client_id, client_secret)
-
+    print("Authenticating with Azure AD (DevCenter Resource)...")
+    token = get_token(tenant_id, client_id, client_secret, "https://manage.devcenter.microsoft.com")
     base_url = f"https://manage.devcenter.microsoft.com/v1.0/my/applications/{app_id}"
 
-    # 1. Check existing submissions
-    print("Checking existing submissions...")
-    try:
-        sub_info = api_request(f"{base_url}/submissions", token=token)
-        print("Submissions list:", sub_info)
-    except Exception as e:
-        print("Failed to list submissions, fetching app details:", e)
-
-    # Delete any pending draft if exists
+    # Check / Delete existing pending submission
+    print("Checking app status...")
     try:
         app_details = api_request(base_url, token=token)
-        if "pendingApplicationSubmission" in app_details and app_details["pendingApplicationSubmission"]:
+        print("App Name:", app_details.get("primaryName"))
+        if app_details.get("pendingApplicationSubmission"):
             pending_id = app_details["pendingApplicationSubmission"]["id"]
-            print(f"Deleting pending draft submission {pending_id}...")
+            print(f"Deleting existing pending submission: {pending_id}...")
             urllib.request.urlopen(urllib.request.Request(
                 f"{base_url}/submissions/{pending_id}",
                 headers={"Authorization": f"Bearer {token}"},
                 method="DELETE"
             ))
+            print("Deleted pending submission.")
     except Exception as e:
-        print("No pending submission to delete or delete failed:", e)
+        print("App status check / delete note:", e)
 
-    # 2. Create a new draft submission
-    print("Creating new draft submission...")
+    # Create fresh submission
+    print("Creating new application submission...")
     sub = api_request(f"{base_url}/submissions", method="POST", token=token)
     sub_id = sub["id"]
     file_upload_url = sub["fileUploadUrl"]
     print(f"Created submission ID: {sub_id}")
 
-    # 3. Create zip package with MSIX + 1080p MP4 + 1080p PNG
+    # Pack MSIX + 1080p MP4 + 1080p PNG into submission.zip
     zip_path = pathlib.Path("submission_assets.zip")
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.write(msix_path, arcname=msix_path.name)
         zf.write(video_path, arcname="store-preview.mp4")
         zf.write(thumb_path, arcname="store-preview-thumb.png")
-    print("Packed submission zip containing:", zf.namelist())
+    print(f"Packed {zip_path.name} containing: {zf.namelist()}")
 
-    # 4. Upload zip to Azure Blob Storage
+    # Upload zip to Azure Blob
     upload_zip_to_blob(file_upload_url, zip_path)
 
-    # 5. Update submission JSON with packages and 5-language trailers
+    # Configure packages
     sub["applicationPackages"] = [
         {
             "fileName": msix_path.name,
@@ -110,6 +105,7 @@ def main():
         }
     ]
 
+    # Inject 5-language trailers
     titles = {
         "zh-tw": "即時輸入法模式維持與游標指示器動態演示",
         "zh-hant": "即時輸入法模式維持與游標指示器動態演示",
@@ -140,15 +136,14 @@ def main():
             ]
             listing["baseListing"] = base_listing
 
-    print("Updating submission details via API...")
+    print("Updating submission details with 5-language 1080p trailers...")
     updated_sub = api_request(f"{base_url}/submissions/{sub_id}", method="PUT", token=token, body=sub)
-    print("Updated submission successfully!")
+    print("Updated submission JSON successfully!")
 
-    # 6. Commit (publish) submission to Microsoft Store
-    print("Committing submission to Microsoft Store...")
+    print("Committing (publishing) submission to Microsoft Partner Center...")
     commit_res = api_request(f"{base_url}/submissions/{sub_id}/commit", method="POST", token=token)
     print("Commit response:", commit_res)
-    print("Successfully submitted 1080p trailers and MSIX to Microsoft Store via Ingestion API!")
+    print("=== Successfully uploaded 1080p Trailers and committed Store submission via REST API! ===")
 
 if __name__ == "__main__":
     main()
