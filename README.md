@@ -57,7 +57,7 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 | **winget** | `winget install mangokingTW.ImeModePersistence` |
 | **Chocolatey** | `choco install imemodepersistence` |
 
-> Scoop 已可用。winget 與 Chocolatey 的套件正在各自社群審核中，通過後即可安裝。
+> Scoop 與 winget 已可用。Chocolatey 的套件仍在社群審核中，通過後即可安裝。
 
 安裝時有兩個勾選項。「開機時自動啟動」：**兩個版本都是以一般權限**在登入時啟動（寫 HKCU 登錄項目，不建立提權排程工作）。要控制**提權的程式（多數反作弊遊戲）**時，用托盤選單的**以管理員身分重新啟動**當場提權（每次開機後、開玩前按一次，過一次 UAC）。「綁定 Helldivers 2 為英文輸入」：預設不勾，勾了會在第一次啟動時自動加上 `class:stingray_window` → 英文的規則（若你已有自己的規則就不覆蓋，日後刪掉也不會復活）。
 
@@ -192,7 +192,7 @@ Its **second** purpose is pinning a specific program to an input language, inclu
 | **winget** | `winget install mangokingTW.ImeModePersistence` |
 | **Chocolatey** | `choco install imemodepersistence` |
 
-> Scoop is available now. The winget and Chocolatey packages are pending community moderation and will install once approved.
+> Scoop and winget are available now. The Chocolatey package is pending community moderation and will install once approved.
 
 Setup has two options. *Start automatically at logon*: **both variants start unelevated** at logon (an HKCU registry entry; no elevated scheduled task). To control an **elevated program (most anti-cheat games)**, use **Restart as administrator** in the tray menu to elevate on the spot — once per session, before playing, accepting one UAC prompt. *Bind Helldivers 2 to English input* (off by default): on first run it adds a `class:stingray_window` → English rule for you — it never overwrites a rule you already have, and does not come back if you later remove it.
 
