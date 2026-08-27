@@ -50,6 +50,13 @@ constexpr UINT ID_TRAY_LANG_KO = 1013;
 constexpr UINT ID_TRAY_HELPER = 1014;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
+// Set only for the --show-menu screenshot capture, so the tray menu renders its
+// unelevated variant (the "Enable WinUI/Admin support" and "Restart as
+// administrator" items) even when the capturing process is elevated -- CI
+// runners run elevated, which would otherwise hide exactly the items most users
+// see. Never set in a normal run.
+bool g_captureMenu = false;
+
 // Session-local: one instance per interactive logon session is what we want, and
 // two instances would fight over restoring each other's writes.
 constexpr wchar_t kSingleInstanceMutex[] = L"Local\\ImeModePersistence.SingleInstance";
@@ -1250,7 +1257,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     ID_TRAY_INDICATOR,
                     text::s().menuIndicator);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_RULES, text::s().menuRules);
-                if (!autostart::elevated()) {
+                if (!autostart::elevated() || g_captureMenu) {
                     const bool helperActive = helper::is_running();
                     AppendMenuW(
                         menu,
@@ -1585,7 +1592,10 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     }
     if (wcsstr(cmdline, L"--show-menu")) {
         // The same path the tray icon's right-click takes: it builds and tracks
-        // the context menu at the current cursor position.
+        // the context menu at the current cursor position. Force the unelevated
+        // menu variant so the capture shows the items real (unelevated) users see,
+        // even though the capturing runner is elevated.
+        g_captureMenu = true;
         PostMessageW(g_app.hwnd, WMAPP_TRAY, 0, WM_RBUTTONUP);
     }
 
