@@ -984,10 +984,9 @@ std::wstring indicator_badge(HKL layout, ime::Mode mode) {
 
 void observe_tick() {
     const HWND hwnd = GetForegroundWindow();
-    if (!hwnd || own_window(hwnd) || ghost_window(hwnd) || shell_window(hwnd)) {
-        // Leaves the last real application's context in place, so none of our own
-        // dialogs, the taskbar/desktop, or a dismissed Start menu looks like a
-        // context switch.
+    if (!hwnd || own_window(hwnd) || ghost_window(hwnd)) {
+        // Our own dialogs, no foreground at all, or a hung-app ghost: no
+        // application context and nothing worth a badge.
         if (g_app.indicatorEnabled) {
             overlay::hide();
         }
@@ -999,15 +998,29 @@ void observe_tick() {
         return;
     }
 
+    const bool isShell = shell_window(hwnd);
+
     if (g_app.indicatorEnabled) {
-        // The badge text is derived from the layout now and the last observed
-        // conversion mode; the result comes back as WMAPP_CARET, off the UI
-        // thread's critical path. A change in what would be shown -- a language
-        // or mode switch -- is sent at once so the badge updates within a tick;
-        // an unchanged badge only refreshes its position, throttled to ~100 ms so
-        // the UI-Automation path does not run 20 times a second.
-        const std::wstring badge =
-            indicator_badge(GetKeyboardLayout(thread), g_persist.observed());
+        // The badge text is derived from the layout now and the conversion mode;
+        // the result comes back as WMAPP_CARET, off the UI thread's critical path.
+        // A change in what would be shown -- a language or mode switch -- is sent
+        // at once so the badge updates within a tick; an unchanged badge only
+        // refreshes its position, throttled to ~100 ms so the UI-Automation path
+        // does not run 20 times a second.
+        //
+        // observed() tracks the last real application's mode, which is exactly
+        // right for an app window. A shell surface (the taskbar/Start search box)
+        // is not part of the persistence context, so observed() would show the
+        // previous app's stale mode there -- read the field's own IME state
+        // instead, falling back to observed() when it is not readable.
+        ime::Mode mode = g_persist.observed();
+        if (isShell) {
+            const ime::State shellState = ime::query_state(hwnd);
+            if (shellState.valid) {
+                mode = shellState.mode;
+            }
+        }
+        const std::wstring badge = indicator_badge(GetKeyboardLayout(thread), mode);
         static std::wstring lastBadge;
         static ULONGLONG lastRequest = 0;
         const ULONGLONG now = GetTickCount64();
@@ -1016,6 +1029,16 @@ void observe_tick() {
             lastRequest = now;
             caret::request(thread, badge);
         }
+    }
+
+    if (isShell) {
+        // Shell surfaces -- taskbar, desktop, Start/search, system flyouts -- are
+        // deliberately excluded from the persistence context: they must not look
+        // like a window switch that would carry the last app's mode. The caret
+        // badge above is exempt because it is a passive readout, and caret
+        // resolution finds nothing for a non-editable flyout, so only a genuine
+        // text field (such as the taskbar/Start search box) actually shows one.
+        return;
     }
 
     if (thread != g_app.observedThread) {
