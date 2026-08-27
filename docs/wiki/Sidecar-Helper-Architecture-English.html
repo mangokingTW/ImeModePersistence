@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidecar Helper — English · IME Mode Persistence</title>
+<meta name="description" content="Under Windows' security model, unprivileged applications cannot interact with elevated anti-cheat games or send window messages across User Interface Pr…">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Sidecar-Helper-Architecture-English.html">
+<meta property="og:title" content="Sidecar Helper — English · IME Mode Persistence">
+<meta property="og:description" content="Under Windows' security model, unprivileged applications cannot interact with elevated anti-cheat games or send window messages across User Interface Pr…">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sidecar Helper — English · IME Mode Persistence">
+<meta name="twitter:description" content="Under Windows' security model, unprivileged applications cannot interact with elevated anti-cheat games or send window messages across User Interface Pr…">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Sidecar-Helper-Architecture-English.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>Sidecar Helper Architecture: Controlling Anti-Cheat Game IMEs &amp; Microsoft Store Compliance</h1>
+<p><strong>English</strong> · <a href="Sidecar-Helper-Architecture.html">繁體中文</a></p>
+<p>Under Windows' security model, unprivileged applications cannot interact with elevated anti-cheat games or send window messages across User Interface Privilege Isolation (UIPI) boundaries to modern packaged apps like Windows 11 Notepad.</p>
+<p><strong>ImeModePersistence</strong> (v1.5.0+) introduces the <strong>Sidecar Helper architecture</strong>, which bridges these barriers without requiring the main application to run as administrator, without DLL injection, and without synthetic keystroke simulation. This achieves three critical goals:</p>
+<ol>
+<li>Seamlessly pinning and switching input languages for elevated / anti-cheat games like <em>Helldivers 2</em>.</li>
+<li>Persisting native/alphanumeric IME modes across modern WinUI windows (Windows 11 Notepad).</li>
+<li>100% compliance with Microsoft Store security policies for certified store distribution.</li>
+</ol>
+<p>This technical document details the design principles, security boundaries, and implementation details of this architecture.</p>
+<hr>
+<h2>1. The Challenge: Windows User Interface Privilege Isolation (UIPI)</h2>
+<p>Introduced in Windows Vista, <strong>UIPI (User Interface Privilege Isolation)</strong> isolates processes based on their Integrity Level (IL):</p>
+<ul>
+<li><strong>Low-IL</strong>: Browser sandboxes.</li>
+<li><strong>Medium-IL</strong>: Normal user desktop apps and Microsoft Store (MSIX) applications.</li>
+<li><strong>High-IL</strong>: Processes run as Administrator and full-screen games launching kernel anti-cheat drivers (e.g. <em>Helldivers 2</em> with <em>nProtect GameGuard</em>).</li>
+</ul>
+<h3>Why unprivileged utilities fail against anti-cheat games:</h3>
+<p>When ImeModePersistence runs as a normal user application (Medium-IL), even though it can discover the foreground window class (<code>class:stingray_window</code>) via standard Win32 APIs, attempts to deliver window messages:</p>
+<ul>
+<li><code>PostMessage(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)</code> (Keyboard layout switch)</li>
+<li><code>SendMessage(imeWnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, ...)</code> (Native / Alphanumeric mode toggle)</li>
+</ul>
+<p>are <strong>silently dropped and rejected</strong> by the Windows kernel with <code>ERROR_ACCESS_DENIED</code>.</p>
+<hr>
+<h2>2. The Sidecar Helper Architecture</h2>
+<p>Rather than forcing the entire application to autostart as Administrator (which creates a permanent high-privilege attack surface and triggers antivirus heuristics), we decouple privileges using a dedicated <strong>Sidecar Helper</strong>:</p>
+<pre><code>+-------------------------------------------------------------+
+|  Main GUI App (ImeModePersistence.exe)                      |
+|  - Privilege: Medium-IL (Normal user / Store MSIX container)|
+|  - Role: Tray UI, Focus tracking, Rules, State management   |
++-------------------------------------------------------------+
+                              │
+             Named Pipe IPC (\\.\pipe\ImeModePersistence.Sidecar)
+             Strict SDDL: Interactive User &amp; Administrators Only
+                              │
+                              ▼
++-------------------------------------------------------------+
+|  Elevated Helper (ImeModePersistence.exe --helper &lt;pid&gt;)    |
+|  - Privilege: High-IL (Spawned on-demand via standard UAC)  |
+|  - Role: Relays Win32 messages across UIPI to High-IL apps  |
+|  - Watchdog Thread: Monitors parent PID; exits immediately  |
++-------------------------------------------------------------+
+                              │
+               Standard Win32 Window Messages (Crosses UIPI)
+                              │
+                              ▼
++-------------------------------------------------------------+
+|  Target Window (Helldivers 2 / Windows 11 Modern Notepad)   |
++-------------------------------------------------------------+
+</code></pre>
+<h3>Key Components:</h3>
+<ol>
+<li><strong>On-Demand Launch</strong>: The user clicks &quot;Enable WinUI/Admin support...&quot; in the tray menu. The app invokes <code>ShellExecuteExW</code> with the <code>runas</code> verb to spawn <code>ImeModePersistence.exe --helper &lt;parent_pid&gt;</code>, presenting a standard Windows UAC prompt.</li>
+<li><strong>Secure Named Pipe IPC</strong>:
+<ul>
+<li>Pipe name: <code>\\.\pipe\ImeModePersistence.Sidecar</code></li>
+<li>SDDL: <code>D:(A;;GA;;;BA)(A;;GA;;;IU)S:(ML;;NW;;;ME)</code></li>
+<li>Strictly restricts connections to the local <strong>Interactive User</strong> and <strong>Builtin Administrators</strong>, preventing unauthorized cross-session or network access.</li>
+</ul>
+</li>
+<li><strong>Synchronous Duplex Message Protocol</strong>: Uses <code>PIPE_TYPE_MESSAGE | PIPE_WAIT</code> to guarantee precise byte alignment and eliminate overlapped I/O races.</li>
+<li><strong>Lifecycle Watchdog</strong>:
+<ul>
+<li>The Helper runs an independent watchdog thread waiting on <code>{ hParentProcess, hShutdownEvent }</code>.</li>
+<li>If the parent application exits, crashes, or the user turns off the helper from the tray menu, the helper unblocks immediately and terminates cleanly without leaving orphan background processes.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>3. Why Anti-Cheat Software Does Not Flag or Ban It</h2>
+<p>Players are rightfully cautious about third-party software triggering anti-cheat bans (GameGuard, EAC, BattlEye, Vanguard). The Sidecar Helper remains completely safe because it strictly adheres to <strong>zero-intrusion</strong> principles:</p>
+<table>
+<thead>
+<tr>
+<th>Technique</th>
+<th>Used by Game Cheats</th>
+<th>Used by ImeModePersistence</th>
+<th>Safety Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Process Memory Read/Write</strong> (<code>ReadProcessMemory</code>, <code>WriteProcessMemory</code>)</td>
+<td>Yes</td>
+<td>❌ <strong>None</strong></td>
+<td>Never inspects or modifies game memory.</td>
+</tr>
+<tr>
+<td><strong>DLL Injection / Remote Threads</strong> (<code>CreateRemoteThread</code>, <code>SetWindowsHookEx</code>)</td>
+<td>Yes</td>
+<td>❌ <strong>None</strong></td>
+<td>Never injects foreign code into the game process.</td>
+</tr>
+<tr>
+<td><strong>Synthetic Keystrokes</strong> (<code>SendInput</code>, <code>keybd_event</code>)</td>
+<td>Yes</td>
+<td>❌ <strong>None</strong></td>
+<td>Never synthesises virtual key presses (avoids bot / macro flags).</td>
+</tr>
+<tr>
+<td><strong>Global Keystroke Logging</strong> (<code>WH_KEYBOARD_LL</code>, <code>GetAsyncKeyState</code>)</td>
+<td>Yes</td>
+<td>❌ <strong>None</strong></td>
+<td>Never sniffs user keystrokes.</td>
+</tr>
+<tr>
+<td><strong>Standard Win32 Messages</strong> (<code>WM_INPUTLANGCHANGEREQUEST</code>, <code>WM_IME_CONTROL</code>)</td>
+<td>No</td>
+<td>✅ <strong>Sole mechanism</strong></td>
+<td>Identical to the standard OS notification dispatched when pressing Win+Space. Anti-cheat and the IME framework treat this as standard window manager notifications.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>4. Why It Can Be Published to the Microsoft Store</h2>
+<p>The Microsoft Store enforces rigorous safety and packaging constraints:</p>
+<h3>1. MSIX Packaging and <code>asInvoker</code> Compliance</h3>
+<ul>
+<li>Microsoft Store manifests (<code>AppxManifest.xml</code>) strictly prohibit declaring <code>requireAdministrator</code>. The main application must always launch as <code>asInvoker</code>.</li>
+<li>ImeModePersistence runs 100% compliant in the Store app container.</li>
+</ul>
+<h3>2. Microsoft Store Policy 10.2 (User Control and Consent)</h3>
+<ul>
+<li>Store policies require that elevated operations must be <strong>explicitly initiated by the user</strong> through standard OS consent prompts (UAC), rather than via silent elevation or privilege-escalation exploits.</li>
+<li>The Sidecar Helper is spawned only upon explicit user selection in the tray menu via <code>ShellExecuteEx</code> (<code>runas</code>), satisfying all Store security reviews.</li>
+</ul>
+<h3>3. Module Path Execution (Eliminating LPE / TOCTOU Vulnerabilities)</h3>
+<ul>
+<li>Some legacy tools copied binaries into <code>%Temp%</code> or <code>%LocalAppData%</code> before elevating, introducing Local Privilege Escalation (LPE) and file hijacking risks.</li>
+<li>ImeModePersistence elevates directly against its authentic registered module path (<code>autostart::module_path()</code>), eliminating code-tampering vectors.</li>
+</ul>
+<hr>
+<h2>5. Summary</h2>
+<p>With the <strong>Sidecar Helper architecture</strong>, ImeModePersistence achieves the ideal balance between <strong>maximum user security</strong> and <strong>low-level input reliability</strong>:</p>
+<ul>
+<li>🎮 <strong>Gamers</strong>: Enjoy seamless English layout locking in anti-cheat games without running the main utility elevated.</li>
+<li>📝 <strong>Everyday Users</strong>: Prevent unwanted Chinese mode resets across modern Windows 11 WinUI apps.</li>
+<li>🛡️ <strong>Security-First</strong>: 0 injection, 0 key simulation, open-source auditability, and validated by both the Microsoft Store and OpenSSF.</li>
+</ul>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Sidecar-Helper-Architecture-English">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

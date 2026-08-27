@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helldivers 2 — English · IME Mode Persistence</title>
+<meta name="description" content="Helldivers 2 does not reliably handle IME state. If the system is in Chinese mode when you enter the game, keystrokes are intercepted by the IME and the…">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Helldivers-2-English.html">
+<meta property="og:title" content="Helldivers 2 — English · IME Mode Persistence">
+<meta property="og:description" content="Helldivers 2 does not reliably handle IME state. If the system is in Chinese mode when you enter the game, keystrokes are intercepted by the IME and the…">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Helldivers 2 — English · IME Mode Persistence">
+<meta name="twitter:description" content="Helldivers 2 does not reliably handle IME state. If the system is in Chinese mode when you enter the game, keystrokes are intercepted by the IME and the…">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Helldivers-2-English.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>Controlling the Chinese IME in Helldivers 2</h1>
+<p><a href="Helldivers-2.html">繁體中文</a> · <strong>English</strong> · <a href="Helldivers-2-Simplified.html">简体中文</a> · <a href="Helldivers-2-Japanese.html">日本語</a> · <a href="Helldivers-2-Korean.html">한국어</a></p>
+<p>Helldivers 2 does not reliably handle IME state. If the system is in Chinese mode when you enter the game, keystrokes are intercepted by the IME and there is no dependable in-game way back to alphanumeric.</p>
+<p>This page pins the game to English.</p>
+<blockquote>
+<p><strong>This utility is in development and unsigned</strong>, and antivirus may classify it as a virus and delete it. See the <a href="Home-English.html">home page</a> for the details, and judge for yourself whether to use it.</p>
+</blockquote>
+<h2>Why ordinary IME tools fail here</h2>
+<p>The game reads the keyboard directly and does not accept the kind of instruction other programs use to switch input languages. Its anti-cheat also stops other programs from seeing which program it is — so a rule that names an executable never applies to it.</p>
+<p>This utility works around both: it identifies the window by its <strong>class</strong> (a name every window has) and asks it to switch with Windows' standard input-language-change notification — the same one the system sends when you press Win+Space.</p>
+<h2>One requirement: elevate before each session</h2>
+<p><strong>The utility must run as administrator or it cannot see this game at all.</strong> The game itself runs as administrator, and Windows does not let a lower-privileged program read a higher-privileged one's windows — not even the window class.</p>
+<p><strong>Autostart runs unelevated</strong> (by design: a program that silently starts elevated at every logon is the persistence pattern antivirus flags). So <strong>after each boot, before you play</strong>, right-click the tray icon → <strong>Restart as administrator</strong> and accept the UAC prompt — only then can it see the game. Without it the app line reads <code>(unknown)</code> and there is nothing to enter.</p>
+<h2>Steps</h2>
+<ol>
+<li>
+<p>Install <code>...-setup-admin.exe</code> from <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>, ticking <strong>Start automatically at logon</strong> (it starts unelevated at logon). <strong>Before controlling the game, remember the requirement above: right-click → Restart as administrator.</strong></p>
+<p>Setup also offers <strong>Bind Helldivers 2 to English input</strong>. Tick it and steps 5–8 below happen for you on first run — skip to &quot;Checking it worked&quot;. Leave it unticked to set the rule by hand, or to bind a different language.</p>
+</li>
+<li>
+<p>Start Helldivers 2, then press the <strong>Windows key</strong> to bring up the taskbar.</p>
+</li>
+<li>
+<p>Find the tray icon at the bottom right — Windows 11 hides new icons behind the <strong>⌃</strong> chevron next to the clock.</p>
+</li>
+<li>
+<p><strong>Check first</strong>: <strong>hover</strong> the icon; the app line should read <code>class:stingray_window</code>. Anything else means it would capture the wrong program — return to the game and try again.</p>
+</li>
+<li>
+<p>Right-click it → <strong>App language bindings...</strong></p>
+</li>
+<li>
+<p>Press <strong>Use window class</strong>. The field fills with <code>class:stingray_window</code>.</p>
+</li>
+<li>
+<p>Choose <code>English (United States)</code> under <strong>Language</strong>.</p>
+</li>
+<li>
+<p>Press <strong>Add / update</strong>.</p>
+</li>
+<li>
+<p>Return to the game.</p>
+</li>
+</ol>
+<p>You do not need to look that class up — the button fills it in from the program you were last in.</p>
+<h2>Checking it worked</h2>
+<p><strong>Hover</strong> the tray icon; do not click it. Clicking makes the game lose focus, so you see the wrong thing. On success the app line reads <code>class:stingray_window</code>, the bound and actual languages match, and the last attempt says it took effect.</p>
+<p><code>class:</code> rather than a file path is expected, not a fault: anti-cheat blocks reading the game's location, so the utility uses the only identity it can see.</p>
+<h2>Only want the game rule</h2>
+<p>Untick <strong>Keep mode across windows</strong> in the tray menu. Bindings keep working.</p>
+<h2>Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>App shows <code>(unknown)</code></td>
+<td>Not running as administrator. Tray menu → <strong>Restart as administrator</strong></td>
+</tr>
+<tr>
+<td>Bound language shows <code>(no rule)</code></td>
+<td>The rule does not match. Check it is exactly the <code>class:</code> string the tooltip shows</td>
+</tr>
+<tr>
+<td>The list shows a different program</td>
+<td>It captured the wrong one. Select it, press <strong>Remove selected</strong>, return to the game and try again</td>
+</tr>
+<tr>
+<td>Last attempt says it did not take effect</td>
+<td>Please <a href="https://github.com/mangokingTW/ImeModePersistence/issues">report it</a>, but see below</td>
+</tr>
+<tr>
+<td>Updating asks you to close the program</td>
+<td>You used the no-administrator installer and elevated by hand. Reinstall with <code>...-setup-admin.exe</code></td>
+</tr>
+<tr>
+<td>It does not start at logon</td>
+<td>Tick <strong>Start automatically at logon</strong> during setup, or from the tray menu — while elevated it registers an elevated scheduled task</td>
+</tr>
+</tbody>
+</table>
+<h2>What this does not do</h2>
+<p>It does not modify the game, read its memory, or interfere with it. Switching works by asking the game's window to switch — posting Windows' standard input-language-change notification, the same one the system delivers on Win+Space, which the window is free to ignore — then falling back to Windows' own input settings. Where neither takes, it gives up quietly rather than forcing anything — those techniques are what anti-cheat exists to catch, and a false positive costs you the account.</p>
+<p>(Between v0.7.1 and v0.9.1 this utility sent no message at all to such programs and used only the Windows-side route. That turned out unable to switch the language, and v0.9.2 restored the notification. Where an older page said &quot;no message is sent&quot;, this description supersedes it.)</p>
+<h2>Other games</h2>
+<p>The same approach works for any program whose executable cannot be seen: <strong>Use window class</strong> fills in its class for you. Games built on the same engine may share a class name.</p>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2-English">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

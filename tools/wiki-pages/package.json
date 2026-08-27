@@ -1,0 +1,13 @@
+{
+  "name": "wiki-pages",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Render the GitHub wiki into styled GitHub Pages under docs/wiki",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "markdown-it": "14.1.0"
+  }
+}
