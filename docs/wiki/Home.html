@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview · 總覽 — 繁體中文 · IME Mode Persistence</title>
+<meta name="description" content="Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的輸入模式（中文／英數），並可把指定程式綁定到固定的輸入語言 —— 連讀不到執行檔的程式也行，例如有防作弊的全螢幕遊戲。">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Home.html">
+<meta property="og:title" content="Overview · 總覽 — 繁體中文 · IME Mode Persistence">
+<meta property="og:description" content="Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的輸入模式（中文／英數），並可把指定程式綁定到固定的輸入語言 —— 連讀不到執行檔的程式也行，例如有防作弊的全螢幕遊戲。">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Overview · 總覽 — 繁體中文 · IME Mode Persistence">
+<meta name="twitter:description" content="Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的輸入模式（中文／英數），並可把指定程式綁定到固定的輸入語言 —— 連讀不到執行檔的程式也行，例如有防作弊的全螢幕遊戲。">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Home.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>
+  <img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="" height="36" align="absmiddle">&nbsp;ImeModePersistence
+</h1>
+<p><strong>繁體中文</strong> · <a href="Home-English.html">English</a> · <a href="Home-Simplified.html">简体中文</a> · <a href="Home-Japanese.html">日本語</a> · <a href="Home-Korean.html">한국어</a></p>
+<p>Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的<strong>輸入模式</strong>（中文／英數），並可把指定程式<strong>綁定到固定的輸入語言</strong> —— 連讀不到執行檔的程式也行，例如有防作弊的全螢幕遊戲。</p>
+<blockquote>
+<h3>⚠ 開發階段，未經簽章 —— 請自行評估是否使用</h3>
+<p>本工具還在開發中，<strong>沒有程式碼簽章憑證</strong>。因此 Windows Defender 可能把它判定為病毒並<strong>直接刪除</strong>，已知的偵測名稱是 <code>Behavior:Win32/Persistence.A!ml</code>。</p>
+<p>那個偵測針對的是「開機時自動啟動」所建立的登入工作 —— 任何提供開機自動啟動的程式都必須做同樣的事，而未簽章的程式做這件事就會被行為監控盯上。已向微軟提交誤判回報，但<strong>沒有人能保證防毒軟體的判斷</strong>。</p>
+<p>原始碼、建置流程與發佈產物全部公開，由 GitHub Actions 從對應的 tag 建置，你可以自行檢視或重建。在此前提下，<strong>是否要繼續使用請自行決定。</strong></p>
+<p>遇到刪除時：改用免安裝的 <code>zip</code>，或不勾選「開機時自動啟動」。</p>
+<p><strong>程式碼簽章：</strong> 釋出檔未簽章。改以建置來源證明（build provenance）佐證 —— 每個釋出產物都由 GitHub Actions 從對應 tag 建置並附上證明，可用 <code>gh attestation verify</code> 驗證。</p>
+</blockquote>
+<h2>安裝</h2>
+<p>到 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下載：</p>
+<table>
+<thead>
+<tr>
+<th>檔案</th>
+<th>說明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>...-setup.exe</code></td>
+<td><strong>推薦</strong>：標準安裝檔（安裝時可選擇為目前使用者或全機安裝）</td>
+</tr>
+<tr>
+<td><code>...-x64.zip</code></td>
+<td>免安裝，解壓即用</td>
+</tr>
+</tbody>
+</table>
+<p>安裝時勾選 <strong>開機時自動啟動</strong>。裝好就會運作，不需要其他設定。</p>
+<p>程式常駐在<strong>通知區域</strong> —— 螢幕右下角、時鐘左邊。Windows 11 預設把新圖示收起來，要先點時鐘旁的 <strong>⌃</strong> 才看得到。圖示是藍色圓角方塊裡一個白色的「中」。</p>
+<p><strong>兩種常見的攔阻：</strong></p>
+<ul>
+<li>藍色的「Windows 已保護您的電腦」→ 點「更多資訊 → 仍要執行」。檔案未簽章，這是信譽警告而非病毒偵測。</li>
+<li><strong>防毒軟體把安裝檔刪掉</strong> → 未簽章的安裝檔常被啟發式誤判。改用免安裝的 <code>zip</code>，功能完全相同。</li>
+</ul>
+<h2>為什麼會需要它</h2>
+<p>Windows 把輸入法狀態綁在<strong>每個執行緒</strong>上。切到另一個視窗時，中／英轉換模式會回到該輸入法的預設值 —— 對中文鍵盤來說就是<strong>中文</strong>。所以你剛按 Shift 切成英數，換個視窗又打出中文。</p>
+<p>「設定 → 時間與語言 → 輸入 → 進階鍵盤設定」裡的**「允許我為每個應用程式視窗使用不同的輸入法」解決不了這件事**。那個設定管的是「哪一個輸入法在作用」，不管「該輸入法處於中文還是英數」—— 關掉它之後，切換視窗照樣切回中文。</p>
+<p><strong>沒有任何 Windows 設定能處理轉換模式</strong> —— 這是這個工具的<strong>第一個</strong>目的：讓你選的中／英模式跟著你走。</p>
+<p><strong>第二個</strong>目的是把特定程式固定在某個輸入語言，包含連設定都碰不到的那類 —— <strong>使用 raw input 的全螢幕遊戲</strong>直接讀鍵盤裝置，完全不參與輸入法的狀態管理，只能從外部處理。<a href="Helldivers-2.html">Helldivers 2</a> 就是這種。</p>
+<h2>功能</h2>
+<p>托盤圖示按右鍵，這些功能都在選單裡：</p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/menu-zh-tw-light.png" alt="托盤右鍵選單" width="230"></p>
+<h3>跨程式維持輸入模式（預設開啟）</h3>
+<p>在 A 視窗用中文打字，切到 B 視窗時中文模式會被還原。你在 B 按 Shift 改成英數，切到 C 視窗還原的就是英數 —— 跟著你最近一次的手動切換走。不想要就在右鍵選單取消勾選。</p>
+<h3>程式綁定輸入語言</h3>
+<p>把特定程式固定在某個輸入語言：終端機永遠英文、Word 永遠中文。右鍵選單 → <strong>程式綁定輸入語言…</strong></p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/rules-zh-tw-light.png" alt="程式綁定輸入語言對話框" width="620"></p>
+<ul>
+<li><strong>瀏覽</strong> 選出執行檔 → 只對那個位置的程式生效</li>
+<li>只填檔名（<code>notepad.exe</code>）→ 不管裝在哪都適用</li>
+<li><strong>用剛才的程式</strong> → 自動填入你開這個視窗之前用的程式</li>
+<li><strong>用視窗類別</strong> → 給讀不到執行檔的程式用，見下面的教學</li>
+<li><strong>萬用字元（進階）</strong> → 路徑帶版本號、或視窗類別有生成後綴時，直接在欄位輸入 <code>glob:*\game.exe</code>（比對路徑）或 <code>class-glob:name_*</code>（比對視窗類別），支援 <code>*</code>（任意長度，含路徑分隔符）與 <code>?</code>（單一字元）。精確規則一律優先於萬用字元 —— 這是<strong>預設順序</strong>，你也可以拖拉清單自訂，<strong>由上到下第一個符合的優先</strong>；每條規則可設<strong>只套用一次</strong>（進視窗設一次、之後不再強制），全部都不符合時還能啟用一條<strong>預設語言</strong>（預設關閉）。</li>
+</ul>
+<h3>游標輸入指示器（預設關閉）</h3>
+<p>托盤選單的<strong>在游標旁顯示輸入指示</strong>會在文字游標旁顯示一個小徽章，告訴你目前<strong>會打出什麼</strong>：<code>中</code>／<code>あ</code>／<code>한</code>（該語言的中文/native 模式）、<code>Ａ</code>（輸入法切到英數）、或 <code>EN</code> 之類的語言代碼。設定會被記住。</p>
+<p>徽章會跟著游標、避開自己的視窗。在<strong>瀏覽器網址列</strong>這類欄位，因為 Chromium 對外回報的游標位置不可靠，徽章會改顯示在該行<strong>上方</strong>、不遮住文字。</p>
+<h2>逐步教學</h2>
+<ul>
+<li><strong><a href="Helldivers-2.html">在 Helldivers 2 中控制中文輸入法</a></strong> —— 有防作弊的遊戲看不到執行檔，要用視窗類別綁定。同樣步驟適用於其他這類程式。</li>
+</ul>
+<h2>怎麼知道它在做什麼</h2>
+<p><strong>把滑鼠停在圖示上</strong>，不要點。停留就會顯示狀態；<strong>點下去會讓你想查的程式失去焦點</strong>，看到的就不是它了。</p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/status-zh-tw-light.png" alt="停在圖示上顯示的狀態" width="300"></p>
+<table>
+<thead>
+<tr>
+<th>行</th>
+<th>意思</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>當前程式</td>
+<td>目前在最前面的程式</td>
+</tr>
+<tr>
+<td>綁定語言</td>
+<td>規則指定給它的語言</td>
+</tr>
+<tr>
+<td>實際語言</td>
+<td>它現在真正在用的語言</td>
+</tr>
+<tr>
+<td>上次切換嘗試</td>
+<td>有沒有成功</td>
+</tr>
+</tbody>
+</table>
+<p>綁定語言與實際語言一致就代表正常。若最後多一行「一般權限 － 看不到提權的程式」，代表本工具<strong>沒有</strong>以管理員身分執行。</p>
+<p>左鍵雙擊圖示可看到更完整的狀態，包括開機自動啟動目前用的是哪一種機制。</p>
+<h2>常見問題</h2>
+<p><strong>為什麼切換到新版記事本等視窗時，輸入模式沒有維持？</strong>
+新版記事本等現代 / WinUI 封裝程式的真正輸入欄位在焦點子視窗，受 Windows UIPI 機制保護：</p>
+<ul>
+<li><strong>解法（推薦）</strong>：在托盤選單點擊「<strong>啟用現代視窗 (WinUI) 支援…</strong>」（通過一次 UAC 啟動背景輔助服務），即可由 Helper 跨越 UIPI 保護維持輸入模式。<strong>Microsoft Store 商店版與一般桌面版皆支援</strong>！</li>
+<li><strong>桌面版亦可直接提權</strong>：點選托盤選單「以系統管理員身分重新啟動」。</li>
+</ul>
+<p><strong>「當前程式」顯示 <code>class:</code> 開頭的東西</strong>
+正常，不是故障。有些程式（多半是有防作弊的遊戲）不允許其他程式讀取它的檔案位置，這時本工具改用<strong>視窗類別</strong>辨識它。那串 <code>class:...</code> 就是綁定規則要填的內容。</p>
+<p><strong>要不要以管理員身分執行？</strong>
+要控制<strong>本身以管理員身分執行的程式</strong>（多數有防作弊的遊戲都是）就必須提權 —— Windows 不讓權限較低的程式讀取權限較高的程式的視窗，連視窗類別都讀不到。</p>
+<p><strong>開機自動啟動一律是一般權限</strong>（兩個安裝版本都一樣），因為「開機時自動以管理員身分啟動」正是防毒會判成惡意的持久化行為，本工具刻意不做。要控制提權程式時，用托盤選單的 <strong>以管理員身分重新啟動</strong> 當場提權（每次開機後、要用之前按一次，過一次 UAC）。</p>
+<p>只在意一般程式（跨視窗維持模式、綁定一般程式）的話，完全不需要提權，<code>...-setup-user.exe</code> 就夠用。</p>
+<p><strong>進階：真的想要提權開機。</strong> 本工具刻意不內建（理由如上），但你可以自己用工作排程器建立一個「登入時、以最高權限」的工作。以<strong>系統管理員</strong>開啟命令提示字元，執行（路徑換成實際安裝位置；admin 版預設在 <code>C:\Program Files\ImeModePersistence</code>）：</p>
+<pre><code>schtasks /Create /TN &quot;ImeModePersistence-Elevated&quot; /TR &quot;\&quot;C:\Program Files\ImeModePersistence\ImeModePersistence.exe\&quot;&quot; /SC ONLOGON /RL HIGHEST /F
+</code></pre>
+<p><code>/RL HIGHEST</code> 讓它登入時以最高權限啟動且<strong>不跳 UAC</strong>。建立後，請到托盤選單把 app 內建的<strong>開機時自動啟動</strong>關掉，否則未提權的 HKCU Run 登錄項目會在登入時再開一個未提權實例。移除這個排程：<code>schtasks /Delete /TN &quot;ImeModePersistence-Elevated&quot; /F</code>。</p>
+<p><strong>綁定的是語言，不是特定輸入法</strong>
+中文、英文、日文可以分別綁定。但同一個語言裝了多個輸入法（注音和倉頡都算中文）時無法指定其中某一個，會用第一個已安裝的。</p>
+<p><strong>有些程式切換後又自己變回去</strong>
+本工具會重試幾次，若該程式堅持用自己的設定就先放手再試 —— 從幾秒開始，愈搶愈久，最多半分鐘，這是刻意的，避免互相搶。切到別的視窗再切回來會立刻重試。</p>
+<p><strong>會不會被防作弊誤判？</strong>
+不修改遊戲、不讀寫它的記憶體、不注入任何東西、不模擬按鍵。切換的方式是向視窗投遞 Windows <strong>標準的「切換輸入語言」通知</strong>（跟你按 Win+Space 時系統發出的是同一種，視窗可以自行忽略），行不通時改請 Windows 自己切換。完整清單與判斷依據在 <a href="Helldivers-2.html">Helldivers 2</a> 那頁。</p>
+<h2>其他</h2>
+<p>介面語言跟著 Windows 的顯示語言自動選擇（英文、繁中、簡中、日文、韓文）。安裝程式的畫面只有英文。深色模式下，程式綁定對話框整個套用；狀態／錯誤這類暫時性小框維持淺底、僅標題列變暗。</p>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Home">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>
