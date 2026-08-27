@@ -103,6 +103,8 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 它會避開自己的視窗、跟著游標走。在**瀏覽器網址列**這類程式,因為 Chromium 對外回報的游標位置不可靠,徽章改顯示在該行**上方**、不遮住文字。
 
+> **下列位置不會顯示輸入法指示器**：**工作列與開始功能表的搜尋框**、**Windows 終端機**、**檔案總管**。這些屬於系統層級介面,Windows 僅允許具備數位簽章的程式在其上顯示內容,而本工具目前尚未簽章。一般應用程式(瀏覽器、記事本與各式文字編輯器、Office、通訊軟體、遊戲等)皆可正常顯示。
+
 ## 現代 TSF/WinUI 程式支援
 
 **新版記事本等封裝/WinUI 程式**的輸入欄位在焦點子視窗、受 Windows UIPI 機制保護：
@@ -236,6 +238,8 @@ Bind a program to an input language — a terminal to English, Word to Chinese.
 **Show input indicator at the cursor** in the tray menu turns on a small badge beside the text caret showing what you will actually type: `中` / `あ` / `한` (that language's native mode), `Ａ` (the IME switched to alphanumeric), or a language code such as `EN`. **Off by default**; the choice is remembered.
 
 It stays out of its own windows and follows the caret. In fields where the reported caret position is unreliable — a browser address bar, because of a Chromium limitation — the badge is drawn above the line instead, so it does not cover the text.
+
+> **The input indicator does not appear in these locations**: the **taskbar and Start menu search box**, **Windows Terminal**, and **File Explorer**. These are system-level surfaces on which Windows permits only code-signed applications to display content, and this utility is not currently signed. It works in ordinary applications — browsers, text editors including Notepad, Office, chat clients, and games.
 
 ## Modern TSF/WinUI app support
 
