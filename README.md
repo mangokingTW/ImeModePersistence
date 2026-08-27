@@ -24,7 +24,7 @@ Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延
 
 在 A 視窗用中文輸入 → 切到 B 視窗，中文模式被還原。你在 B 按 Shift 改成英數 → 切到 C 視窗，還原的是英數。全域目標跟著你最近一次的手動切換走，可以在托盤選單關閉。
 
-已在實機上與**微軟注音**確認可用，支援**游標輸入指示器**（在文字游標旁動態顯示 `中` / `A` 狀態徽章）。
+已在實機上與**微軟注音**確認可用，支援**游標輸入指示器**（在文字游標旁動態顯示 `中` / `A` 狀態指示器）。
 
 ![IME Mode Persistence 實機連續輸入與游標指示器演示](docs/demo.webp)
 
@@ -99,9 +99,9 @@ schtasks /Create /TN "ImeModePersistence-Elevated" /TR "\"C:\Program Files\ImeMo
 
 ### 游標輸入指示器
 
-托盤選單的**在游標旁顯示輸入指示**可開啟一個小徽章，貼在文字游標旁，顯示目前**會打出什麼**：`中`／`日`／`한`(該語言的輸入模式)、`Ａ`(輸入法切到英數)、或 `EN` 等語言代碼。**預設關閉**，設定會記住。
+托盤選單的**在游標旁顯示輸入指示**可開啟一個小指示器，貼在文字游標旁，顯示目前**會打出什麼**：`中`／`日`／`한`(該語言的輸入模式)、`Ａ`(輸入法切到英數)、或 `EN` 等語言代碼。**預設關閉**，設定會記住。
 
-它會避開自己的視窗、跟著游標走。在**瀏覽器網址列**這類程式,因為 Chromium 對外回報的游標位置不可靠,徽章改顯示在該行**上方**、不遮住文字。
+它會避開自己的視窗、跟著游標走。在**瀏覽器網址列**這類程式,因為 Chromium 對外回報的游標位置不可靠,指示器改顯示在該行**上方**、不遮住文字。
 
 > **下列位置不會顯示輸入法指示器**：**工作列與開始功能表的搜尋框**、**Windows 終端機**、**檔案總管**。這些屬於系統層級介面,Windows 僅允許具備數位簽章的程式在其上顯示內容,而本工具目前尚未簽章。一般應用程式(瀏覽器、記事本與各式文字編輯器、Office、通訊軟體、遊戲等)皆可正常顯示。
 
@@ -144,7 +144,7 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 - [x] 微軟注音實機驗證
 - [x] 開機自動啟動、設定介面、Windows CI、安裝檔與發佈流程
 - [x] 程式綁定輸入語言，含視窗類別與萬用字元（glob）綁定
-- [x] 游標輸入指示器（游標旁的語言／模式徽章，預設關閉）
+- [x] 游標輸入指示器（游標旁的語言／模式指示器，預設關閉）
 - [x] Sidecar Helper 架構（支援 Store 版與一般權限下維持 WinUI/TSF 視窗）
 - [ ] 同語言多輸入法的細分（注音 vs 倉頡）
 
@@ -160,7 +160,7 @@ Step-by-step guides are in the **[wiki](https://github.com/mangokingTW/ImeModePe
 
 Type Chinese in window A → switch to B, Chinese is restored. Press Shift in B to go alphanumeric → switch to C, alphanumeric is restored. The global target follows your most recent deliberate change, and can be turned off from the tray menu.
 
-Confirmed working with **Microsoft Bopomofo** on real hardware, with optional **Caret Input Indicator** (dynamic `中` / `A` status badge next to your text cursor).
+Confirmed working with **Microsoft Bopomofo** on real hardware, with optional **Caret Input Indicator** (dynamic `中` / `A` status indicator next to your text cursor).
 
 ![IME Mode Persistence Live Typing and Caret Indicator Demo](docs/demo.webp)
 
@@ -235,9 +235,9 @@ Bind a program to an input language — a terminal to English, Word to Chinese.
 
 ### Caret input indicator
 
-**Show input indicator at the cursor** in the tray menu turns on a small badge beside the text caret showing what you will actually type: `中` / `あ` / `한` (that language's native mode), `Ａ` (the IME switched to alphanumeric), or a language code such as `EN`. **Off by default**; the choice is remembered.
+**Show input indicator at the cursor** in the tray menu turns on a small indicator beside the text caret showing what you will actually type: `中` / `あ` / `한` (that language's native mode), `Ａ` (the IME switched to alphanumeric), or a language code such as `EN`. **Off by default**; the choice is remembered.
 
-It stays out of its own windows and follows the caret. In fields where the reported caret position is unreliable — a browser address bar, because of a Chromium limitation — the badge is drawn above the line instead, so it does not cover the text.
+It stays out of its own windows and follows the caret. In fields where the reported caret position is unreliable — a browser address bar, because of a Chromium limitation — the indicator is drawn above the line instead, so it does not cover the text.
 
 > **The input indicator does not appear in these locations**: the **taskbar and Start menu search box**, **Windows Terminal**, and **File Explorer**. These are system-level surfaces on which Windows permits only code-signed applications to display content, and this utility is not currently signed. It works in ordinary applications — browsers, text editors including Notepad, Office, chat clients, and games.
 
