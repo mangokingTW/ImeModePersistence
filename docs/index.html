@@ -83,6 +83,8 @@
 
   .hero{background:radial-gradient(1200px 400px at 50% -120px, color-mix(in srgb,var(--accent) 14%, transparent), transparent); text-align:center}
   .hero .icon{width:84px; height:84px; border-radius:20px; box-shadow:var(--shadow)}
+  .brandsub{margin:-10px 0 6px; color:var(--muted); font-weight:600; font-size:1.02rem; letter-spacing:.01em}
+  body[data-lang="en"] .brandsub{display:none}
   .cta{display:flex; gap:14px; justify-content:center; align-items:center; flex-wrap:wrap; margin:26px 0 12px}
   .store-badge{display:inline-flex}
   .store-badge:hover{text-decoration:none}
@@ -153,11 +155,12 @@
 <section class="hero">
   <div class="wrap">
     <img class="icon" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="IME Mode Persistence icon">
-    <h1>IME Mode Persistence</h1>
+    <h1><span class="zh">輸入法工具箱</span><span class="en">IME Mode Persistence</span><span class="cn">输入法工具箱</span></h1>
+    <p class="brandsub"><span class="zh">IME Mode Persistence</span><span class="cn">IME Mode Persistence</span></p>
     <p class="lead">
-      <span class="zh">Windows 小工具:切換視窗時<strong>延續你最後選的輸入模式</strong>(中文/英數),並可把程式<strong>綁定固定輸入語言</strong> —— 連讀不到執行檔的防作弊全螢幕遊戲也行。</span>
-      <span class="en">A Windows utility that <strong>carries the input mode you last chose</strong> (native or alphanumeric) to the next window, and can <strong>bind a program to a fixed input language</strong> — including anti-cheat fullscreen games whose executable cannot be read.</span>
-      <span class="cn">Windows 小工具:切换窗口时<strong>延续你最后选的输入模式</strong>(中文/英数),并可把程序<strong>绑定固定输入语言</strong> —— 连读不到可执行文件的反作弊全屏游戏也行。</span>
+      <span class="zh">跨視窗維持中/英,並為程式綁定輸入語言 —— 連讀不到執行檔的防作弊全螢幕遊戲也行。</span>
+      <span class="en">Carry your input mode (native/alphanumeric) across windows, and bind programs to a fixed input language — including anti-cheat fullscreen games whose executable cannot be read.</span>
+      <span class="cn">跨窗口维持中/英,并为程序绑定输入语言 —— 连读不到可执行文件的反作弊全屏游戏也行。</span>
     </p>
     <div class="cta">
       <a class="store-badge" href="https://apps.microsoft.com/detail/9P05QQZ2P5XC" aria-label="Get it from Microsoft Store">
