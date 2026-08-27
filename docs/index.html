@@ -85,7 +85,17 @@
   .cta{display:flex; gap:14px; justify-content:center; align-items:center; flex-wrap:wrap; margin:26px 0 12px}
   .store-badge{display:inline-flex}
   .store-badge:hover{text-decoration:none}
-  .store-badge img{display:block; height:52px; width:auto}
+  .store-badge img{height:52px; width:auto; display:none}
+  /* show exactly one badge = current language x current color scheme (CSS media
+     re-evaluates live, unlike <picture> source selection) */
+  body:not(.lang-en) .store-badge .sb-zh.sb-for-light{display:inline-block}
+  body.lang-en .store-badge .sb-en.sb-for-light{display:inline-block}
+  @media (prefers-color-scheme:dark){
+    body:not(.lang-en) .store-badge .sb-zh.sb-for-light{display:none}
+    body:not(.lang-en) .store-badge .sb-zh.sb-for-dark{display:inline-block}
+    body.lang-en .store-badge .sb-en.sb-for-light{display:none}
+    body.lang-en .store-badge .sb-en.sb-for-dark{display:inline-block}
+  }
   .badges{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:14px}
   .badges img{height:20px}
   .fineprint{color:var(--muted); font-size:.86rem; margin-top:10px}
@@ -141,14 +151,10 @@
     </p>
     <div class="cta">
       <a class="store-badge" href="https://apps.microsoft.com/detail/9P05QQZ2P5XC" aria-label="Get it from Microsoft Store">
-        <picture class="zh">
-          <source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/zh-tw%20light.svg">
-          <img src="https://get.microsoft.com/images/zh-tw%20dark.svg" alt="從 Microsoft Store 取得">
-        </picture>
-        <picture class="en">
-          <source media="(prefers-color-scheme: dark)" srcset="https://get.microsoft.com/images/en-us%20light.svg">
-          <img src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get it from Microsoft Store">
-        </picture>
+        <img class="sb-zh sb-for-light" src="https://get.microsoft.com/images/zh-tw%20dark.svg" alt="從 Microsoft Store 取得">
+        <img class="sb-zh sb-for-dark" src="https://get.microsoft.com/images/zh-tw%20light.svg" alt="從 Microsoft Store 取得">
+        <img class="sb-en sb-for-light" src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get it from Microsoft Store">
+        <img class="sb-en sb-for-dark" src="https://get.microsoft.com/images/en-us%20light.svg" alt="Get it from Microsoft Store">
       </a>
       <a class="btn ghost" href="https://github.com/mangokingTW/ImeModePersistence/releases">
         <span class="zh">下載 Releases</span><span class="en">Download from Releases</span>
@@ -203,21 +209,27 @@
     <span class="eyebrow"><span class="zh">功能</span><span class="en">Features</span></span>
     <h2><span class="zh">它能做什麼</span><span class="en">What it does</span></h2>
     <div class="grid">
+      <div class="card">
         <h3><span class="zh">跨視窗維持模式</span><span class="en">Mode persistence</span></h3>
         <p><span class="zh">在 A 視窗打中文 → 切到 B 仍是中文;按 Shift 變英數 → 切到 C 仍是英數。跟著你最近一次刻意的選擇走,可從托盤關閉。</span><span class="en">Type Chinese in A → B stays Chinese; press Shift for alphanumeric → C stays alphanumeric. Follows your most recent deliberate change; toggleable from the tray.</span></p>
       </div>
+      <div class="card">
         <h3><span class="zh">每 App 綁定輸入語言</span><span class="en">Per-app language binding</span></h3>
         <p><span class="zh">把終端機綁英文、Word 綁中文。支援完整路徑 / 檔名 / 視窗類別 / 萬用字元;可拖曳排序(最上者優先)、套用一次、預設語言。</span><span class="en">Bind a terminal to English, Word to Chinese. Full path / file name / window class / wildcards; drag to reorder (topmost wins), apply-once, and an optional default.</span></p>
       </div>
+      <div class="card">
         <h3><span class="zh">游標輸入指示器</span><span class="en">Caret input indicator</span></h3>
         <p><span class="zh">游標旁顯示你實際會打出的:<code>中</code>/<code>あ</code>/<code>한</code>、<code>Ａ</code>(英數)或語言碼。預設關閉。</span><span class="en">A badge beside the caret showing what you'll actually type: <code>中</code>/<code>あ</code>/<code>한</code>, <code>Ａ</code>, or a language code. Off by default.</span></p>
       </div>
+      <div class="card">
         <h3><span class="zh">現代 TSF/WinUI 支援</span><span class="en">Modern TSF/WinUI support</span></h3>
         <p><span class="zh">新版記事本這類 UIPI 保護的視窗,靠 <strong>Sidecar Helper</strong> 跨越權限邊界維持模式 —— <strong>Store 版與桌面版皆可</strong>。</span><span class="en">UIPI-protected windows like the modern Notepad are handled by a <strong>Sidecar Helper</strong> that bridges the barrier — <strong>in both the Store and desktop builds</strong>.</span></p>
       </div>
+      <div class="card">
         <h3><span class="zh">防作弊全螢幕遊戲</span><span class="en">Anti-cheat fullscreen games</span></h3>
         <p><span class="zh">用視窗類別(<code>class:…</code>)綁定,連管理員都讀不到路徑的遊戲也治得了。Helldivers 2 實測可用。</span><span class="en">Bind by window class (<code>class:…</code>) to reach games whose path not even an admin can read. Confirmed with Helldivers 2.</span></p>
       </div>
+      <div class="card">
         <h3><span class="zh">不注入、不掛勾</span><span class="en">No injection, no hooks</span></h3>
         <p><span class="zh">不注入、不掛勾、不模擬按鍵,只用 Windows/TSF 的公開機制。原始碼、建置與發佈產物全公開、可用 <code>gh attestation verify</code> 驗證。</span><span class="en">Nothing injected, hooked or synthesised — only public Windows/TSF mechanisms. Source, build and artifacts are public and verifiable with <code>gh attestation verify</code>.</span></p>
       </div>
