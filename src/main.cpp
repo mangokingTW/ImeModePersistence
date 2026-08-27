@@ -1021,6 +1021,15 @@ void observe_tick() {
             }
         }
         const std::wstring badge = indicator_badge(GetKeyboardLayout(thread), mode);
+        // TEMP DIAGNOSTIC (remove after taskbar/explorer investigation): the
+        // foreground window a caret is being requested for, once per class change.
+        static std::wstring diagLastClass;
+        const std::wstring diagClass = rules::window_class_of(hwnd);
+        if (diagClass != diagLastClass) {
+            diagLastClass = diagClass;
+            diag::write(L"indicator: request fg class=%s shell=%d badge=%s",
+                        diagClass.c_str(), isShell ? 1 : 0, badge.c_str());
+        }
         static std::wstring lastBadge;
         static ULONGLONG lastRequest = 0;
         const ULONGLONG now = GetTickCount64();
@@ -1233,6 +1242,18 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         // the result and either place the badge or hide it.
         auto* result = reinterpret_cast<caret::Result*>(lParam);
         if (result) {
+            // TEMP DIAGNOSTIC (remove after taskbar/explorer investigation):
+            // whether the worker resolved a caret, via which tier, and where.
+            static int diagLastTier = -99;
+            static bool diagLastFound = false;
+            if (result->tier != diagLastTier || result->found != diagLastFound) {
+                diagLastTier = result->tier;
+                diagLastFound = result->found;
+                diag::write(L"caret: found=%d tier=%d rect=%ld,%ld,%ld,%ld",
+                            result->found ? 1 : 0, result->tier,
+                            result->rect.left, result->rect.top,
+                            result->rect.right, result->rect.bottom);
+            }
             if (g_app.indicatorEnabled && result->found) {
                 // tier 3 is the UIA selection fallback, which browser address
                 // bars answer with an unreliable, near-start position; place the
