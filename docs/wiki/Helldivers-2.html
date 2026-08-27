@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helldivers 2 — 繁體中文 · IME Mode Persistence</title>
+<meta name="description" content="Helldivers 2 目前無法可靠地處理中文輸入法的狀態。進入遊戲時若系統還在中文模式，按鍵會被輸入法攔走，而遊戲內沒有穩定的方式切回英數。">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Helldivers-2.html">
+<meta property="og:title" content="Helldivers 2 — 繁體中文 · IME Mode Persistence">
+<meta property="og:description" content="Helldivers 2 目前無法可靠地處理中文輸入法的狀態。進入遊戲時若系統還在中文模式，按鍵會被輸入法攔走，而遊戲內沒有穩定的方式切回英數。">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Helldivers 2 — 繁體中文 · IME Mode Persistence">
+<meta name="twitter:description" content="Helldivers 2 目前無法可靠地處理中文輸入法的狀態。進入遊戲時若系統還在中文模式，按鍵會被輸入法攔走，而遊戲內沒有穩定的方式切回英數。">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Helldivers-2.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>在 Helldivers 2 中控制中文輸入法</h1>
+<p><strong>繁體中文</strong> · <a href="Helldivers-2-English.html">English</a> · <a href="Helldivers-2-Simplified.html">简体中文</a> · <a href="Helldivers-2-Japanese.html">日本語</a> · <a href="Helldivers-2-Korean.html">한국어</a></p>
+<p>Helldivers 2 目前無法可靠地處理中文輸入法的狀態。進入遊戲時若系統還在中文模式，按鍵會被輸入法攔走，而遊戲內沒有穩定的方式切回英數。</p>
+<p>這一頁說明怎麼把這個遊戲固定綁在英文輸入語言上。</p>
+<blockquote>
+<p><strong>本工具還在開發中且未經簽章</strong>，防毒軟體可能將其判定為病毒並刪除。詳情與如何判斷見<a href="Home.html">首頁</a>，請自行評估是否使用。</p>
+</blockquote>
+<h2>為什麼一般的輸入法工具在這裡沒用</h2>
+<p>遊戲直接讀取鍵盤，不接受一般程式用來切換輸入法的那種指令。而且它的防作弊機制不讓其他程式看見它是哪一個程式 —— 所以「指定某個執行檔用英文」這種設定對它永遠不會生效。</p>
+<p>本工具改用兩個方式繞過：用<strong>視窗類別</strong>（一種每個視窗都有的名稱）來辨識它，並用 Windows 標準的「切換輸入語言」通知請它自己換 —— 跟你按 Win+Space 時系統發的是同一種。</p>
+<h2>一件必要的前提：每次開玩前先提權</h2>
+<p><strong>本工具必須以管理員身分執行，這個遊戲才看得見。</strong> 遊戲本身就是以管理員身分執行的，而 Windows 不讓權限較低的程式讀取權限較高的程式的視窗 —— 連視窗類別都讀不到。</p>
+<p><strong>開機自動啟動是一般權限</strong>（這是刻意的：開機就自動以管理員身分啟動會被防毒判成惡意）。所以<strong>每次開機後、要玩之前</strong>，先右鍵托盤圖示 → <strong>以管理員身分重新啟動</strong>，過一次 UAC，它才看得到遊戲。</p>
+<p>沒有提權的話，托盤提示的「當前程式」會顯示 <code>（未知）</code>，你連要填什麼都看不到。</p>
+<p><strong>怎麼確定它有提權：</strong> 把滑鼠停在通知區域的圖示上。若最後一行寫著「一般權限 － 看不到提權的程式」，就是還沒提權 —— 右鍵 → <strong>以管理員身分重新啟動</strong>。</p>
+<h2>設定步驟</h2>
+<ol>
+<li>
+<p>從 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下載 <code>...-setup-admin.exe</code>（需要管理員權限的版本），安裝時勾選 <strong>開機時自動啟動</strong>（開機後以一般權限啟動）。<strong>要控制遊戲之前，記得先照上面「必要的前提」右鍵 → 以管理員身分重新啟動。</strong></p>
+<p>安裝畫面還有一個 <strong>綁定 Helldivers 2 為英文輸入</strong>。勾了它，下面第 5～8 步就會在第一次啟動時自動完成，你可以直接跳到「確認是否生效」。想自己手動設定、或想綁其他語言，就別勾，照下面走。</p>
+</li>
+<li>
+<p>啟動 Helldivers 2，然後按 <strong>Windows 鍵</strong> 叫出工作列。</p>
+</li>
+<li>
+<p>到通知區域找到圖示 —— 螢幕右下角、時鐘左邊。Windows 11 預設把新圖示收起來，要先點時鐘旁的 <strong>⌃</strong> 才看得到。圖示是藍色圓角方塊裡一個白色的「中」。</p>
+</li>
+<li>
+<p><strong>先確認</strong>：把滑鼠<strong>停在</strong>圖示上，「當前程式」應顯示 <code>class:stingray_window</code>。顯示別的程式就代表會抓錯，切回遊戲重來。</p>
+</li>
+<li>
+<p>在圖示上按<strong>右鍵</strong> → <strong>程式綁定輸入語言…</strong></p>
+</li>
+<li>
+<p>按 <strong>用視窗類別</strong>。欄位會填入：</p>
+<pre><code>class:stingray_window
+</code></pre>
+</li>
+<li>
+<p><strong>輸入語言</strong> 選 <code>英文 (美國)</code>，或你想固定的語言。</p>
+</li>
+<li>
+<p>按 <strong>新增／更新</strong>。清單裡會出現這條規則。</p>
+</li>
+<li>
+<p>回到遊戲。輸入語言會自動切換。</p>
+</li>
+</ol>
+<p>你不需要自己查那串 <code>class:stingray_window</code> —— <strong>用視窗類別</strong> 會用你切過來之前那個程式自動填好。</p>
+<h2>確認是否生效</h2>
+<p><strong>把滑鼠停在通知區域的圖示上</strong>，不要點它。停留就會顯示狀態；點下去會讓遊戲失去焦點，你看到的就不是它了。</p>
+<p>成功時應該是：</p>
+<table>
+<thead>
+<tr>
+<th>行</th>
+<th>內容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>當前程式</td>
+<td><code>class:stingray_window</code></td>
+</tr>
+<tr>
+<td>綁定語言</td>
+<td>英文 (美國)</td>
+</tr>
+<tr>
+<td>實際語言</td>
+<td>英文 (美國)</td>
+</tr>
+<tr>
+<td>上次切換嘗試</td>
+<td>已生效</td>
+</tr>
+</tbody>
+</table>
+<p><strong>「當前程式」顯示 <code>class:</code> 而不是檔案路徑是正常的</strong>，不是故障 —— 防作弊不讓任何程式讀取它的位置，所以本工具改用它唯一看得到的辨識方式。</p>
+<h2>只想要遊戲的規則，不要全域行為</h2>
+<p>本工具預設會把你最後選的輸入模式帶到下一個視窗。如果你只想要「遊戲固定英文」，在右鍵選單取消勾選 <strong>跨程式維持輸入模式</strong>。綁定規則不受影響。</p>
+<h2>疑難排解</h2>
+<table>
+<thead>
+<tr>
+<th>症狀</th>
+<th>處理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>當前程式顯示 <code>（未知）</code></td>
+<td>本工具沒有以管理員身分執行。托盤選單 → <strong>以管理員身分重新啟動</strong></td>
+</tr>
+<tr>
+<td>當前程式顯示 <code>class:stingray_window</code></td>
+<td>正常，繼續設定就好</td>
+</tr>
+<tr>
+<td>綁定語言顯示 <code>（無規則）</code></td>
+<td>規則沒對上。核對清單裡的內容與提示文字顯示的 <code>class:</code> 完全一致</td>
+</tr>
+<tr>
+<td>清單裡出現的是別的程式</td>
+<td>抓錯了。選取該條按 <strong>刪除選取的規則</strong>，回遊戲重來</td>
+</tr>
+<tr>
+<td>上次切換嘗試顯示未生效</td>
+<td>切換沒成功。歡迎<a href="https://github.com/mangokingTW/ImeModePersistence/issues">回報</a>，但請看下面「不會做的事」</td>
+</tr>
+<tr>
+<td>更新時要求先關閉程式</td>
+<td>你是用免管理員版裝的，之後手動提權執行。改用 <code>...-setup-admin.exe</code> 重裝一次就不會再問</td>
+</tr>
+<tr>
+<td>開機沒有自動啟動</td>
+<td>安裝時要勾 <strong>開機時自動啟動</strong>，或從托盤選單勾選 —— 提權執行時它會建立提權的排程工作</td>
+</tr>
+</tbody>
+</table>
+<h2>它對遊戲做了什麼、沒做什麼</h2>
+<p><strong>完全沒有做的事</strong>：不修改遊戲檔案、不讀寫它的記憶體、不注入程式碼或 DLL、不在它裡面建立執行緒、不掛勾它、不裝驅動程式、不模擬按鍵、不附加除錯器。</p>
+<p><strong>只做這些</strong>：讀取「哪個視窗在最前面」和「那個視窗的類別名稱」（每個視窗都有的公開屬性，任何程式都在讀）、詢問一次它的檔案位置（會被拒絕），然後<strong>請遊戲視窗自己切換</strong> —— 投遞 Windows 標準的「切換輸入語言」通知，跟你按 Win+Space 時系統發出的是同一種，視窗可以自行忽略。如果沒有生效，改請 <strong>Windows 自己的輸入法設定</strong>去切換，那一步完全不接觸遊戲。</p>
+<p>（v0.7.1 到 v0.9.1 曾改成對這類程式完全不發送訊息、只走作業系統那條路 —— 實測那樣根本切換不了語言，v0.9.2 起恢復。舊版說明裡「不發送任何訊息」的講法以本頁現在的敘述為準。）</p>
+<p><strong>這樣就一定不會被封嗎？</strong> 沒有人能保證防作弊系統的判斷，我也不能。上面是完整清單，你可以據此自行判斷，或拿去問官方客服。如果你不願承擔任何殘餘風險，最安全的做法就是不要在遊戲執行時使用任何第三方工具，改用手動切換輸入法。</p>
+<h2>其他遊戲</h2>
+<p>同樣的做法適用於任何看不到執行檔的程式：<strong>用視窗類別</strong> 按鈕會自動填入該程式的類別，不必知道它叫什麼。用同一套引擎開發的遊戲，類別名稱可能相同。</p>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

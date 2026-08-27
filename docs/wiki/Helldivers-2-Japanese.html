@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helldivers 2 — 日本語 · IME Mode Persistence</title>
+<meta name="description" content="Helldivers 2 は IME の状態を確実には扱えません。ゲームに入るときにシステムが中国語モードになっていると、キー入力が IME に横取りされ、ゲーム内で英数へ戻す確実な方法がありません。">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Helldivers-2-Japanese.html">
+<meta property="og:title" content="Helldivers 2 — 日本語 · IME Mode Persistence">
+<meta property="og:description" content="Helldivers 2 は IME の状態を確実には扱えません。ゲームに入るときにシステムが中国語モードになっていると、キー入力が IME に横取りされ、ゲーム内で英数へ戻す確実な方法がありません。">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Helldivers 2 — 日本語 · IME Mode Persistence">
+<meta name="twitter:description" content="Helldivers 2 は IME の状態を確実には扱えません。ゲームに入るときにシステムが中国語モードになっていると、キー入力が IME に横取りされ、ゲーム内で英数へ戻す確実な方法がありません。">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Helldivers-2-Japanese.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>Helldivers 2 で中国語 IME を制御する</h1>
+<p><a href="Helldivers-2.html">繁體中文</a> · <a href="Helldivers-2-English.html">English</a> · <a href="Helldivers-2-Simplified.html">简体中文</a> · <strong>日本語</strong> · <a href="Helldivers-2-Korean.html">한국어</a></p>
+<p>Helldivers 2 は IME の状態を確実には扱えません。ゲームに入るときにシステムが中国語モードになっていると、キー入力が IME に横取りされ、ゲーム内で英数へ戻す確実な方法がありません。</p>
+<p>このページでは、ゲームを英語に固定します。</p>
+<blockquote>
+<p><strong>このユーティリティは開発中で未署名です</strong>。ウイルス対策ソフトがウイルスと判定して削除することがあります。詳細は <a href="Home-Japanese.html">ホームページ</a> を参照し、使うかどうかをご自身で判断してください。</p>
+</blockquote>
+<h2>通常の IME ツールがここで失敗する理由</h2>
+<p>このゲームはキーボードを直接読み取り、他のプログラムが入力言語を切り替えるために使う種類の指示を受け付けません。またアンチチートは、他のプログラムがそれがどのプログラムなのかを見ることも防ぎます。そのため、実行ファイルを名指しするルールは決して適用されません。</p>
+<p>このユーティリティは両方を回避します。ウィンドウをその <strong>クラス</strong>（すべてのウィンドウが持つ名前）で識別し、Windows の標準的な入力言語変更通知（Win+Space を押したときにシステムが送るのと同じもの）で切り替えるよう要求します。</p>
+<h2>唯一の要件: セッションごとに事前に昇格する</h2>
+<p><strong>このユーティリティは管理者として実行されていなければ、このゲームをまったく見ることができません。</strong> ゲーム自体が管理者として実行され、Windows は権限の低いプログラムが権限の高いプログラムのウィンドウを読み取ることを、ウィンドウクラスさえも許しません。</p>
+<p><strong>自動起動は非昇格で実行されます</strong>（設計上そうなっています。ログオンのたびに黙って昇格して起動するプログラムは、ウイルス対策ソフトがフラグを立てる永続化パターンです）。そのため、<strong>起動のたびに、プレイする前に</strong>、トレイアイコンを右クリック → <strong>管理者として再起動</strong> し、UAC のプロンプトを受け入れてください。そうして初めてゲームを見ることができます。それをしないと、アプリの行には <code>(unknown)</code> と表示され、入力すべきものが何もありません。</p>
+<h2>手順</h2>
+<ol>
+<li>
+<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> から <code>...-setup-admin.exe</code> をインストールし、<strong>ログオン時に自動的に起動する</strong> にチェックを入れます（ログオン時には非昇格で起動します）。<strong>ゲームを制御する前に、上記の要件を忘れないでください: 右クリック → 管理者として再起動。</strong></p>
+<p>セットアップでは <strong>Helldivers 2 を英語入力にバインドする</strong> も提供されます。これにチェックを入れると、以下の手順 5〜8 が初回起動時に自動的に行われます。「動作確認」までスキップしてください。手動でルールを設定する場合や、別の言語にバインドする場合は、チェックを外したままにします。</p>
+</li>
+<li>
+<p>Helldivers 2 を起動し、<strong>Windows キー</strong> を押してタスクバーを表示します。</p>
+</li>
+<li>
+<p>右下のトレイアイコンを見つけます。Windows 11 では、新しいアイコンは時計の隣にある <strong>⌃</strong> シェブロンの奥に隠されます。</p>
+</li>
+<li>
+<p><strong>まず確認</strong>: アイコンを <strong>ホバー</strong> します。アプリの行には <code>class:stingray_window</code> と表示されるはずです。それ以外の場合は、誤ったプログラムを捕捉することになります。ゲームに戻ってやり直してください。</p>
+</li>
+<li>
+<p>右クリック → <strong>アプリ言語バインド...</strong></p>
+</li>
+<li>
+<p><strong>ウィンドウクラスを使用</strong> を押します。フィールドが <code>class:stingray_window</code> で埋まります。</p>
+</li>
+<li>
+<p><strong>言語</strong> で <code>English (United States)</code> を選びます。</p>
+</li>
+<li>
+<p><strong>追加／更新</strong> を押します。</p>
+</li>
+<li>
+<p>ゲームに戻ります。</p>
+</li>
+</ol>
+<p>そのクラスを自分で調べる必要はありません。ボタンが、直前にいたプログラムから自動的に入力してくれます。</p>
+<h2>動作確認</h2>
+<p>トレイアイコンを <strong>ホバー</strong> してください。クリックしないでください。クリックするとゲームがフォーカスを失い、誤った表示を見ることになります。成功していれば、アプリの行には <code>class:stingray_window</code> と表示され、バインドされた言語と実際の言語が一致し、直近の試行が「効果あり」と表示されます。</p>
+<p>ファイルパスではなく <code>class:</code> になるのは想定どおりで、不具合ではありません。アンチチートがゲームの場所の読み取りをブロックするため、ユーティリティは見える唯一の識別情報を使います。</p>
+<h2>ゲームのルールだけが欲しい場合</h2>
+<p>トレイメニューの <strong>ウィンドウをまたいでモードを維持する</strong> のチェックを外します。バインドは引き続き機能します。</p>
+<h2>トラブルシューティング</h2>
+<table>
+<thead>
+<tr>
+<th>症状</th>
+<th>対処</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>アプリに <code>(unknown)</code> と表示される</td>
+<td>管理者として実行されていません。トレイメニュー → <strong>管理者として再起動</strong></td>
+</tr>
+<tr>
+<td>バインドされた言語に <code>(no rule)</code> と表示される</td>
+<td>ルールが一致していません。ツールチップに表示される <code>class:</code> 文字列と正確に一致しているか確認してください</td>
+</tr>
+<tr>
+<td>一覧に別のプログラムが表示される</td>
+<td>誤ったものを捕捉しました。それを選び、<strong>選択項目を削除</strong> を押し、ゲームに戻ってやり直してください</td>
+</tr>
+<tr>
+<td>直近の試行が「効果なし」と表示される</td>
+<td><a href="https://github.com/mangokingTW/ImeModePersistence/issues">報告</a> してください。ただし下記も参照してください</td>
+</tr>
+<tr>
+<td>更新時にプログラムを閉じるよう求められる</td>
+<td>管理者権限なしのインストーラーを使い、手動で昇格しています。<code>...-setup-admin.exe</code> で再インストールしてください</td>
+</tr>
+<tr>
+<td>ログオン時に起動しない</td>
+<td>セットアップ中またはトレイメニューから <strong>ログオン時に自動的に起動する</strong> にチェックを入れてください。昇格中であれば、昇格されたスケジュールタスクを登録します</td>
+</tr>
+</tbody>
+</table>
+<h2>これがしないこと</h2>
+<p>ゲームを改変せず、メモリを読まず、干渉しません。切り替えは、ゲームのウィンドウに切り替えを要求すること（Windows の標準的な入力言語変更通知を送ること。Win+Space でシステムが送るのと同じもので、ウィンドウはそれを無視して構いません）で行われ、その後は Windows 自身の入力設定にフォールバックします。どちらも効かない場合は、何かを強制するのではなく静かにあきらめます。それらの手法こそアンチチートが捕まえようとするものであり、誤検知の代償はアカウントの喪失だからです。</p>
+<p>（v0.7.1 から v0.9.1 までは、このユーティリティはこうしたプログラムにメッセージをまったく送らず、Windows 側の経路のみを使っていました。それでは言語を切り替えられないことが判明し、v0.9.2 で通知を復活させました。古いページに「メッセージは送られない」と書かれている場合、この記述がそれに優先します。）</p>
+<h2>その他のゲーム</h2>
+<p>同じ手法は、実行ファイルを見ることができないあらゆるプログラムで機能します。<strong>ウィンドウクラスを使用</strong> がそのクラスを自動的に入力してくれます。同じエンジンで作られたゲームは、クラス名を共有することがあります。</p>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Helldivers-2-Japanese">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

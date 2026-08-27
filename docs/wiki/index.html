@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guides · 說明文件 — IME Mode Persistence</title>
+<meta name="description" content="IME Mode Persistence guides — setup, per-app bindings, the Sidecar Helper, Helldivers 2, and comparisons.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/">
+<meta property="og:title" content="Guides · 說明文件 — IME Mode Persistence">
+<meta property="og:description" content="IME Mode Persistence guides — setup, per-app bindings, the Sidecar Helper, Helldivers 2, and comparisons.">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{--bg:#ffffff;--bg-soft:#f6f7fb;--card:#ffffff;--border:#e6e8ef;--fg:#1a1c23;--muted:#5b6072;--accent:#4f46e5;--shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);--radius:14px}
+  @media (prefers-color-scheme:dark){:root{--bg:#0d0f16;--bg-soft:#12151f;--card:#161a26;--border:#242a3a;--fg:#e8eaf2;--muted:#9aa1b6;--accent:#8b8bff;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35)}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;line-height:1.65}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky;top:0;z-index:10;backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%,transparent);border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px;margin:0 auto;padding:0 20px;display:flex;align-items:center;gap:12px;height:56px}
+  .nav .brand{display:flex;align-items:center;gap:9px;font-weight:700;color:var(--fg)}
+  .nav .brand img{width:24px;height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border);background:var(--card);color:var(--fg);border-radius:999px;padding:5px 12px;font-size:.85rem;font-weight:600}
+  main{max-width:900px;margin:0 auto;padding:40px 20px}
+  h1{font-size:1.9rem;letter-spacing:-.02em;margin:.1em 0 .1em}
+  .lead{color:var(--muted);margin:0 0 26px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow)}
+  .card h3{margin:.1em 0 .7em;font-size:1.1rem}
+  .langs{display:flex;flex-wrap:wrap;gap:8px}
+  .langs .lang{border:1px solid var(--border);border-radius:999px;padding:5px 12px;font-size:.9rem;color:var(--fg)}
+  .langs .lang:hover{border-color:var(--accent);text-decoration:none}
+  footer{max-width:900px;margin:0 auto;padding:10px 20px 46px;color:var(--muted);font-size:.9rem}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main>
+  <h1>Guides · 說明文件</h1>
+  <p class="lead">IME Mode Persistence guides — setup, per-app bindings, the Sidecar Helper, Helldivers 2, and comparisons.</p>
+  <div class="grid">
+<div class="card"><h3>Sidecar Helper</h3><div class="langs"><a class="lang" href="Sidecar-Helper-Architecture.html">繁體中文</a><a class="lang" href="Sidecar-Helper-Architecture-English.html">English</a><a class="lang" href="Sidecar-Helper-Architecture-Simplified.html">简体中文</a><a class="lang" href="Sidecar-Helper-Architecture-Japanese.html">日本語</a><a class="lang" href="Sidecar-Helper-Architecture-Korean.html">한국어</a></div></div>
+<div class="card"><h3>Helldivers 2</h3><div class="langs"><a class="lang" href="Helldivers-2.html">繁體中文</a><a class="lang" href="Helldivers-2-English.html">English</a><a class="lang" href="Helldivers-2-Simplified.html">简体中文</a><a class="lang" href="Helldivers-2-Japanese.html">日本語</a><a class="lang" href="Helldivers-2-Korean.html">한국어</a></div></div>
+<div class="card"><h3>Similar tools · 類似工具</h3><div class="langs"><a class="lang" href="Similar-tools.html">繁體中文</a><a class="lang" href="Similar-tools-English.html">English</a><a class="lang" href="Similar-tools-Simplified.html">简体中文</a><a class="lang" href="Similar-tools-Japanese.html">日本語</a><a class="lang" href="Similar-tools-Korean.html">한국어</a></div></div>
+<div class="card"><h3>Overview · 總覽</h3><div class="langs"><a class="lang" href="Home.html">繁體中文</a><a class="lang" href="Home-English.html">English</a><a class="lang" href="Home-Simplified.html">简体中文</a><a class="lang" href="Home-Japanese.html">日本語</a><a class="lang" href="Home-Korean.html">한국어</a></div></div>
+  </div>
+</main>
+<footer><a href="../">← 介紹頁 Home</a></footer>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidecar Helper — 简体中文 · IME Mode Persistence</title>
+<meta name="description" content="在 Windows 的安全机制下，普通权限程序既无法干涉具备管理员权限的反作弊游戏，也不能向受沙盒保护的现代应用程序（如 Windows 11 记事本）发送窗口控制消息。">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Sidecar-Helper-Architecture-Simplified.html">
+<meta property="og:title" content="Sidecar Helper — 简体中文 · IME Mode Persistence">
+<meta property="og:description" content="在 Windows 的安全机制下，普通权限程序既无法干涉具备管理员权限的反作弊游戏，也不能向受沙盒保护的现代应用程序（如 Windows 11 记事本）发送窗口控制消息。">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sidecar Helper — 简体中文 · IME Mode Persistence">
+<meta name="twitter:description" content="在 Windows 的安全机制下，普通权限程序既无法干涉具备管理员权限的反作弊游戏，也不能向受沙盒保护的现代应用程序（如 Windows 11 记事本）发送窗口控制消息。">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Sidecar-Helper-Architecture-Simplified.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>Sidecar Helper 架构设计：如何控制反作弊游戏输入法并通过 Microsoft Store 审核</h1>
+<p><a href="Sidecar-Helper-Architecture.html">繁體中文</a> · <a href="Sidecar-Helper-Architecture-English.html">English</a> · <strong>简体中文</strong> · <a href="Sidecar-Helper-Architecture-Japanese.html">日本語</a> · <a href="Sidecar-Helper-Architecture-Korean.html">한국어</a></p>
+<p>在 Windows 的安全机制下，普通权限程序既无法干涉具备管理员权限的反作弊游戏，也不能向受沙盒保护的现代应用程序（如 Windows 11 记事本）发送窗口控制消息。</p>
+<p><strong>ImeModePersistence</strong> 在 v1.5.0+ 引入了 <strong>Sidecar Helper（侧车辅助服务）</strong> 机制，在<strong>不提权主程序、不使用 DLL 注入、不模拟按键</strong>的前提下，同时达成了：</p>
+<ol>
+<li>控制《绝地潜兵 2 (Helldivers 2)》等高权限 / 反作弊游戏的输入法语言。</li>
+<li>跨越 UIPI 屏障维持 Windows 11 记事本等现代 WinUI 窗口的输入模式。</li>
+<li>完全符合微软商店安全规范，成功上架 <strong>Microsoft Store</strong>。</li>
+</ol>
+<p>这篇技术文档详细记录该架构的设计原理、安全边界与实现细节。</p>
+<hr>
+<h2>1. 面临的挑战：Windows UIPI 权限隔离</h2>
+<p>Windows 自 Vista 引入了 <strong>UIPI (User Interface Privilege Isolation)</strong> 机制。系统依照完整性级别 (Integrity Level) 隔离进程：</p>
+<ul>
+<li><strong>Low-IL</strong>：浏览器沙盒</li>
+<li><strong>Medium-IL</strong>：普通用户执行的桌面程序与 Microsoft Store 应用程序</li>
+<li><strong>High-IL</strong>：以管理员身份执行的程序、以及启动内核反作弊驱动的全屏游戏（例如 Helldivers 2 搭配 nProtect GameGuard）</li>
+</ul>
+<h3>为什么普通程序无法控制反作弊游戏？</h3>
+<p>当 ImeModePersistence 以普通权限（Medium-IL）执行时，即使能通过公开的 Win32 API 识别出游戏窗口（<code>class:stingray_window</code>），当尝试发送：</p>
+<ul>
+<li><code>PostMessage(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)</code>（切换键盘语言）</li>
+<li><code>SendMessage(imeWnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, ...)</code>（切换中/英输入模式）</li>
+</ul>
+<p>Windows 内核层的 UIPI 机制会<strong>直接拦截并丢弃这些消息</strong>，返回 <code>ERROR_ACCESS_DENIED</code>。</p>
+<hr>
+<h2>2. Sidecar Helper 的核心架构</h2>
+<p>为了解决 UIPI 屏障，同时避免“把整个主程序以管理员身份开机常驻”所带来的安全风险，我们采用了 <strong>权限分离的 Sidecar Helper 架构</strong>：</p>
+<pre><code>+-------------------------------------------------------------+
+|  主程序 (ImeModePersistence.exe)                             |
+|  - 权限：Medium-IL (普通用户 / Microsoft Store MSIX 容器)       |
+|  - 职责：托盘 UI、窗口焦点监听、按键状态维护、规则比对              |
++-------------------------------------------------------------+
+                              │
+             命名管道 IPC (Named Pipe)
+             安全 SDDL 访问控制 (仅限本机交互用户与管理员)
+                              │
+                              ▼
++-------------------------------------------------------------+
+|  辅助服务 (ImeModePersistence.exe --helper &lt;parent_pid&gt;)    |
+|  - 权限：High-IL (通过用户 UAC 授权提升)                       |
+|  - 职责：代表主程序向 High-IL 游戏与焦点子窗口发送 Win32 消息      |
+|  - 守护线程：监听父进程 PID，主程序退出时 Helper 立即自动结束   |
++-------------------------------------------------------------+
+                              │
+               Win32 标准窗口消息 (通过 UIPI)
+                              │
+                              ▼
++-------------------------------------------------------------+
+|  目标窗口 (Helldivers 2 / Windows 11 现代记事本)               |
++-------------------------------------------------------------+
+</code></pre>
+<h3>运作流程：</h3>
+<ol>
+<li><strong>按需启动 (On-Demand)</strong>：用户在托盘菜单点击「启用现代窗口 (WinUI) 支持…」，主程序调用 <code>ShellExecuteExW</code>（动词指定 <code>runas</code>）启动 <code>--helper &lt;parent_pid&gt;</code>。用户只需通过一次 Windows 原生 UAC 确认对话框。</li>
+<li><strong>安全命名管道 (Named Pipe IPC)</strong>：
+<ul>
+<li>管道名称：<code>\\.\pipe\ImeModePersistence.Sidecar</code></li>
+<li>安全描述符 (SDDL)：<code>D:(A;;GA;;;BA)(A;;GA;;;IU)S:(ML;;NW;;;ME)</code></li>
+<li>严格限制只有<strong>本机交互用户 (Interactive User)</strong> 与<strong>管理员 (Builtin Administrators)</strong> 可以连接，杜绝跨网络或未授权进程的访问。</li>
+</ul>
+</li>
+<li><strong>无锁同步转发</strong>：管道采用同步双向消息模式（<code>PIPE_TYPE_MESSAGE | PIPE_WAIT</code>），确保数据封包精确无误。</li>
+<li><strong>生命周期自动守护 (Watchdog)</strong>：
+<ul>
+<li>Helper 服务端启动一条独立的 Watchdog 线程，通过 <code>OpenProcess(SYNCHRONIZE, ...)</code> 监听主程序的进程句柄，同时监听内部的 <code>hShutdownEvent</code>。</li>
+<li>一旦主程序结束、崩溃或用户在菜单关闭 Helper，Watchdog 会即时触发结束流程并释放所有系统资源，绝不残留后台僵尸进程。</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>3. 为什么反作弊系统不会封禁？</h2>
+<p>许多玩家担心使用第三方工具会被反作弊系统（如 GameGuard、Easy Anti-Cheat、BattlEye、Vanguard）判定为外挂而封号。Sidecar Helper 之所以安全，是因为它完全遵循 <strong>“零侵入”</strong> 原则：</p>
+<table>
+<thead>
+<tr>
+<th>常见外挂手段</th>
+<th>本工具的做法</th>
+<th>为什么安全</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>内存读写</strong> (<code>ReadProcessMemory</code>, <code>WriteProcessMemory</code>)</td>
+<td>❌ <strong>完全不使用</strong></td>
+<td>不读写游戏任何内存地址，不触碰游戏状态。</td>
+</tr>
+<tr>
+<td><strong>DLL 注入 / 线程创建</strong> (<code>CreateRemoteThread</code>, <code>SetWindowsHookEx</code>)</td>
+<td>❌ <strong>完全不使用</strong></td>
+<td>不注入任何代码到游戏进程内。</td>
+</tr>
+<tr>
+<td><strong>模拟按键</strong> (<code>SendInput</code>, <code>keybd_event</code>)</td>
+<td>❌ <strong>完全不使用</strong></td>
+<td>不模拟玩家键盘输入（避免被反作弊判定为宏/按键精灵）。</td>
+</tr>
+<tr>
+<td><strong>全局键盘监听</strong> (<code>WH_KEYBOARD_LL</code>, <code>GetAsyncKeyState</code>)</td>
+<td>❌ <strong>完全不使用</strong></td>
+<td>不侧录玩家按键，无安全顾虑。</td>
+</tr>
+<tr>
+<td><strong>Win32 标准消息</strong> (<code>WM_INPUTLANGCHANGEREQUEST</code>, <code>WM_IME_CONTROL</code>)</td>
+<td>✅ <strong>唯一采用的机制</strong></td>
+<td>这是 Windows 系统本身在用户按下 Win+Space 或切换窗口时发送的标准通知，游戏窗口与输入法框架将其视为合法的操作系统通知。</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>4. 为什么可以顺利在 Microsoft Store 上架？</h2>
+<p>Microsoft Store 对应用程序的安全性有极高要求：</p>
+<h3>1. MSIX 封装与 <code>asInvoker</code> 要求</h3>
+<ul>
+<li>微软商店规定上架的封装应用程序清单（<code>AppxManifest.xml</code>）<strong>严禁</strong>声明 <code>requireAdministrator</code>，主应用程序必须在普通用户权限（<code>asInvoker</code>）下启动。</li>
+<li>本工具的商店版主程序维持 100% 合规的 <code>asInvoker</code>，完全符合沙盒安全规范。</li>
+</ul>
+<h3>2. 符合 Microsoft Store 政策 10.2（用户控制与授权）</h3>
+<ul>
+<li>依据微软商店规范，应用程序若需要执行高权限操作，<strong>必须由用户明确主动发起</strong>，并通过操作系统标准的 UAC 提示取得同意，严禁静默提权或利用漏洞绕过 UAC。</li>
+<li>Sidecar Helper 是由用户在右键菜单明确点击后，调用 Windows 原生 <code>ShellExecuteEx(runas)</code> 触发标准 UAC 对话框，完全符合微软商店安全审核标准。</li>
+</ul>
+<h3>3. 原生模块路径防护（消除 LPE / TOCTOU 漏洞）</h3>
+<ul>
+<li>过去某些提权辅助工具会将可执行文件复制到 <code>%LocalAppData%</code> 或 <code>%Temp%</code> 等可写目录后再提权执行，这会引入严重的本地权限提升 (LPE) 与 TOCTOU 劫持漏洞。</li>
+<li>ImeModePersistence 坚持<strong>直接对已注册的只读模块路径（<code>autostart::module_path()</code>）发起提权</strong>，彻底杜绝代码被篡改的风险。</li>
+</ul>
+<hr>
+<h2>5. 总结</h2>
+<p>通过 <strong>Sidecar Helper</strong> 架构，ImeModePersistence 成功在 <strong>“极致的用户安全性”</strong> 与 <strong>“强大的底层输入控制能力”</strong> 之间取得了完美的平衡：</p>
+<ul>
+<li>🎮 <strong>玩家</strong>：可以在不以管理员身份重开主程序的情况下，顺畅游玩反作弊游戏并享受自动锁定英文。</li>
+<li>🏢 <strong>日常用户</strong>：在 Windows 11 现代记事本与各类 WinUI 窗口中，输入法模式不再擅自跳回中文。</li>
+<li>🛡️ <strong>安全至上</strong>：零注入、零按键模拟、全开放源代码，并通过微软商店与 OpenSSF 双重安全检验。</li>
+</ul>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Sidecar-Helper-Architecture-Simplified">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

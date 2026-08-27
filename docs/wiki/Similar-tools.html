@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Similar tools · 類似工具 — 繁體中文 · IME Mode Persistence</title>
+<meta name="description" content="這種需求別人做過——但每個方案都卡在某個地方。這頁按「問題 → 競品卡在哪 → 本工具怎麼克服」整理,說明本工具的優點是怎麼一一解決其他工具的痛點。">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Similar-tools.html">
+<meta property="og:title" content="Similar tools · 類似工具 — 繁體中文 · IME Mode Persistence">
+<meta property="og:description" content="這種需求別人做過——但每個方案都卡在某個地方。這頁按「問題 → 競品卡在哪 → 本工具怎麼克服」整理,說明本工具的優點是怎麼一一解決其他工具的痛點。">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Similar tools · 類似工具 — 繁體中文 · IME Mode Persistence">
+<meta name="twitter:description" content="這種需求別人做過——但每個方案都卡在某個地方。這頁按「問題 → 競品卡在哪 → 本工具怎麼克服」整理,說明本工具的優點是怎麼一一解決其他工具的痛點。">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Similar-tools.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>同類工具比較</h1>
+<p><strong>繁體中文</strong> · <a href="Similar-tools-English.html">English</a> · <a href="Similar-tools-Simplified.html">简体中文</a> · <a href="Similar-tools-Japanese.html">日本語</a> · <a href="Similar-tools-Korean.html">한국어</a></p>
+<p>這種需求別人做過——但每個方案都卡在某個地方。這頁按「<strong>問題 → 競品卡在哪 → 本工具怎麼克服</strong>」整理,說明本工具的優點是怎麼一一解決其他工具的痛點。</p>
+<h2>問題一:只切「輸入法/語言」,不管「轉換模式」</h2>
+<p>其他方案(Windows 內建的「每個視窗用不同輸入法」、多數指示器工具)只記得每個視窗用<strong>哪個輸入法</strong>。但真正惱人的是同一個中文輸入法裡的 <strong>中文/英數(全形/半形)轉換模式</strong>——Windows 把它當 per-thread,切個視窗就跳回預設。英、日、中文社群對「切視窗就變中/英」的標準回覆都是去開關那個內建設定,治標而已,因為它管的根本不是同一層。</p>
+<p><strong>本工具怎麼克服</strong>:直接追蹤並延續<strong>轉換模式本身</strong>(透過 <code>WM_IME_CONTROL</code> 的 <code>IMC_GET/SETCONVERSIONMODE</code>),把你上次選的模式帶到下一個視窗——不是只換輸入法。</p>
+<h2>問題二:AutoHotkey 工具被反作弊擋</h2>
+<p>最接近的競品 <strong>KBLAutoSwitch</strong> 等是基於 AutoHotkey。AHK 為了通用自動化,通常會裝<strong>低階全域鍵盤 hook</strong>並用 <strong><code>SendInput</code> 合成按鍵</strong>——這正是反作弊(EAC / BattlEye / Vanguard)盯的巨集特徵,常被擋下甚至誤封;這些工具也沒著墨遊戲支援。</p>
+<p><strong>本工具怎麼克服</strong>:原生 C++,<strong>完全不裝鍵盤 hook、不合成任何按鍵</strong>(只用被動的 WinEvent 前景通知)。它不長得像巨集工具,所以能在防作弊遊戲裡正常運作。(可自行驗證:整個 <code>src/</code> 沒有 <code>SetWindowsHookEx</code>、<code>SendInput</code>、<code>keybd_event</code>。)</p>
+<h2>問題三:碰不到讀 raw-input 的全螢幕遊戲</h2>
+<p>內建設定和訊息小技巧對「直接吃鍵盤」的全螢幕遊戲(如 Helldivers 2)沒用——它們根本不參與 IME 狀態管理,連執行檔路徑都讀不到。</p>
+<p><strong>本工具怎麼克服</strong>:改用 <strong>TSF</strong> 從框架端設定輸入語言,並用 <strong>window class</strong> 辨識這類遊戲,把它固定綁在英文(見 <a href="Helldivers-2.html">Helldivers 2 教學</a>)。</p>
+<h2>問題四:指示器工具只顯示、不動作</h2>
+<p><strong>LangIndicator</strong>、<strong>ImTip</strong>、<strong>IMEIndicator</strong> 只在游標或系統匣<strong>顯示</strong>目前狀態,不做持續、也不綁 app。</p>
+<p><strong>本工具怎麼克服</strong>:<strong>持續 + 程式綁定 + 游標指示器三合一</strong>;指示器只是其中一個可關的附加功能,不是全部。</p>
+<h2>問題五:腳本素材要自己組</h2>
+<p>AHK 的 IME 函式庫(<code>s-show/IME.ahk</code>、eamat 版等)只是能讀/設 IME 的積木,要 per-window 持續得自己寫、自己維護。</p>
+<p><strong>本工具怎麼克服</strong>:開箱即用的常駐小工具,裝了就運作,不必寫或養任何腳本。</p>
+<h2>一句話</h2>
+<p>日常中英切換 + 指示器,KBLAutoSwitch 這類已經很成熟;但只要你<strong>在意轉換模式的跨視窗持續、要在防作弊遊戲裡用、或不想依賴 AutoHotkey</strong>,本工具正是為了跨過這三道牆而做的。</p>
+<h2>連結</h2>
+<ul>
+<li>KBLAutoSwitch — <a href="https://github.com/flyinclouds/KBLAutoSwitch">https://github.com/flyinclouds/KBLAutoSwitch</a></li>
+<li>LangIndicator — <a href="https://github.com/ZGGSONG/LangIndicator">https://github.com/ZGGSONG/LangIndicator</a></li>
+<li>ImTip — <a href="https://www.appinn.com/imtip-for-windows/">https://www.appinn.com/imtip-for-windows/</a></li>
+<li>IMEIndicator — <a href="https://github.com/Icecovery/IMEIndicator">https://github.com/Icecovery/IMEIndicator</a></li>
+<li>AHK IME.ahk — <a href="https://github.com/s-show/AutoHotKey/blob/AutoHotKey/IME.ahk">https://github.com/s-show/AutoHotKey/blob/AutoHotKey/IME.ahk</a></li>
+</ul>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Similar-tools">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

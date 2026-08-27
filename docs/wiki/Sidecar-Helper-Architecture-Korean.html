@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sidecar Helper — 한국어 · IME Mode Persistence</title>
+<meta name="description" content="Windows의 보안 모델에서 일반 권한(비상승) 프로그램은 관리자 권한으로 실행되는 안티치트 게임에 간섭할 수 없으며, 샌드박스로 보호되는 모던 애플리케이션(예: Windows 11 메모장)에 UIPI(User Interface Privilege Isolation) 경계…">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Sidecar-Helper-Architecture-Korean.html">
+<meta property="og:title" content="Sidecar Helper — 한국어 · IME Mode Persistence">
+<meta property="og:description" content="Windows의 보안 모델에서 일반 권한(비상승) 프로그램은 관리자 권한으로 실행되는 안티치트 게임에 간섭할 수 없으며, 샌드박스로 보호되는 모던 애플리케이션(예: Windows 11 메모장)에 UIPI(User Interface Privilege Isolation) 경계…">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Sidecar Helper — 한국어 · IME Mode Persistence">
+<meta name="twitter:description" content="Windows의 보안 모델에서 일반 권한(비상승) 프로그램은 관리자 권한으로 실행되는 안티치트 게임에 간섭할 수 없으며, 샌드박스로 보호되는 모던 애플리케이션(예: Windows 11 메모장)에 UIPI(User Interface Privilege Isolation) 경계…">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Sidecar-Helper-Architecture-Korean.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>Sidecar Helper 아키텍처 설계: 안티치트 게임 IME 제어 및 Microsoft Store 심사 통과의 원리</h1>
+<p><a href="Sidecar-Helper-Architecture.html">繁體中文</a> · <a href="Sidecar-Helper-Architecture-English.html">English</a> · <a href="Sidecar-Helper-Architecture-Simplified.html">简体中文</a> · <a href="Sidecar-Helper-Architecture-Japanese.html">日本語</a> · <strong>한국어</strong></p>
+<p>Windows의 보안 모델에서 일반 권한(비상승) 프로그램은 관리자 권한으로 실행되는 안티치트 게임에 간섭할 수 없으며, 샌드박스로 보호되는 모던 애플리케이션(예: Windows 11 메모장)에 UIPI(User Interface Privilege Isolation) 경계를 넘어 창 제어 메시지를 보낼 수도 없습니다.</p>
+<p><strong>ImeModePersistence</strong>(v1.5.0+)는 <strong>Sidecar Helper(사이드카 헬퍼)</strong> 아키텍처를 도입하여, <strong>메인 프로그램을 관리자 권한으로 실행하지 않고, DLL 주입이나 키 합성 없이</strong> 다음 3가지를 동시에 달성했습니다:</p>
+<ol>
+<li><em>Helldivers 2(헬다이버즈 2)</em> 등 안티치트로 보호되는 전체 화면 게임의 입력 언어 고정.</li>
+<li>Windows 11 메모장 등 모던 WinUI 창에서 한/영 및 자국어/영숫자 입력 모드 유지.</li>
+<li>Microsoft Store 보안 정책을 100% 준수하여 <strong>Microsoft Store</strong> 공식 출시.</li>
+</ol>
+<p>이 문서는 이 아키텍처의 설계 원리, 보안 경계 및 구현 세부 사항을 설명합니다.</p>
+<hr>
+<h2>1. 당면 과제: Windows UIPI 권한 격리</h2>
+<p>Windows Vista에서 도입된 <strong>UIPI (User Interface Privilege Isolation)</strong> 는 무결성 수준(Integrity Level / IL)에 따라 프로세스를 격리합니다:</p>
+<ul>
+<li><strong>Low-IL</strong>: 브라우저 샌드박스</li>
+<li><strong>Medium-IL</strong>: 일반 사용자가 실행한 데스크톱 프로그램 및 Microsoft Store (MSIX) 앱</li>
+<li><strong>High-IL</strong>: 관리자 권한으로 실행된 프로그램 및 커널 안티치트 드라이버를 로드하는 전체 화면 게임(예: nProtect GameGuard를 사용하는 Helldivers 2)</li>
+</ul>
+<h3>일반 프로그램이 안티치트 게임을 제어할 수 없는 이유</h3>
+<p>ImeModePersistence가 일반 권한(Medium-IL)으로 실행 중일 때, 공개된 Win32 API로 게임의 창 클래스(<code>class:stingray_window</code>)를 식별하더라도 다음과 같은 메시지 전송:</p>
+<ul>
+<li><code>PostMessage(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)</code> (입력 언어 전환)</li>
+<li><code>SendMessage(imeWnd, WM_IME_CONTROL, IMC_SETCONVERSIONMODE, ...)</code> (입력 모드 전환)</li>
+</ul>
+<p>은 Windows 커널의 UIPI 메커니즘에 의해 <strong>차단되어 삭제</strong>되며, <code>ERROR_ACCESS_DENIED</code>가 반환됩니다.</p>
+<hr>
+<h2>2. Sidecar Helper 핵심 아키텍처</h2>
+<p>전체 애플리케이션을 관리자 권한으로 자동 시작할 때 발생하는 보안 위험과 백신의 오탐을 피하기 위해, <strong>권한이 분리된 Sidecar Helper 아키텍처</strong>를 채택했습니다:</p>
+<pre><code>+-------------------------------------------------------------+
+|  메인 앱 (ImeModePersistence.exe)                           |
+|  - 권한: Medium-IL (일반 사용자 / Microsoft Store MSIX)     |
+|  - 역할: 트레이 UI, 포커스 감시, 규칙 관리, 상태 관리       |
++-------------------------------------------------------------+
+                              │
+             명명된 파이프 IPC (\\.\pipe\ImeModePersistence.Sidecar)
+             엄격한 SDDL: 대화형 사용자 및 관리자만 접근 가능
+                              │
+                              ▼
++-------------------------------------------------------------+
+|  승격 헬퍼 (ImeModePersistence.exe --helper &lt;pid&gt;)          |
+|  - 권한: High-IL (표준 UAC 대화상자를 통해 온디맨드 승격)   |
+|  - 역할: UIPI를 넘어 High-IL 게임 및 하위 창으로 메시지 중계|
+|  - 워치독: 부모 프로세스 종료 감지 시 즉시 자동 종료        |
++-------------------------------------------------------------+
+                              │
+               표준 Win32 창 메시지 (UIPI 통과)
+                              │
+                              ▼
++-------------------------------------------------------------+
+|  대상 창 (Helldivers 2 / Windows 11 모던 메모장)            |
++-------------------------------------------------------------+
+</code></pre>
+<h3>동작 흐름:</h3>
+<ol>
+<li><strong>온디맨드 실행</strong>: 사용자가 트레이 메뉴에서 「모던 창 (WinUI) 지원 활성화…」를 클릭하면 <code>ShellExecuteExW</code>(동사 <code>runas</code>)를 통해 <code>--helper &lt;parent_pid&gt;</code>가 실행됩니다. 사용자는 Windows 기본 UAC 대화상자를 1회 승인하기만 하면 됩니다.</li>
+<li><strong>보안 명명된 파이프 (Named Pipe IPC)</strong>:
+<ul>
+<li>파이프 이름: <code>\\.\pipe\ImeModePersistence.Sidecar</code></li>
+<li>보안 설명자 (SDDL): <code>D:(A;;GA;;;BA)(A;;GA;;;IU)S:(ML;;NW;;;ME)</code></li>
+<li>로컬 <strong>대화형 사용자(Interactive User)</strong> 및 <strong>관리자(Builtin Administrators)</strong> 만 접근할 수 있도록 엄격히 제한하여 세션 간 무단 접근이나 미승인 프로세스의 연결을 완전히 차단합니다.</li>
+</ul>
+</li>
+<li><strong>안전한 동기 전송</strong>: 메시지 기반 파이프(<code>PIPE_TYPE_MESSAGE | PIPE_WAIT</code>)를 사용하여 정확한 패킷 경계를 보장합니다.</li>
+<li><strong>수명 주기 자동 감시 (Watchdog)</strong>:
+<ul>
+<li>헬퍼 프로세스는 <code>{ hParentProcess, hShutdownEvent }</code>를 감시하는 독립 워치독 스레드를 실행합니다.</li>
+<li>메인 앱이 종료되거나 비정상 종료되는 경우, 또는 사용자가 트레이 메뉴에서 헬퍼를 끄는 경우 워치독이 즉시 이를 감지하여 리소스를 해제하고 좀비 프로세스를 남기지 않고 정상 종료합니다.</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>3. 안티치트에서 제재나 오탐이 발생하지 않는 이유</h2>
+<p>게이머들이 안티치트(GameGuard, Easy Anti-Cheat, BattlEye, Vanguard 등)의 오탐을 우려하는 것은 당연합니다. Sidecar Helper는 <strong>&quot;비침투적(Zero-Intrusion)&quot;</strong> 원칙을 철저히 준수하므로 완전히 안전합니다:</p>
+<table>
+<thead>
+<tr>
+<th>변조/치트 도구의 방식</th>
+<th>본 도구의 방식</th>
+<th>안전한 이유</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>메모리 읽기/쓰기</strong> (<code>ReadProcessMemory</code>, <code>WriteProcessMemory</code>)</td>
+<td>❌ <strong>전혀 사용하지 않음</strong></td>
+<td>게임 프로세스의 메모리를 전혀 읽거나 쓰지 않습니다.</td>
+</tr>
+<tr>
+<td><strong>DLL 주입 / 원격 스레드</strong> (<code>CreateRemoteThread</code>, <code>SetWindowsHookEx</code>)</td>
+<td>❌ <strong>전혀 사용하지 않음</strong></td>
+<td>게임 프로세스 내부에 외부 코드를 주입하지 않습니다.</td>
+</tr>
+<tr>
+<td><strong>키 입력 합성</strong> (<code>SendInput</code>, <code>keybd_event</code>)</td>
+<td>❌ <strong>전혀 사용하지 않음</strong></td>
+<td>키보드 입력을 시뮬레이션하지 않습니다(매크로/봇 오탐 방지).</td>
+</tr>
+<tr>
+<td><strong>전역 키로깅</strong> (<code>WH_KEYBOARD_LL</code>, <code>GetAsyncKeyState</code>)</td>
+<td>❌ <strong>전혀 사용하지 않음</strong></td>
+<td>사용자의 키 입력을 가로채거나 기록하지 않습니다.</td>
+</tr>
+<tr>
+<td><strong>표준 Win32 메시지</strong> (<code>WM_INPUTLANGCHANGEREQUEST</code>, <code>WM_IME_CONTROL</code>)</td>
+<td>✅ <strong>유일하게 사용하는 방식</strong></td>
+<td>사용자가 Win+Space를 누르거나 창을 전환할 때 Windows 자체가 보내는 표준 알림과 동일합니다. 게임과 IME 프레임워크는 이를 정상적인 OS 알림으로 처리합니다.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>4. Microsoft Store에 출시될 수 있는 이유</h2>
+<p>Microsoft Store는 앱의 보안에 대해 매우 엄격한 기준을 적용합니다:</p>
+<h3>1. MSIX 패키징 및 <code>asInvoker</code> 준수</h3>
+<ul>
+<li>Microsoft Store 매니페스트(<code>AppxManifest.xml</code>)에서는 <code>requireAdministrator</code> 선언이 금지되어 있으며, 메인 앱은 반드시 일반 권한(<code>asInvoker</code>)으로 실행되어야 합니다.</li>
+<li>본 도구의 Store 버전은 100% <code>asInvoker</code>를 준수합니다.</li>
+</ul>
+<h3>2. Microsoft Store 정책 10.2(사용자의 명시적 동의) 충족</h3>
+<ul>
+<li>앱이 고권한 작업을 수행할 경우, <strong>사용자가 명시적으로 작업을 시작</strong>하고 OS 표준 UAC 대화상자를 거쳐야 합니다(무단 자동 승격이나 취약점 악용 금지).</li>
+<li>Sidecar Helper는 트레이 메뉴에서 사용자가 명시적으로 클릭할 때 Windows 표준 <code>ShellExecuteEx</code> (<code>runas</code>)를 호출하여 실행되므로 Store 심사 기준을 완벽히 충족합니다.</li>
+</ul>
+<h3>3. 인증된 모듈 경로에서의 권한 상승 (LPE / TOCTOU 취약점 제거)</h3>
+<ul>
+<li>과거 일부 도구는 실행 파일을 <code>%Temp%</code> 등에 복사한 후 승격하여 로컬 권한 상승(LPE)이나 파일 변조(TOCTOU) 취약점을 야기했습니다.</li>
+<li>본 도구는 등록된 읽기 전용 모듈 경로(<code>autostart::module_path()</code>)에서 직접 승격을 수행하여 코드 변조 위험을 원천 차단했습니다.</li>
+</ul>
+<hr>
+<h2>5. 결론</h2>
+<p><strong>Sidecar Helper</strong>를 통해 ImeModePersistence는 <strong>&quot;최고 수준의 사용자 보안&quot;</strong> 과 <strong>&quot;안정적인 저수준 입력 제어&quot;</strong> 사이의 완벽한 균형을 달성했습니다:</p>
+<ul>
+<li>🎮 <strong>게이머</strong>: 메인 앱을 관리자로 다시 시작할 필요 없이 안티치트 게임에서 영어 입력을 자동으로 고정할 수 있습니다.</li>
+<li>📝 <strong>일반 사용자</strong>: Windows 11 모던 메모장 등에서도 입력 모드가 의도치 않게 기본 모드로 되돌아가는 불편함이 없습니다.</li>
+<li>🛡️ <strong>보안 최우선</strong>: 무주입, 무키합성, 완전한 오픈 소스이며 Microsoft Store 및 OpenSSF 보안 기준을 통과했습니다.</li>
+</ul>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Sidecar-Helper-Architecture-Korean">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

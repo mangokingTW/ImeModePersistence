@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview · 總覽 — English · IME Mode Persistence</title>
+<meta name="description" content="Windows utility that controls how input methods behave across programs: it carries the input mode you last chose (native or alphanumeric) to the next wi…">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Home-English.html">
+<meta property="og:title" content="Overview · 總覽 — English · IME Mode Persistence">
+<meta property="og:description" content="Windows utility that controls how input methods behave across programs: it carries the input mode you last chose (native or alphanumeric) to the next wi…">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Overview · 總覽 — English · IME Mode Persistence">
+<meta name="twitter:description" content="Windows utility that controls how input methods behave across programs: it carries the input mode you last chose (native or alphanumeric) to the next wi…">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Home-English.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>
+  <img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="" height="36" align="absmiddle">&nbsp;ImeModePersistence
+</h1>
+<p><a href="Home.html">繁體中文</a> · <strong>English</strong> · <a href="Home-Simplified.html">简体中文</a> · <a href="Home-Japanese.html">日本語</a> · <a href="Home-Korean.html">한국어</a></p>
+<p>Windows utility that controls how input methods behave across programs: it carries the <strong>input mode you last chose</strong> (native or alphanumeric) to the next window, and can <strong>bind a program to a fixed input language</strong> — including programs whose executable cannot be read, such as anti-cheat protected fullscreen games.</p>
+<blockquote>
+<h3>⚠ In development and unsigned — judge for yourself</h3>
+<p>This utility is still in development and has <strong>no code-signing certificate</strong>. Windows Defender may therefore classify it as a virus and <strong>delete it outright</strong>; the known detection is <code>Behavior:Win32/Persistence.A!ml</code>.</p>
+<p>That detection is on the logon task created by <em>Start automatically at logon</em>. Any program offering to start at logon must do the same thing, and an unsigned program doing it is what behaviour monitoring watches for. A false-positive report has been submitted to Microsoft, but <strong>nobody can guarantee what an antivirus will decide.</strong></p>
+<p>The source, build workflow and release artifacts are all public and built by GitHub Actions from the tagged commit, so you can inspect or reproduce them. On that basis, <strong>whether to keep using it is your decision.</strong></p>
+<p>If it gets deleted: use the portable <code>zip</code>, or leave <em>Start automatically at logon</em> unticked.</p>
+<p><strong>Code signing:</strong> releases are unsigned. Each artifact ships build provenance instead — built by GitHub Actions from its tag with an attestation you can check via <code>gh attestation verify</code>.</p>
+</blockquote>
+<h2>Install</h2>
+<p>From <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>:</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>What it is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>...-setup.exe</code></td>
+<td><strong>Recommended</strong>: standard installer (supports per-user or all-users installation)</td>
+</tr>
+<tr>
+<td><code>...-x64.zip</code></td>
+<td>Portable; unzip and run</td>
+</tr>
+</tbody>
+</table>
+<p>Tick <strong>Start automatically at logon</strong> during setup. It then runs in the notification area at the bottom right — Windows 11 hides new icons behind the <strong>⌃</strong> chevron next to the clock. It works as soon as it is installed; no configuration needed.</p>
+<p>Two things commonly get in the way:</p>
+<ul>
+<li>The blue <strong>Windows protected your PC</strong> screen → <em>More info → Run anyway</em>. The files are unsigned, so this is a reputation warning rather than a virus detection.</li>
+<li><strong>Antivirus deleting the installer</strong> → unsigned installers are frequently caught by heuristics. Use the portable <code>zip</code>, which is functionally identical.</li>
+</ul>
+<h2>Why you would want it</h2>
+<p>Windows keeps IME state <strong>per thread</strong>. Move to another window and the conversion mode reverts to the IME's default — for a Chinese keyboard, that means <strong>Chinese</strong>. So you press Shift for alphanumeric, switch window, and you are typing Chinese again.</p>
+<p><strong>Settings → Time &amp; language → Typing → Advanced keyboard settings → <em>Let me use a different input method for each app window</em> does not fix this.</strong> That setting governs <em>which</em> input method is active, not whether that method is in native or alphanumeric mode — turn it off and switching windows still reverts to Chinese.</p>
+<p><strong>No Windows setting covers the conversion mode.</strong> That is this utility's <strong>first</strong> purpose: carrying the native/alphanumeric mode you chose to the next window.</p>
+<p>Its <strong>second</strong> purpose is pinning a specific program to an input language, including the kind no setting can reach — a <strong>fullscreen game reading raw input</strong> takes the keyboard directly and does not participate in IME state management at all, so it can only be handled from outside. <a href="Helldivers-2-English.html">Helldivers 2</a> is one.</p>
+<h2>What it does</h2>
+<p>Everything below is on the tray icon's right-click menu:</p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/menu-en-light.png" alt="Tray right-click menu" width="230"></p>
+<p><strong>Keep mode across windows</strong> (on by default) — type Chinese in one window, switch to another, and Chinese comes back. Press Shift to go alphanumeric and that is what the next window gets. It follows your most recent deliberate change. Untick it in the tray menu if you do not want it.</p>
+<p><strong>App language bindings</strong> — pin a program to a language: a terminal always English, Word always Chinese. Right-click → <strong>App language bindings...</strong>, then <strong>Browse</strong> for the program, type just its file name to match it wherever it is installed, press <strong>Use last app</strong>, or <strong>Use window class</strong> for a program whose file cannot be read.</p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/rules-en-light.png" alt="App language bindings dialog" width="620"></p>
+<p>For a program whose path carries a version or whose window class has a generated suffix, type a wildcard instead: <code>glob:*\game.exe</code> matches the full path and <code>class-glob:name_*</code> the window class, using <code>*</code> (any run, path separators included) and <code>?</code> (one character). Exact rules win over wildcards — that is the <strong>default order</strong>; you can also drag the list to customise it, and the <strong>first match wins</strong>. Each rule can <strong>apply once</strong> (set on the switch, then left alone), and an opt-in <strong>default</strong> (off by default) covers anything unmatched.</p>
+<p><strong>Caret input indicator</strong> (off by default) — <strong>Show input indicator at the cursor</strong> in the tray menu puts a small badge next to the text caret showing what you will actually type: <code>中</code> / <code>あ</code> / <code>한</code> for a language's native mode, <code>Ａ</code> when the IME is in alphanumeric mode, or a language code such as <code>EN</code>. The choice is remembered. The badge follows the caret and stays out of its own windows; in a field whose reported caret position is unreliable — a browser address bar, because of a Chromium limitation — it is drawn above the line so it does not cover the text.</p>
+<h2>Walkthrough</h2>
+<ul>
+<li><strong><a href="Helldivers-2-English.html">Controlling the Chinese IME in Helldivers 2</a></strong> — anti-cheat games cannot be identified by their program file and need binding by window class instead.</li>
+</ul>
+<h2>Seeing what it is doing</h2>
+<p><strong>Hover</strong> the tray icon rather than clicking it — clicking makes the program you wanted to check lose focus, so you see the wrong thing. Four lines appear: the current program, the language bound to it, the language actually in use, and whether the last switch worked. The bound and actual languages matching means it is working.</p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/status-en-light.png" alt="Full status shown on hover" width="300"></p>
+<p>A fifth line, <em>Normal privileges - elevated programs are invisible</em>, means the utility is not running as administrator. Double-click for a fuller status window, including which autostart mechanism is configured.</p>
+<h2>Common questions</h2>
+<p><strong>Why is input mode not kept in modern windows like Windows 11 Notepad?</strong> — Their real edit field sits in a focused child window protected by Windows UIPI.</p>
+<ul>
+<li><strong>Fix (Recommended)</strong>: Click <strong>&quot;Enable WinUI/Admin support...&quot;</strong> in the tray menu (accepting one UAC prompt to start a background helper service). The helper bridges UIPI barriers to hold the input mode seamlessly. <strong>Supported in both Microsoft Store and desktop builds!</strong></li>
+<li><strong>Desktop build direct elevation</strong>: Or click &quot;Restart as administrator&quot; in the tray menu.</li>
+</ul>
+<p><strong>The current program shows something starting with <code>class:</code></strong> — normal, not a fault. Some programs, mostly anti-cheat games, do not let others read their file location, so the utility identifies them by window class instead. That <code>class:...</code> string is what a binding rule needs.</p>
+<p><strong>Should I run it as administrator?</strong> Only to control programs that themselves run as administrator, as most anti-cheat games do — Windows does not let a lower-privileged program read a higher-privileged one's windows, not even the window class. <strong>Autostart always runs unelevated</strong> (both installers): a program that silently starts elevated at every logon is the persistence pattern antivirus flags, so the utility deliberately does not. To control an elevated program, use <strong>Restart as administrator</strong> in the tray menu to elevate on the spot — once per session, before you need it, accepting one UAC prompt. For ordinary use (mode persistence, binding non-elevated programs) no elevation is needed and <code>...-setup-user.exe</code> is enough.</p>
+<p><strong>Advanced: you really want elevated autostart.</strong> The utility deliberately doesn't build this in (reason above), but you can set it up yourself with a Task Scheduler &quot;at logon, highest privileges&quot; task. From an <strong>administrator</strong> command prompt, run (replace the path with your actual install location; the admin build defaults to <code>C:\Program Files\ImeModePersistence</code>):</p>
+<pre><code>schtasks /Create /TN &quot;ImeModePersistence-Elevated&quot; /TR &quot;\&quot;C:\Program Files\ImeModePersistence\ImeModePersistence.exe\&quot;&quot; /SC ONLOGON /RL HIGHEST /F
+</code></pre>
+<p><code>/RL HIGHEST</code> starts it with highest privileges at logon with <strong>no UAC prompt</strong>. After creating it, turn <strong>off</strong> the app's own <em>Start automatically at logon</em> in the tray menu, or the unelevated HKCU Run entry will launch a second, unelevated copy at logon. To remove the task: <code>schtasks /Delete /TN &quot;ImeModePersistence-Elevated&quot; /F</code>.</p>
+<p><strong>A binding pins a language, not one specific IME</strong> — Chinese, English and Japanese can each be bound, but if one language has several IMEs installed the first one is used.</p>
+<p><strong>Some programs change it straight back</strong> — the utility retries a few times, then backs off before trying again rather than fighting the program: a few seconds at first, longer the more the program insists, up to half a minute. Switching to another window and back retries immediately.</p>
+<p><strong>Could anti-cheat flag it?</strong> It does not modify the game, read its memory, inject anything, or synthesise keystrokes. Switching works by posting the window Windows' <strong>standard input-language-change notification</strong> — the same one the system delivers when you press Win+Space, which the window is free to ignore — and falling back to Windows' own input settings when that does not take. The full list is on the <a href="Helldivers-2-English.html">Helldivers 2</a> page.</p>
+<h2>Also</h2>
+<p>The interface follows Windows' display language — English, Traditional Chinese, Simplified Chinese, Japanese or Korean. The installer is English only. In dark mode the App-language-bindings dialog is fully themed; the transient status and error boxes keep a light body with a dark title bar.</p>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Home-English">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

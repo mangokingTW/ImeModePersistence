@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Similar tools · 類似工具 — 日本語 · IME Mode Persistence</title>
+<meta name="description" content="この需要のために作られたツールは他にもあります。しかし、どの選択肢もどこかで壁にぶつかります。このページは 問題 → 代替ツールがつまずくところ → このユーティリティがどう乗り越えるか という構成になっており、その強みが他ツールの痛点にどう答えるかが分かるようになっています。">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Similar-tools-Japanese.html">
+<meta property="og:title" content="Similar tools · 類似工具 — 日本語 · IME Mode Persistence">
+<meta property="og:description" content="この需要のために作られたツールは他にもあります。しかし、どの選択肢もどこかで壁にぶつかります。このページは 問題 → 代替ツールがつまずくところ → このユーティリティがどう乗り越えるか という構成になっており、その強みが他ツールの痛点にどう答えるかが分かるようになっています。">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Similar tools · 類似工具 — 日本語 · IME Mode Persistence">
+<meta name="twitter:description" content="この需要のために作られたツールは他にもあります。しかし、どの選択肢もどこかで壁にぶつかります。このページは 問題 → 代替ツールがつまずくところ → このユーティリティがどう乗り越えるか という構成になっており、その強みが他ツールの痛点にどう答えるかが分かるようになっています。">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Similar-tools-Japanese.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>類似ツール</h1>
+<p><a href="Similar-tools.html">繁體中文</a> · <a href="Similar-tools-English.html">English</a> · <a href="Similar-tools-Simplified.html">简体中文</a> · <strong>日本語</strong> · <a href="Similar-tools-Korean.html">한국어</a></p>
+<p>この需要のために作られたツールは他にもあります。しかし、どの選択肢もどこかで壁にぶつかります。このページは <strong>問題 → 代替ツールがつまずくところ → このユーティリティがどう乗り越えるか</strong> という構成になっており、その強みが他ツールの痛点にどう答えるかが分かるようになっています。</p>
+<h2>問題 1: 入力方式／言語を切り替えるが、変換モードは切り替えない</h2>
+<p>代替ツール（Windows 内蔵の「アプリウィンドウごとに異なる入力方式」や、ほとんどのインジケーターツール）は、各ウィンドウがどの入力方式を使ったかを記憶するだけです。しかし本当の苛立ちは、中国語 IME の <em>内部</em> にある <strong>かな／英数の変換モード</strong> です。Windows はこれをスレッドごとに扱うため、ウィンドウを切り替えると既定へ戻ってしまいます。英語、日本語、中国語の各コミュニティで「ウィンドウを切り替えると言語が変わる」への定番の助言は、この内蔵設定を切り替えることですが、これは部分的な解決にすぎません。別の層を制御しているからです。</p>
+<p><strong>このユーティリティがどう乗り越えるか:</strong> <strong>変換モードそのもの</strong> を（<code>WM_IME_CONTROL</code> の <code>IMC_GET/SETCONVERSIONMODE</code> によって）追跡し、次のウィンドウへ引き継ぎます。単なる入力方式ではありません。</p>
+<h2>問題 2: AutoHotkey ツールはアンチチートにブロックされる</h2>
+<p>最も近い同種のツールである <strong>KBLAutoSwitch</strong> などは、AutoHotkey 上に作られています。一般的な自動化のために、AHK は通常 <strong>低レベルのグローバルキーボードフック</strong> をインストールし、<strong><code>SendInput</code></strong> で入力を合成します。これはまさにアンチチート（EAC / BattlEye / Vanguard）が警戒するマクロの特徴であり、しばしばブロックされたり、フラグを立てられたりします。ゲームへの対応は手つかずのままです。</p>
+<p><strong>このユーティリティがどう乗り越えるか:</strong> ネイティブ C++ で、<strong>キーボードフックも合成キー入力もまったく使いません</strong>（パッシブなフォアグラウンド WinEvent のみ）。マクロツールには見えないため、アンチチートゲームの中でも動作します。（検証可能: <code>src/</code> 全体に <code>SetWindowsHookEx</code>、<code>SendInput</code>、<code>keybd_event</code> はありません。）</p>
+<h2>問題 3: 生入力のフルスクリーンゲームに届かない</h2>
+<p>内蔵設定やメッセージによる小技は、キーボードを直接読み取るフルスクリーンゲーム（例: Helldivers 2）には何の効果もありません。そのゲームは IME の状態管理に関与せず、実行ファイルのパスさえ読み取れないからです。</p>
+<p><strong>このユーティリティがどう乗り越えるか:</strong> <strong>TSF</strong> を使ってフレームワークレベルで入力言語を設定し、そうしたゲームを <strong>ウィンドウクラス</strong> で識別して英語に固定します（<a href="Helldivers-2-Japanese.html">Helldivers 2 ガイド</a> を参照）。</p>
+<h2>問題 4: インジケーターツールは表示するだけで、動作しない</h2>
+<p><strong>LangIndicator</strong>、<strong>ImTip</strong>、<strong>IMEIndicator</strong> は、カーソル位置やトレイに現在の状態を <strong>表示</strong> するだけです。維持もアプリバインドもありません。</p>
+<p><strong>このユーティリティがどう乗り越えるか:</strong> 維持 <strong>に加えて</strong> アプリバインド、<strong>さらに</strong> カーソルインジケーターを 1 つに統合しています。インジケーターは任意の付加機能の 1 つにすぎず、ツールの全体ではありません。</p>
+<h2>問題 5: 自分で組み立てなければならないスクリプトの部品</h2>
+<p>AHK の IME ライブラリ（<code>s-show/IME.ahk</code>、eamat のものなど）は、IME の状態を読み書きするための部品にすぎません。ウィンドウごとの維持は、自分で書いて保守することになります。</p>
+<p><strong>このユーティリティがどう乗り越えるか:</strong> すぐに使えるトレイユーティリティです。インストールすれば動作し、書いたり生かし続けたりするスクリプトはありません。</p>
+<h2>一言でいうと</h2>
+<p>日常的な中国語／英語の切り替えとインジケーターだけなら、KBLAutoSwitch のようなツールはすでに成熟しています。しかし、<strong>ウィンドウをまたいだ変換モードの維持、アンチチートゲームの中での使用、あるいは AutoHotkey に依存しないこと</strong> を重視した瞬間から、その 3 つの壁を突破するために作られたのがこのユーティリティです。</p>
+<h2>リンク</h2>
+<ul>
+<li>KBLAutoSwitch — <a href="https://github.com/flyinclouds/KBLAutoSwitch">https://github.com/flyinclouds/KBLAutoSwitch</a></li>
+<li>LangIndicator — <a href="https://github.com/ZGGSONG/LangIndicator">https://github.com/ZGGSONG/LangIndicator</a></li>
+<li>ImTip — <a href="https://www.appinn.com/imtip-for-windows/">https://www.appinn.com/imtip-for-windows/</a></li>
+<li>IMEIndicator — <a href="https://github.com/Icecovery/IMEIndicator">https://github.com/Icecovery/IMEIndicator</a></li>
+<li>AHK IME.ahk — <a href="https://github.com/s-show/AutoHotKey/blob/AutoHotKey/IME.ahk">https://github.com/s-show/AutoHotKey/blob/AutoHotKey/IME.ahk</a></li>
+</ul>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Similar-tools-Japanese">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>

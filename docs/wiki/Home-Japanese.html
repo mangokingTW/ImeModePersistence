@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overview · 總覽 — 日本語 · IME Mode Persistence</title>
+<meta name="description" content="プログラム間での入力方式の挙動を制御する Windows ユーティリティです。最後に選んだ入力モード（かな入力または英数入力）を次のウィンドウへ引き継ぎ、さらに プログラムを特定の入力言語に固定 できます。これは、アンチチートで保護されたフルスクリーンゲームのように、実行ファイルを読み取れないプログラム…">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="IME Mode Persistence">
+<meta property="og:url" content="https://mangokingtw.github.io/ImeModePersistence/wiki/Home-Japanese.html">
+<meta property="og:title" content="Overview · 總覽 — 日本語 · IME Mode Persistence">
+<meta property="og:description" content="プログラム間での入力方式の挙動を制御する Windows ユーティリティです。最後に選んだ入力モード（かな入力または英数入力）を次のウィンドウへ引き継ぎ、さらに プログラムを特定の入力言語に固定 できます。これは、アンチチートで保護されたフルスクリーンゲームのように、実行ファイルを読み取れないプログラム…">
+<meta property="og:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Overview · 總覽 — 日本語 · IME Mode Persistence">
+<meta name="twitter:description" content="プログラム間での入力方式の挙動を制御する Windows ユーティリティです。最後に選んだ入力モード（かな入力または英数入力）を次のウィンドウへ引き継ぎ、さらに プログラムを特定の入力言語に固定 できます。これは、アンチチートで保護されたフルスクリーンゲームのように、実行ファイルを読み取れないプログラム…">
+<meta name="twitter:image" content="https://mangokingtw.github.io/ImeModePersistence/og-image.jpg">
+<link rel="canonical" href="https://mangokingtw.github.io/ImeModePersistence/wiki/Home-Japanese.html">
+<link rel="icon" href="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png">
+<style>
+  :root{
+    --bg:#ffffff; --bg-soft:#f6f7fb; --card:#ffffff; --border:#e6e8ef;
+    --fg:#1a1c23; --muted:#5b6072; --accent:#4f46e5; --accent-fg:#ffffff;
+    --code-bg:#f2f3f8; --shadow:0 1px 2px rgba(20,22,40,.06),0 8px 24px rgba(20,22,40,.08);
+    --radius:14px;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0d0f16; --bg-soft:#12151f; --card:#161a26; --border:#242a3a;
+      --fg:#e8eaf2; --muted:#9aa1b6; --accent:#8b8bff; --accent-fg:#0d0f16;
+      --code-bg:#1b2030; --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.7; -webkit-font-smoothing:antialiased}
+  a{color:var(--accent); text-decoration:none}
+  a:hover{text-decoration:underline}
+  header.nav{position:sticky; top:0; z-index:10; backdrop-filter:saturate(180%) blur(10px);
+    background:color-mix(in srgb,var(--bg) 82%, transparent); border-bottom:1px solid var(--border)}
+  .nav .wrap{max-width:900px; margin:0 auto; padding:0 20px; display:flex; align-items:center; gap:12px; height:56px}
+  .nav .brand{display:flex; align-items:center; gap:9px; font-weight:700; color:var(--fg)}
+  .nav .brand img{width:24px; height:24px}
+  .nav .spacer{flex:1}
+  .nav .pill{border:1px solid var(--border); background:var(--card); color:var(--fg);
+    border-radius:999px; padding:5px 12px; font-size:.85rem; font-weight:600}
+  .nav .pill:hover{border-color:var(--accent); text-decoration:none}
+  main{max-width:820px; margin:0 auto; padding:34px 20px 8px}
+  .content h1{font-size:1.9rem; line-height:1.2; letter-spacing:-.02em; margin:.2em 0 .5em}
+  .content h1 img{vertical-align:middle}
+  .content h2{font-size:1.4rem; margin:1.6em 0 .5em; padding-bottom:.2em; border-bottom:1px solid var(--border)}
+  .content h3{font-size:1.15rem; margin:1.3em 0 .4em}
+  .content h4{font-size:1rem; margin:1.2em 0 .3em}
+  .content p, .content li{font-size:1.02rem}
+  .content img{max-width:100%; height:auto; border-radius:10px}
+  .content code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.9em;
+    background:var(--code-bg); padding:.15em .4em; border-radius:6px}
+  .content pre{background:var(--code-bg); border:1px solid var(--border); border-radius:10px;
+    padding:14px 16px; overflow:auto}
+  .content pre code{background:none; padding:0; font-size:.86rem}
+  .content table{border-collapse:collapse; width:100%; margin:1em 0; font-size:.95rem; display:block; overflow:auto}
+  .content th,.content td{border:1px solid var(--border); padding:8px 12px; text-align:left; vertical-align:top}
+  .content th{background:var(--bg-soft)}
+  .content blockquote{margin:1em 0; padding:.4em 1.1em; color:var(--muted);
+    background:var(--bg-soft); border-left:3px solid var(--accent); border-radius:0 10px 10px 0}
+  .content blockquote h3{margin-top:.3em}
+  .content hr{border:0; border-top:1px solid var(--border); margin:2em 0}
+  .content ul,.content ol{padding-left:1.4em}
+  footer{max-width:820px; margin:0 auto; padding:24px 20px 46px; color:var(--muted); font-size:.9rem;
+    border-top:1px solid var(--border); margin-top:30px; display:flex; gap:18px; flex-wrap:wrap}
+  footer a{color:var(--muted)}
+</style>
+</head>
+<body>
+<header class="nav"><div class="wrap">
+  <a class="brand" href="../"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</a>
+  <span class="spacer"></span>
+  <a class="pill" href="./">Guides · 說明</a>
+  <a class="pill" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
+</div></header>
+<main><article class="content">
+<h1>
+  <img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="" height="36" align="absmiddle">&nbsp;ImeModePersistence
+</h1>
+<p><a href="Home.html">繁體中文</a> · <a href="Home-English.html">English</a> · <a href="Home-Simplified.html">简体中文</a> · <strong>日本語</strong> · <a href="Home-Korean.html">한국어</a></p>
+<p>プログラム間での入力方式の挙動を制御する Windows ユーティリティです。<strong>最後に選んだ入力モード</strong>（かな入力または英数入力）を次のウィンドウへ引き継ぎ、さらに <strong>プログラムを特定の入力言語に固定</strong> できます。これは、アンチチートで保護されたフルスクリーンゲームのように、実行ファイルを読み取れないプログラムにも対応します。</p>
+<blockquote>
+<h3>⚠ 開発中かつ未署名 — ご自身で判断してください</h3>
+<p>このユーティリティはまだ開発中で、<strong>コード署名証明書がありません</strong>。そのため Windows Defender がウイルスと判定し、<strong>そのまま削除してしまう</strong>ことがあります。既知の検出名は <code>Behavior:Win32/Persistence.A!ml</code> です。</p>
+<p>この検出は、<em>ログオン時に自動的に起動する</em> によって作成されるログオンタスクに対するものです。ログオン時に起動しようとするプログラムはどれも同じことを行いますが、未署名のプログラムがそれを行うと、動作監視の警戒対象になります。誤検知としてマイクロソフトへ報告済みですが、<strong>ウイルス対策ソフトがどう判断するかは誰にも保証できません。</strong></p>
+<p>ソースコード、ビルドワークフロー、リリース成果物はすべて公開されており、タグ付けされたコミットから GitHub Actions によってビルドされています。そのため、検査や再現が可能です。これを踏まえ、<strong>使い続けるかどうかはあなたの判断です。</strong></p>
+<p>削除されてしまった場合は、ポータブル版の <code>zip</code> を使うか、<em>ログオン時に自動的に起動する</em> のチェックを外してください。</p>
+<p><strong>コード署名について:</strong> リリースは未署名です。代わりに各成果物へビルドの来歴（build provenance）が付きます —— GitHub Actions がタグからビルドし、<code>gh attestation verify</code> で検証できる証明が添付されます。</p>
+</blockquote>
+<h2>インストール</h2>
+<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> から入手してください：</p>
+<table>
+<thead>
+<tr>
+<th>ファイル</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>...-setup.exe</code></td>
+<td><strong>推奨</strong>：標準インストーラー（現在のユーザー用または全ユーザー用を選択可能）</td>
+</tr>
+<tr>
+<td><code>...-x64.zip</code></td>
+<td>ポータブル版。解凍して実行するだけ</td>
+</tr>
+</tbody>
+</table>
+<p>セットアップ中に <strong>ログオン時に自動的に起動する</strong> にチェックを入れてください。その後、右下の通知領域で動作します。Windows 11 では、新しいアイコンは時計の隣にある <strong>⌃</strong> シェブロンの奥に隠されます。インストールするとすぐに動作し、設定は不要です。</p>
+<p>よくある障害が 2 つあります。</p>
+<ul>
+<li>青い <strong>PC が保護されました</strong> 画面 → <em>詳細情報 → 実行</em> をクリックします。ファイルが未署名であるための評価に関する警告であり、ウイルス検出ではありません。</li>
+<li><strong>ウイルス対策ソフトがインストーラーを削除する</strong> → 未署名のインストーラーはヒューリスティックによって頻繁に捕捉されます。機能的に同一であるポータブル版の <code>zip</code> を使ってください。</li>
+</ul>
+<h2>必要になる理由</h2>
+<p>Windows は IME の状態を <strong>スレッドごと</strong> に保持します。別のウィンドウへ移ると変換モードは IME の既定へ戻ります。中国語キーボードの場合、それは <strong>中国語</strong> を意味します。つまり Shift を押して英数にし、ウィンドウを切り替えると、また中国語を入力していることになります。</p>
+<p><strong>設定 → 時刻と言語 → 入力 → キーボードの詳細設定 → <em>アプリウィンドウごとに異なる入力方式を使用する</em> ではこれは解決しません。</strong> この設定は <em>どの</em> 入力方式が有効になるかを制御するだけで、その方式がかなモードか英数モードかは制御しません。オフにしても、ウィンドウを切り替えれば中国語に戻ります。</p>
+<p><strong>変換モードをカバーする Windows の設定はありません。</strong> これがこのユーティリティの <strong>第一の</strong> 目的です。選んだかな／英数モードを次のウィンドウへ引き継ぎます。</p>
+<p><strong>第二の</strong> 目的は、特定のプログラムを入力言語に固定することです。これには、どの設定でも届かない種類のものも含みます。<strong>生の入力を読み取るフルスクリーンゲーム</strong> はキーボードを直接受け取り、IME の状態管理にまったく関与しないため、外部からしか扱えません。<a href="Helldivers-2-Japanese.html">Helldivers 2</a> がその一例です。</p>
+<h2>できること</h2>
+<p>以下の機能はすべてトレイアイコンの右クリックメニューにあります：</p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/menu-ja-light.png" alt="トレイの右クリックメニュー" width="230"></p>
+<p><strong>ウィンドウをまたいでモードを維持する</strong>（既定でオン） — あるウィンドウで中国語を入力し、別のウィンドウへ切り替えると、中国語が戻ってきます。Shift を押して英数にすれば、次のウィンドウでもそれが得られます。直近の意図的な変更に従います。不要ならトレイメニューでチェックを外してください。</p>
+<p><strong>アプリ言語バインド</strong> — プログラムを言語に固定します。ターミナルは常に英語、Word は常に中国語、というように。右クリック → <strong>アプリ言語バインド...</strong> から、<strong>参照</strong> でプログラムを選ぶか、ファイル名だけを入力してインストール場所を問わず一致させるか、<strong>最後のアプリを使用</strong> を押すか、ファイルを読み取れないプログラムには <strong>ウィンドウクラスを使用</strong> を選びます。</p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/rules-ja-light.png" alt="アプリ言語バインドのダイアログ" width="620"></p>
+<p>パスにバージョンを含むプログラムや、ウィンドウクラスに自動生成された接尾辞が付くプログラムの場合は、代わりにワイルドカードを入力します。<code>glob:*\game.exe</code> はフルパスに一致し、<code>class-glob:name_*</code> はウィンドウクラスに一致します。<code>*</code>（パス区切りを含む任意の連続文字）と <code>?</code>（1 文字）を使います。完全一致のルールはワイルドカードより優先されますが、これは<strong>既定の順序</strong>です。リストをドラッグして並べ替えることもでき、<strong>上から最初に一致したものが優先</strong>されます。各ルールは<strong>切り替え時に一度だけ適用</strong>（ウィンドウに入ったときに設定し、その後は強制しない）にでき、どれにも一致しないときは<strong>既定の言語</strong>（既定でオフ）を使えます。</p>
+<p><strong>キャレット入力インジケーター</strong>（既定でオフ） — トレイメニューの <strong>カーソル位置に入力インジケーターを表示</strong> は、実際に入力される内容を示す小さなバッジをテキストキャレットの隣に置きます。言語のかなモードでは <code>中</code> / <code>あ</code> / <code>한</code>、IME が英数モードのときは <code>Ａ</code>、あるいは <code>EN</code> のような言語コードが表示されます。選択は記憶されます。バッジはキャレットに追従し、自身のウィンドウには重なりません。報告されるキャレット位置が信頼できないフィールド（Chromium の制約によるブラウザーのアドレスバーなど）では、テキストを覆わないよう行の上に描画されます。</p>
+<h2>ウォークスルー</h2>
+<ul>
+<li><strong><a href="Helldivers-2-Japanese.html">Helldivers 2 で中国語 IME を制御する</a></strong> — アンチチートゲームはプログラムファイルで識別できず、代わりにウィンドウクラスによるバインドが必要です。</li>
+</ul>
+<h2>何をしているか確認する</h2>
+<p>トレイアイコンはクリックではなく <strong>ホバー</strong> してください。クリックすると、確認したかったプログラムがフォーカスを失い、誤った表示を見ることになります。4 行が表示されます。現在のプログラム、そこにバインドされている言語、実際に使われている言語、そして直近の切り替えが成功したかどうかです。バインドされた言語と実際の言語が一致していれば、正常に動作しています。</p>
+<p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/status-ja-light.png" alt="ホバーで表示される状態" width="300"></p>
+<p>5 行目に <em>通常権限 - 昇格されたプログラムは見えません</em> と表示される場合、ユーティリティは管理者として実行されていません。ダブルクリックすると、どの自動起動の仕組みが設定されているかを含む、より詳細な状態ウィンドウが開きます。</p>
+<h2>よくある質問</h2>
+<p><strong>新しいメモ帳などのモダンウィンドウに切り替えたときに、入力モードが維持されないのはなぜですか？</strong>
+新しいメモ帳などのモダン / WinUI アプリの実際の入力欄はフォーカスされた子ウィンドウにあり、Windows UIPI 機構によって保護されています：</p>
+<ul>
+<li><strong>解決策（推奨）</strong>：トレイメニューの「<strong>モダンウィンドウ (WinUI) サポートを有効化…</strong>」をクリックします（UAC を 1 回通過してバックグラウンドのヘルパーサービスを起動します）。これにより、Helper が UIPI 保護を越えて入力モードを維持します。<strong>Microsoft Store 版・通常のデスクトップ版のどちらでもサポートされています</strong>！</li>
+<li><strong>デスクトップ版での直接昇格も可能</strong>：トレイメニューの「管理者として再起動」をクリックします。</li>
+</ul>
+<p><strong>現在のプログラムに <code>class:</code> で始まるものが表示される</strong> — これは正常で、不具合ではありません。一部のプログラム、主にアンチチートゲームは、他者がファイルの場所を読み取ることを許さないため、ユーティリティは代わりにウィンドウクラスで識別します。その <code>class:...</code> 文字列こそ、バインドルールが必要とするものです。</p>
+<p><strong>管理者として実行すべきですか？</strong> それ自体が管理者として実行されるプログラム（多くのアンチチートゲームがそうです）を制御する場合のみです。Windows は権限の低いプログラムが権限の高いプログラムのウィンドウを読み取ることを、ウィンドウクラスさえも許しません。<strong>自動起動は常に非昇格で実行されます</strong>（どちらのインストーラーでも）。ログオンのたびに黙って昇格して起動するプログラムこそ、ウイルス対策ソフトがフラグを立てる永続化パターンなので、このユーティリティはあえてそれを行いません。昇格されたプログラムを制御するには、トレイメニューの <strong>管理者として再起動</strong> を使い、その場で昇格します。セッションにつき 1 回、必要になる前に、UAC のプロンプトを 1 回受け入れます。通常の用途（モードの維持、非昇格プログラムのバインド）では昇格は不要で、<code>...-setup-user.exe</code> で十分です。</p>
+<p><strong>上級者向け: どうしても昇格した自動起動が欲しい。</strong> このユーティリティはあえてこれを組み込んでいません（理由は上記）が、タスクスケジューラの「ログオン時、最上位の特権」タスクで自分で設定できます。<strong>管理者</strong> のコマンドプロンプトから、次を実行します（パスは実際のインストール場所に置き換えてください。admin ビルドの既定は <code>C:\Program Files\ImeModePersistence</code> です）。</p>
+<pre><code>schtasks /Create /TN &quot;ImeModePersistence-Elevated&quot; /TR &quot;\&quot;C:\Program Files\ImeModePersistence\ImeModePersistence.exe\&quot;&quot; /SC ONLOGON /RL HIGHEST /F
+</code></pre>
+<p><code>/RL HIGHEST</code> は、<strong>UAC のプロンプトなし</strong> でログオン時に最上位の特権で起動します。作成後は、トレイメニューでアプリ自身の <em>ログオン時に自動的に起動する</em> を <strong>オフ</strong> にしてください。そうしないと、非昇格の HKCU の Run エントリがログオン時に 2 つ目の非昇格コピーを起動してしまいます。タスクを削除するには: <code>schtasks /Delete /TN &quot;ImeModePersistence-Elevated&quot; /F</code>。</p>
+<p><strong>バインドは言語を固定するのであって、特定の IME を固定するのではありません</strong> — 中国語、英語、日本語をそれぞれバインドできますが、1 つの言語に複数の IME がインストールされている場合は、最初のものが使われます。</p>
+<p><strong>すぐに元に戻してしまうプログラムがある</strong> — ユーティリティは数回リトライした後、プログラムと張り合うのではなく、次の試行まで間隔を空けます。最初は数秒、プログラムが頑固なほど長くなり、最大で 30 秒まで延びます。別のウィンドウへ切り替えて戻ると、即座にリトライします。</p>
+<p><strong>アンチチートにフラグを立てられる可能性は？</strong> ゲームを改変せず、メモリを読まず、何も注入せず、キー入力を合成しません。切り替えは、そのウィンドウに Windows の <strong>標準的な入力言語変更通知</strong> を送ることで行われます。これは Win+Space を押したときにシステムが送るのと同じもので、ウィンドウはそれを無視して構いません。それが効かない場合は、Windows 自身の入力設定にフォールバックします。すべての一覧は <a href="Helldivers-2-Japanese.html">Helldivers 2</a> のページにあります。</p>
+<h2>その他</h2>
+<p>インターフェイスは Windows の表示言語（英語・繁体字中国語・簡体字中国語・日本語・韓国語）に従います。インストーラーは英語のみです。ダークモードでは、アプリ言語バインドのダイアログ全体に適用されます。状態やエラーの一時的なボックスは、本体は明るいままタイトルバーのみ暗くなります。</p>
+
+</article></main>
+<footer>
+  <a href="../">← 介紹頁 Home</a>
+  <a href="./">所有指南 All guides</a>
+  <a href="https://github.com/mangokingTW/ImeModePersistence/wiki/Home-Japanese">在 Wiki 編輯 · Edit on wiki</a>
+</footer>
+</body>
+</html>
