@@ -8,8 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: wiki-pages-sync
@@ -18,6 +17,10 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # Scoped here rather than top-level: this job pushes a branch and opens a PR.
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
