@@ -10,9 +10,8 @@ does the rest.
 |---|---|---|
 | GitHub Releases | `mangokingTW/ImeModePersistence` | `release.yml` on tag push |
 | Microsoft Store | Store ID `9P05QQZ2P5XC` | `release.yml` (stable tags only) |
-| Chocolatey | `imemodepersistence` | `chocolatey.yml` on release published |
-| Scoop | `mango/ImeModePersistence` | manifest in [`packaging/scoop`](../packaging/scoop), updated separately |
 | winget | `mangokingTW.ImeModePersistence` | manifest in [`packaging/winget`](../packaging/winget), updated separately |
+| Scoop | `mango/ImeModePersistence` | manifest in [`packaging/scoop`](../packaging/scoop), updated separately |
 
 Release assets: unified installer (`-setup.exe`), portable
 `-x64.zip`, the Store `.msix`, `SHA256SUMS.txt`, and the SLSA provenance bundle
