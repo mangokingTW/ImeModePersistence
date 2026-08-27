@@ -145,8 +145,8 @@
 <li><strong>通配符（高级）</strong> → 路径带版本号、或窗口类别有生成后缀时，直接在字段输入 <code>glob:*\game.exe</code>（比对路径）或 <code>class-glob:name_*</code>（比对窗口类别），支持 <code>*</code>（任意长度，含路径分隔符）与 <code>?</code>（单一字符）。精确规则一律优先于通配符 —— 这是<strong>默认顺序</strong>，你也可以拖拉列表自定义，<strong>由上到下第一个符合的优先</strong>；每条规则可设<strong>只套用一次</strong>（进窗口设一次、之后不再强制），全部都不符合时还能启用一条<strong>默认语言</strong>（默认关闭）。</li>
 </ul>
 <h3>光标输入指示器（默认关闭）</h3>
-<p>托盘菜单的<strong>在光标旁显示输入指示</strong>会在文本光标旁显示一个小徽章，告诉你当前<strong>会打出什么</strong>：<code>中</code>／<code>あ</code>／<code>한</code>（该语言的中文/native 模式）、<code>Ａ</code>（输入法切到英数）、或 <code>EN</code> 之类的语言代码。设置会被记住。</p>
-<p>徽章会跟着光标、避开自己的窗口。在<strong>浏览器地址栏</strong>这类字段，因为 Chromium 对外报告的光标位置不可靠，徽章会改显示在该行<strong>上方</strong>、不遮住文字。</p>
+<p>托盘菜单的<strong>在光标旁显示输入指示</strong>会在文本光标旁显示一个小指示器，告诉你当前<strong>会打出什么</strong>：<code>中</code>／<code>あ</code>／<code>한</code>（该语言的中文/native 模式）、<code>Ａ</code>（输入法切到英数）、或 <code>EN</code> 之类的语言代码。设置会被记住。</p>
+<p>指示器会跟着光标、避开自己的窗口。在<strong>浏览器地址栏</strong>这类字段，因为 Chromium 对外报告的光标位置不可靠，指示器会改显示在该行<strong>上方</strong>、不遮住文字。</p>
 <blockquote>
 <p><strong>下列位置不会显示输入法指示器</strong>：<strong>任务栏与开始菜单的搜索框</strong>、<strong>Windows 终端</strong>、<strong>文件资源管理器</strong>。这些属于系统级界面，Windows 仅允许具备数字签名的程序在其上显示内容，而本工具目前尚未签名。普通应用程序（浏览器、记事本与各式文本编辑器、Office、聊天软件、游戏等）均可正常显示。</p>
 </blockquote>
