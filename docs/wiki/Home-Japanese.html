@@ -135,6 +135,9 @@
 <p align="center"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/rules-ja-light.png" alt="アプリ言語バインドのダイアログ" width="620"></p>
 <p>パスにバージョンを含むプログラムや、ウィンドウクラスに自動生成された接尾辞が付くプログラムの場合は、代わりにワイルドカードを入力します。<code>glob:*\game.exe</code> はフルパスに一致し、<code>class-glob:name_*</code> はウィンドウクラスに一致します。<code>*</code>（パス区切りを含む任意の連続文字）と <code>?</code>（1 文字）を使います。完全一致のルールはワイルドカードより優先されますが、これは<strong>既定の順序</strong>です。リストをドラッグして並べ替えることもでき、<strong>上から最初に一致したものが優先</strong>されます。各ルールは<strong>切り替え時に一度だけ適用</strong>（ウィンドウに入ったときに設定し、その後は強制しない）にでき、どれにも一致しないときは<strong>既定の言語</strong>（既定でオフ）を使えます。</p>
 <p><strong>キャレット入力インジケーター</strong>（既定でオフ） — トレイメニューの <strong>カーソル位置に入力インジケーターを表示</strong> は、実際に入力される内容を示す小さなバッジをテキストキャレットの隣に置きます。言語のかなモードでは <code>中</code> / <code>あ</code> / <code>한</code>、IME が英数モードのときは <code>Ａ</code>、あるいは <code>EN</code> のような言語コードが表示されます。選択は記憶されます。バッジはキャレットに追従し、自身のウィンドウには重なりません。報告されるキャレット位置が信頼できないフィールド（Chromium の制約によるブラウザーのアドレスバーなど）では、テキストを覆わないよう行の上に描画されます。</p>
+<blockquote>
+<p><strong>入力インジケーターは次の場所には表示されません</strong>：<strong>タスクバーとスタートメニューの検索ボックス</strong>、<strong>Windows ターミナル</strong>、<strong>エクスプローラー</strong>。これらはシステムレベルの画面で、Windows はデジタル署名されたアプリケーションにのみ表示を許可しますが、本ツールは現在署名されていません。通常のアプリケーション（ブラウザー、メモ帳などのテキストエディター、Office、チャットアプリ、ゲームなど）では正常に表示されます。</p>
+</blockquote>
 <h2>ウォークスルー</h2>
 <ul>
 <li><strong><a href="Helldivers-2-Japanese.html">Helldivers 2 で中国語 IME を制御する</a></strong> — アンチチートゲームはプログラムファイルで識別できず、代わりにウィンドウクラスによるバインドが必要です。</li>
