@@ -1,6 +1,10 @@
 <h1>
-  <img src="assets/app_icon_trim.png" alt="" height="36" align="absmiddle">&nbsp;IME Mode Persistence
+  <img src="assets/app_icon_trim.png" alt="" height="36" align="absmiddle">&nbsp;輸入法工具箱
 </h1>
+
+<sub>IME Mode Persistence</sub>
+
+**跨視窗維持中/英，並為程式綁定輸入語言**
 
 [![Get it from Microsoft Store](https://get.microsoft.com/images/en-us%20dark.svg)](https://apps.microsoft.com/detail/9P05QQZ2P5XC)
 
