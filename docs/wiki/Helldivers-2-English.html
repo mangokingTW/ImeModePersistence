@@ -87,9 +87,6 @@
 <p><a href="Helldivers-2.html">繁體中文</a> · <strong>English</strong> · <a href="Helldivers-2-Simplified.html">简体中文</a> · <a href="Helldivers-2-Japanese.html">日本語</a> · <a href="Helldivers-2-Korean.html">한국어</a></p>
 <p>Helldivers 2 does not reliably handle IME state. If the system is in Chinese mode when you enter the game, keystrokes are intercepted by the IME and there is no dependable in-game way back to alphanumeric.</p>
 <p>This page pins the game to English.</p>
-<blockquote>
-<p><strong>This utility is in development and unsigned</strong>, and antivirus may classify it as a virus and delete it. See the <a href="Home-English.html">home page</a> for the details, and judge for yourself whether to use it.</p>
-</blockquote>
 <h2>Why ordinary IME tools fail here</h2>
 <p>The game reads the keyboard directly and does not accept the kind of instruction other programs use to switch input languages. Its anti-cheat also stops other programs from seeing which program it is — so a rule that names an executable never applies to it.</p>
 <p>This utility works around both: it identifies the window by its <strong>class</strong> (a name every window has) and asks it to switch with Windows' standard input-language-change notification — the same one the system sends when you press Win+Space.</p>
@@ -99,7 +96,7 @@
 <h2>Steps</h2>
 <ol>
 <li>
-<p>Install <code>...-setup-admin.exe</code> from <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>, ticking <strong>Start automatically at logon</strong> (it starts unelevated at logon). <strong>Before controlling the game, remember the requirement above: right-click → Restart as administrator.</strong></p>
+<p>Install <code>...-setup.exe</code> from <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>, ticking <strong>Start automatically at logon</strong> (it starts unelevated at logon). <strong>Before controlling the game, remember the requirement above: right-click → Restart as administrator.</strong></p>
 <p>Setup also offers <strong>Bind Helldivers 2 to English input</strong>. Tick it and steps 5–8 below happen for you on first run — skip to &quot;Checking it worked&quot;. Leave it unticked to set the rule by hand, or to bind a different language.</p>
 </li>
 <li>
@@ -157,14 +154,6 @@
 <tr>
 <td>Last attempt says it did not take effect</td>
 <td>Please <a href="https://github.com/mangokingTW/ImeModePersistence/issues">report it</a>, but see below</td>
-</tr>
-<tr>
-<td>Updating asks you to close the program</td>
-<td>You used the no-administrator installer and elevated by hand. Reinstall with <code>...-setup-admin.exe</code></td>
-</tr>
-<tr>
-<td>It does not start at logon</td>
-<td>Tick <strong>Start automatically at logon</strong> during setup, or from the tray menu — while elevated it registers an elevated scheduled task</td>
 </tr>
 </tbody>
 </table>

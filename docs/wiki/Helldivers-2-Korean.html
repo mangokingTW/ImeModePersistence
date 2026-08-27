@@ -87,9 +87,6 @@
 <p><a href="Helldivers-2.html">繁體中文</a> · <a href="Helldivers-2-English.html">English</a> · <a href="Helldivers-2-Simplified.html">简体中文</a> · <a href="Helldivers-2-Japanese.html">日本語</a> · <strong>한국어</strong></p>
 <p>Helldivers 2는 IME 상태를 안정적으로 처리하지 못합니다. 게임에 진입할 때 시스템이 중국어 모드이면 키 입력이 IME에 가로채이며, 게임 내에서 영숫자로 되돌아갈 믿을 만한 방법이 없습니다.</p>
 <p>이 페이지에서는 게임을 영어로 고정합니다.</p>
-<blockquote>
-<p><strong>이 유틸리티는 개발 중이며 서명되지 않았고</strong>, 백신이 이를 바이러스로 분류하여 삭제할 수 있습니다. 자세한 내용은 <a href="Home-Korean.html">홈 페이지</a>를 참고하고, 사용할지 여부를 직접 판단하세요.</p>
-</blockquote>
 <h2>일반적인 IME 도구가 여기서 실패하는 이유</h2>
 <p>이 게임은 키보드를 직접 읽으며, 다른 프로그램이 입력 언어를 전환할 때 사용하는 종류의 명령을 받아들이지 않습니다. 또한 이 게임의 안티치트는 다른 프로그램이 이것이 어떤 프로그램인지 알아내는 것을 막습니다 — 그래서 실행 파일 이름을 지정하는 규칙은 결코 적용되지 않습니다.</p>
 <p>이 유틸리티는 두 가지 모두를 우회합니다: 창을 그 <strong>클래스</strong>(모든 창이 가지는 이름)로 식별하고, Windows의 표준 입력 언어 변경 알림으로 전환을 요청합니다 — Win+Space를 눌렀을 때 시스템이 보내는 것과 동일한 것입니다.</p>
@@ -99,7 +96,7 @@
 <h2>단계</h2>
 <ol>
 <li>
-<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>에서 <code>...-setup-admin.exe</code>를 설치하고, <strong>로그온 시 자동 시작</strong>을 체크하세요(로그온 시 권한 상승 없이 시작됩니다). <strong>게임을 제어하기 전에 위 요구 사항을 기억하세요: 오른쪽 클릭 → 관리자로 다시 시작.</strong></p>
+<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>에서 <code>...-setup.exe</code>를 설치하고, <strong>로그온 시 자동 시작</strong>을 체크하세요(로그온 시 권한 상승 없이 시작됩니다). <strong>게임을 제어하기 전에 위 요구 사항을 기억하세요: 오른쪽 클릭 → 관리자로 다시 시작.</strong></p>
 <p>설치 프로그램은 <strong>Helldivers 2를 영어 입력으로 바인딩</strong>도 제공합니다. 이를 체크하면 아래 5–8단계가 첫 실행 시 자동으로 수행됩니다 — &quot;작동 확인하기&quot;로 건너뛰세요. 규칙을 직접 설정하거나 다른 언어로 바인딩하려면 체크하지 않은 채로 두세요.</p>
 </li>
 <li>
@@ -157,14 +154,6 @@
 <tr>
 <td>마지막 시도가 적용되지 않았다고 표시됨</td>
 <td><a href="https://github.com/mangokingTW/ImeModePersistence/issues">신고</a>해 주세요. 다만 아래 내용을 참고하세요</td>
-</tr>
-<tr>
-<td>업데이트 시 프로그램을 닫으라고 요구함</td>
-<td>관리자 권한이 없는 설치 프로그램을 사용하고 수동으로 권한을 올렸습니다. <code>...-setup-admin.exe</code>로 다시 설치하세요</td>
-</tr>
-<tr>
-<td>로그온 시 시작되지 않음</td>
-<td>설치 중 또는 트레이 메뉴에서 <strong>로그온 시 자동 시작</strong>을 체크하세요 — 권한이 상승된 상태에서는 권한 상승된 예약 작업을 등록합니다</td>
 </tr>
 </tbody>
 </table>

@@ -196,9 +196,9 @@
 正常，不是故障。有些程序（多半是有反作弊的游戏）不允许其他程序读取它的文件位置，这时本工具改用<strong>窗口类别</strong>辨识它。那串 <code>class:...</code> 就是绑定规则要填的内容。</p>
 <p><strong>要不要以管理员身份运行？</strong>
 要控制<strong>本身以管理员身份运行的程序</strong>（多数有反作弊的游戏都是）就必须提权 —— Windows 不让权限较低的程序读取权限较高的程序的窗口，连窗口类别都读不到。</p>
-<p><strong>开机自动启动一律是普通权限</strong>（两个安装版本都一样），因为「开机时自动以管理员身份启动」正是杀毒会判成恶意的持久化行为，本工具刻意不做。要控制提权程序时，用托盘菜单的 <strong>以管理员身份重新启动</strong> 当场提权（每次开机后、要用之前按一次，过一次 UAC）。</p>
-<p>只在意普通程序（跨窗口维持模式、绑定普通程序）的话，完全不需要提权，<code>...-setup-user.exe</code> 就够用。</p>
-<p><strong>高级：真的想要提权开机。</strong> 本工具刻意不内置（理由如上），但你可以自己用任务计划程序建立一个「登录时、以最高权限」的任务。以<strong>管理员</strong>打开命令提示符，运行（路径换成实际安装位置；admin 版默认在 <code>C:\Program Files\ImeModePersistence</code>）：</p>
+<p><strong>开机自动启动一律是普通权限</strong>，因为「开机时自动以管理员身份启动」正是杀毒会判成恶意的持久化行为，本工具刻意不做。要控制提权程序时，用托盘菜单的 <strong>以管理员身份重新启动</strong> 当场提权（每次开机后、要用之前按一次，过一次 UAC）。</p>
+<p>只在意普通程序（跨窗口维持模式、绑定普通程序）的话，完全不需要提权，<code>...-setup.exe</code> 就够用。</p>
+<p><strong>高级：真的想要提权开机。</strong> 本工具刻意不内置（理由如上），但你可以自己用任务计划程序建立一个「登录时、以最高权限」的任务。以<strong>管理员</strong>打开命令提示符，运行（路径换成实际安装位置；选全机安装时默认在 <code>C:\Program Files\ImeModePersistence</code>）：</p>
 <pre><code>schtasks /Create /TN &quot;ImeModePersistence-Elevated&quot; /TR &quot;\&quot;C:\Program Files\ImeModePersistence\ImeModePersistence.exe\&quot;&quot; /SC ONLOGON /RL HIGHEST /F
 </code></pre>
 <p><code>/RL HIGHEST</code> 让它登录时以最高权限启动且<strong>不跳 UAC</strong>。建立后，请到托盘菜单把 app 内置的<strong>开机时自动启动</strong>关掉，否则未提权的 HKCU Run 注册表项会在登录时再开一个未提权实例。移除这个任务：<code>schtasks /Delete /TN &quot;ImeModePersistence-Elevated&quot; /F</code>。</p>

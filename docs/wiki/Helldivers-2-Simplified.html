@@ -87,9 +87,6 @@
 <p><a href="Helldivers-2.html">繁體中文</a> · <a href="Helldivers-2-English.html">English</a> · <strong>简体中文</strong> · <a href="Helldivers-2-Japanese.html">日本語</a> · <a href="Helldivers-2-Korean.html">한국어</a></p>
 <p>Helldivers 2 目前无法可靠地处理中文输入法的状态。进入游戏时若系统还在中文模式，按键会被输入法拦走，而游戏内没有稳定的方式切回英数。</p>
 <p>这一页说明怎么把这个游戏固定绑在英文输入语言上。</p>
-<blockquote>
-<p><strong>本工具还在开发中且未经签名</strong>，杀毒软件可能将其判定为病毒并删除。详情与如何判断见<a href="Home-Simplified.html">首页</a>，请自行评估是否使用。</p>
-</blockquote>
 <h2>为什么一般的输入法工具在这里没用</h2>
 <p>游戏直接读取键盘，不接受一般程序用来切换输入法的那种指令。而且它的反作弊机制不让其他程序看见它是哪一个程序 —— 所以「指定某个可执行文件用英文」这种设置对它永远不会生效。</p>
 <p>本工具改用两个方式绕过：用<strong>窗口类别</strong>（一种每个窗口都有的名称）来辨识它，并用 Windows 标准的「切换输入语言」通知请它自己换 —— 跟你按 Win+Space 时系统发的是同一种。</p>
@@ -101,7 +98,7 @@
 <h2>设置步骤</h2>
 <ol>
 <li>
-<p>从 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下载 <code>...-setup-admin.exe</code>（需要管理员权限的版本），安装时勾选 <strong>开机时自动启动</strong>（开机后以普通权限启动）。<strong>要控制游戏之前，记得先照上面「必要的前提」右键 → 以管理员身份重新启动。</strong></p>
+<p>从 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下载 <code>...-setup.exe</code>，安装时勾选 <strong>开机时自动启动</strong>（开机后以普通权限启动）。<strong>要控制游戏之前，记得先照上面「必要的前提」右键 → 以管理员身份重新启动。</strong></p>
 <p>安装画面还有一个 <strong>绑定 Helldivers 2 为英文输入</strong>。勾了它，下面第 5～8 步就会在第一次启动时自动完成，你可以直接跳到「确认是否生效」。想自己手动设置、或想绑其他语言，就别勾，照下面走。</p>
 </li>
 <li>
@@ -192,14 +189,6 @@
 <tr>
 <td>上次切换尝试显示未生效</td>
 <td>切换没成功。欢迎<a href="https://github.com/mangokingTW/ImeModePersistence/issues">反馈</a>，但请看下面「不会做的事」</td>
-</tr>
-<tr>
-<td>更新时要求先关闭程序</td>
-<td>你是用免管理员版装的，之后手动提权运行。改用 <code>...-setup-admin.exe</code> 重装一次就不会再问</td>
-</tr>
-<tr>
-<td>开机没有自动启动</td>
-<td>安装时要勾 <strong>开机时自动启动</strong>，或从托盘菜单勾选 —— 提权运行时它会建立提权的计划任务</td>
 </tr>
 </tbody>
 </table>

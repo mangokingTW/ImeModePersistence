@@ -87,9 +87,6 @@
 <p><a href="Helldivers-2.html">繁體中文</a> · <a href="Helldivers-2-English.html">English</a> · <a href="Helldivers-2-Simplified.html">简体中文</a> · <strong>日本語</strong> · <a href="Helldivers-2-Korean.html">한국어</a></p>
 <p>Helldivers 2 は IME の状態を確実には扱えません。ゲームに入るときにシステムが中国語モードになっていると、キー入力が IME に横取りされ、ゲーム内で英数へ戻す確実な方法がありません。</p>
 <p>このページでは、ゲームを英語に固定します。</p>
-<blockquote>
-<p><strong>このユーティリティは開発中で未署名です</strong>。ウイルス対策ソフトがウイルスと判定して削除することがあります。詳細は <a href="Home-Japanese.html">ホームページ</a> を参照し、使うかどうかをご自身で判断してください。</p>
-</blockquote>
 <h2>通常の IME ツールがここで失敗する理由</h2>
 <p>このゲームはキーボードを直接読み取り、他のプログラムが入力言語を切り替えるために使う種類の指示を受け付けません。またアンチチートは、他のプログラムがそれがどのプログラムなのかを見ることも防ぎます。そのため、実行ファイルを名指しするルールは決して適用されません。</p>
 <p>このユーティリティは両方を回避します。ウィンドウをその <strong>クラス</strong>（すべてのウィンドウが持つ名前）で識別し、Windows の標準的な入力言語変更通知（Win+Space を押したときにシステムが送るのと同じもの）で切り替えるよう要求します。</p>
@@ -99,7 +96,7 @@
 <h2>手順</h2>
 <ol>
 <li>
-<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> から <code>...-setup-admin.exe</code> をインストールし、<strong>ログオン時に自動的に起動する</strong> にチェックを入れます（ログオン時には非昇格で起動します）。<strong>ゲームを制御する前に、上記の要件を忘れないでください: 右クリック → 管理者として再起動。</strong></p>
+<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> から <code>...-setup.exe</code> をインストールし、<strong>ログオン時に自動的に起動する</strong> にチェックを入れます（ログオン時には非昇格で起動します）。<strong>ゲームを制御する前に、上記の要件を忘れないでください: 右クリック → 管理者として再起動。</strong></p>
 <p>セットアップでは <strong>Helldivers 2 を英語入力にバインドする</strong> も提供されます。これにチェックを入れると、以下の手順 5〜8 が初回起動時に自動的に行われます。「動作確認」までスキップしてください。手動でルールを設定する場合や、別の言語にバインドする場合は、チェックを外したままにします。</p>
 </li>
 <li>
@@ -157,14 +154,6 @@
 <tr>
 <td>直近の試行が「効果なし」と表示される</td>
 <td><a href="https://github.com/mangokingTW/ImeModePersistence/issues">報告</a> してください。ただし下記も参照してください</td>
-</tr>
-<tr>
-<td>更新時にプログラムを閉じるよう求められる</td>
-<td>管理者権限なしのインストーラーを使い、手動で昇格しています。<code>...-setup-admin.exe</code> で再インストールしてください</td>
-</tr>
-<tr>
-<td>ログオン時に起動しない</td>
-<td>セットアップ中またはトレイメニューから <strong>ログオン時に自動的に起動する</strong> にチェックを入れてください。昇格中であれば、昇格されたスケジュールタスクを登録します</td>
 </tr>
 </tbody>
 </table>
