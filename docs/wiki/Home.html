@@ -196,9 +196,9 @@
 正常，不是故障。有些程式（多半是有防作弊的遊戲）不允許其他程式讀取它的檔案位置，這時本工具改用<strong>視窗類別</strong>辨識它。那串 <code>class:...</code> 就是綁定規則要填的內容。</p>
 <p><strong>要不要以管理員身分執行？</strong>
 要控制<strong>本身以管理員身分執行的程式</strong>（多數有防作弊的遊戲都是）就必須提權 —— Windows 不讓權限較低的程式讀取權限較高的程式的視窗，連視窗類別都讀不到。</p>
-<p><strong>開機自動啟動一律是一般權限</strong>（兩個安裝版本都一樣），因為「開機時自動以管理員身分啟動」正是防毒會判成惡意的持久化行為，本工具刻意不做。要控制提權程式時，用托盤選單的 <strong>以管理員身分重新啟動</strong> 當場提權（每次開機後、要用之前按一次，過一次 UAC）。</p>
-<p>只在意一般程式（跨視窗維持模式、綁定一般程式）的話，完全不需要提權，<code>...-setup-user.exe</code> 就夠用。</p>
-<p><strong>進階：真的想要提權開機。</strong> 本工具刻意不內建（理由如上），但你可以自己用工作排程器建立一個「登入時、以最高權限」的工作。以<strong>系統管理員</strong>開啟命令提示字元，執行（路徑換成實際安裝位置；admin 版預設在 <code>C:\Program Files\ImeModePersistence</code>）：</p>
+<p><strong>開機自動啟動一律是一般權限</strong>，因為「開機時自動以管理員身分啟動」正是防毒會判成惡意的持久化行為，本工具刻意不做。要控制提權程式時，用托盤選單的 <strong>以管理員身分重新啟動</strong> 當場提權（每次開機後、要用之前按一次，過一次 UAC）。</p>
+<p>只在意一般程式（跨視窗維持模式、綁定一般程式）的話，完全不需要提權，<code>...-setup.exe</code> 就夠用。</p>
+<p><strong>進階：真的想要提權開機。</strong> 本工具刻意不內建（理由如上），但你可以自己用工作排程器建立一個「登入時、以最高權限」的工作。以<strong>系統管理員</strong>開啟命令提示字元，執行（路徑換成實際安裝位置；選全機安裝時預設在 <code>C:\Program Files\ImeModePersistence</code>）：</p>
 <pre><code>schtasks /Create /TN &quot;ImeModePersistence-Elevated&quot; /TR &quot;\&quot;C:\Program Files\ImeModePersistence\ImeModePersistence.exe\&quot;&quot; /SC ONLOGON /RL HIGHEST /F
 </code></pre>
 <p><code>/RL HIGHEST</code> 讓它登入時以最高權限啟動且<strong>不跳 UAC</strong>。建立後，請到托盤選單把 app 內建的<strong>開機時自動啟動</strong>關掉，否則未提權的 HKCU Run 登錄項目會在登入時再開一個未提權實例。移除這個排程：<code>schtasks /Delete /TN &quot;ImeModePersistence-Elevated&quot; /F</code>。</p>
