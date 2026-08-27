@@ -1,8 +1,6 @@
 <h1>
-  <img src="assets/app_icon_trim.png" alt="" height="36" align="absmiddle">&nbsp;輸入法工具箱
+  <img src="assets/app_icon_trim.png" alt="" height="36" align="absmiddle">&nbsp;輸入法工具箱 <sub>IME Mode Persistence</sub>
 </h1>
-
-<sub>IME Mode Persistence</sub>
 
 **跨視窗維持中/英，並為程式綁定輸入語言**
 
