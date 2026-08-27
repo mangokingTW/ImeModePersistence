@@ -145,8 +145,8 @@
 <li><strong>萬用字元（進階）</strong> → 路徑帶版本號、或視窗類別有生成後綴時，直接在欄位輸入 <code>glob:*\game.exe</code>（比對路徑）或 <code>class-glob:name_*</code>（比對視窗類別），支援 <code>*</code>（任意長度，含路徑分隔符）與 <code>?</code>（單一字元）。精確規則一律優先於萬用字元 —— 這是<strong>預設順序</strong>，你也可以拖拉清單自訂，<strong>由上到下第一個符合的優先</strong>；每條規則可設<strong>只套用一次</strong>（進視窗設一次、之後不再強制），全部都不符合時還能啟用一條<strong>預設語言</strong>（預設關閉）。</li>
 </ul>
 <h3>游標輸入指示器（預設關閉）</h3>
-<p>托盤選單的<strong>在游標旁顯示輸入指示</strong>會在文字游標旁顯示一個小徽章，告訴你目前<strong>會打出什麼</strong>：<code>中</code>／<code>あ</code>／<code>한</code>（該語言的中文/native 模式）、<code>Ａ</code>（輸入法切到英數）、或 <code>EN</code> 之類的語言代碼。設定會被記住。</p>
-<p>徽章會跟著游標、避開自己的視窗。在<strong>瀏覽器網址列</strong>這類欄位，因為 Chromium 對外回報的游標位置不可靠，徽章會改顯示在該行<strong>上方</strong>、不遮住文字。</p>
+<p>托盤選單的<strong>在游標旁顯示輸入指示</strong>會在文字游標旁顯示一個小指示器，告訴你目前<strong>會打出什麼</strong>：<code>中</code>／<code>あ</code>／<code>한</code>（該語言的中文/native 模式）、<code>Ａ</code>（輸入法切到英數）、或 <code>EN</code> 之類的語言代碼。設定會被記住。</p>
+<p>指示器會跟著游標、避開自己的視窗。在<strong>瀏覽器網址列</strong>這類欄位，因為 Chromium 對外回報的游標位置不可靠，指示器會改顯示在該行<strong>上方</strong>、不遮住文字。</p>
 <blockquote>
 <p><strong>下列位置不會顯示輸入法指示器</strong>：<strong>工作列與開始功能表的搜尋框</strong>、<strong>Windows 終端機</strong>、<strong>檔案總管</strong>。這些屬於系統層級介面，Windows 僅允許具備數位簽章的程式在其上顯示內容，而本工具目前尚未簽章。一般應用程式（瀏覽器、記事本與各式文字編輯器、Office、通訊軟體、遊戲等）皆可正常顯示。</p>
 </blockquote>
