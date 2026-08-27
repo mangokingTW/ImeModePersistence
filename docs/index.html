@@ -16,6 +16,7 @@
 <meta property="og:image:alt" content="IME Mode Persistence">
 <meta property="og:locale" content="zh_TW">
 <meta property="og:locale:alternate" content="en_US">
+<meta property="og:locale:alternate" content="zh_CN">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="IME Mode Persistence — 跨視窗維持輸入模式的 Windows 小工具">
 <meta name="twitter:description" content="切換視窗時延續你選的輸入模式(中/英),並可把程式綁定固定輸入語言 —— 連防作弊全螢幕遊戲也行。">
@@ -40,15 +41,13 @@
   html{scroll-behavior:smooth}
   body{
     margin:0; background:var(--bg); color:var(--fg);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","Noto Sans TC","Microsoft JhengHei",Roboto,Helvetica,Arial,sans-serif;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang TC","PingFang SC","Noto Sans TC","Noto Sans SC","Microsoft JhengHei","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
     line-height:1.65; -webkit-font-smoothing:antialiased;
   }
-  /* language toggle: default shows zh; .lang-en shows en */
-  body:not(.lang-en) .en{display:none}
-  body.lang-en .zh{display:none}
-  img.en,img.zh{display:inline-block}
-  body:not(.lang-en) img.en{display:none}
-  body.lang-en img.zh{display:none}
+  /* language: body[data-lang] reveals exactly one of .zh / .en / .cn */
+  body[data-lang="zh"] .en, body[data-lang="zh"] .cn,
+  body[data-lang="en"] .zh, body[data-lang="en"] .cn,
+  body[data-lang="cn"] .zh, body[data-lang="cn"] .en { display:none }
 
   a{color:var(--accent); text-decoration:none}
   a:hover{text-decoration:underline}
@@ -65,6 +64,8 @@
   .pillbtn{border:1px solid var(--border); background:var(--card); color:var(--fg);
     border-radius:999px; padding:6px 12px; font-size:.85rem; cursor:pointer; font-weight:600}
   .pillbtn:hover{border-color:var(--accent); text-decoration:none}
+  .langsel{display:inline-flex; gap:4px}
+  .langbtn[aria-pressed="true"]{background:var(--accent); color:var(--accent-fg); border-color:var(--accent)}
 
   .btn{display:inline-flex; align-items:center; gap:8px; padding:11px 18px; border-radius:11px;
     font-weight:650; border:1px solid transparent; cursor:pointer}
@@ -88,13 +89,16 @@
   .store-badge img{height:52px; width:auto; display:none}
   /* show exactly one badge = current language x current color scheme (CSS media
      re-evaluates live, unlike <picture> source selection) */
-  body:not(.lang-en) .store-badge .sb-zh.sb-for-light{display:inline-block}
-  body.lang-en .store-badge .sb-en.sb-for-light{display:inline-block}
+  body[data-lang="zh"] .store-badge .sb-zh.sb-for-light,
+  body[data-lang="en"] .store-badge .sb-en.sb-for-light,
+  body[data-lang="cn"] .store-badge .sb-cn.sb-for-light{display:inline-block}
   @media (prefers-color-scheme:dark){
-    body:not(.lang-en) .store-badge .sb-zh.sb-for-light{display:none}
-    body:not(.lang-en) .store-badge .sb-zh.sb-for-dark{display:inline-block}
-    body.lang-en .store-badge .sb-en.sb-for-light{display:none}
-    body.lang-en .store-badge .sb-en.sb-for-dark{display:inline-block}
+    body[data-lang="zh"] .store-badge .sb-zh.sb-for-light,
+    body[data-lang="en"] .store-badge .sb-en.sb-for-light,
+    body[data-lang="cn"] .store-badge .sb-cn.sb-for-light{display:none}
+    body[data-lang="zh"] .store-badge .sb-zh.sb-for-dark,
+    body[data-lang="en"] .store-badge .sb-en.sb-for-dark,
+    body[data-lang="cn"] .store-badge .sb-cn.sb-for-dark{display:inline-block}
   }
   .badges{display:flex; gap:8px; justify-content:center; flex-wrap:wrap; margin-top:14px}
   .badges img{height:20px}
@@ -129,14 +133,18 @@
   footer a{color:var(--muted)}
 </style>
 </head>
-<body>
+<body data-lang="zh">
 
 <header class="nav">
   <div class="wrap">
     <span class="brand"><img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/assets/app_icon_trim.png" alt="">IME Mode Persistence</span>
     <span class="spacer"></span>
-    <button class="pillbtn" id="langToggle" aria-label="Switch language"><span class="zh">EN</span><span class="en">中文</span></button>
-    <a class="pillbtn" href="wiki/"><span class="zh">說明</span><span class="en">Guides</span></a>
+    <span class="langsel" role="group" aria-label="Language / 語言">
+      <button type="button" class="pillbtn langbtn" data-setlang="zh" aria-pressed="true">繁中</button>
+      <button type="button" class="pillbtn langbtn" data-setlang="en" aria-pressed="false">EN</button>
+      <button type="button" class="pillbtn langbtn" data-setlang="cn" aria-pressed="false">简</button>
+    </span>
+    <a class="pillbtn" href="wiki/"><span class="zh">說明</span><span class="en">Guides</span><span class="cn">说明</span></a>
     <a class="pillbtn" href="https://github.com/mangokingTW/ImeModePersistence">GitHub</a>
   </div>
 </header>
@@ -149,6 +157,7 @@
     <p class="lead">
       <span class="zh">Windows 小工具:切換視窗時<strong>延續你最後選的輸入模式</strong>(中文/英數),並可把程式<strong>綁定固定輸入語言</strong> —— 連讀不到執行檔的防作弊全螢幕遊戲也行。</span>
       <span class="en">A Windows utility that <strong>carries the input mode you last chose</strong> (native or alphanumeric) to the next window, and can <strong>bind a program to a fixed input language</strong> — including anti-cheat fullscreen games whose executable cannot be read.</span>
+      <span class="cn">Windows 小工具:切换窗口时<strong>延续你最后选的输入模式</strong>(中文/英数),并可把程序<strong>绑定固定输入语言</strong> —— 连读不到可执行文件的反作弊全屏游戏也行。</span>
     </p>
     <div class="cta">
       <a class="store-badge" href="https://apps.microsoft.com/detail/9P05QQZ2P5XC" aria-label="Get it from Microsoft Store">
@@ -156,9 +165,11 @@
         <img class="sb-zh sb-for-dark" src="https://get.microsoft.com/images/zh-tw%20light.svg" alt="從 Microsoft Store 取得">
         <img class="sb-en sb-for-light" src="https://get.microsoft.com/images/en-us%20dark.svg" alt="Get it from Microsoft Store">
         <img class="sb-en sb-for-dark" src="https://get.microsoft.com/images/en-us%20light.svg" alt="Get it from Microsoft Store">
+        <img class="sb-cn sb-for-light" src="https://get.microsoft.com/images/zh-cn%20dark.svg" alt="从 Microsoft Store 获取">
+        <img class="sb-cn sb-for-dark" src="https://get.microsoft.com/images/zh-cn%20light.svg" alt="从 Microsoft Store 获取">
       </a>
       <a class="btn ghost" href="https://github.com/mangokingTW/ImeModePersistence/releases">
-        <span class="zh">下載 Releases</span><span class="en">Download from Releases</span>
+        <span class="zh">下載 Releases</span><span class="en">Download from Releases</span><span class="cn">下载 Releases</span>
       </a>
     </div>
     <div class="badges">
@@ -169,6 +180,7 @@
     <p class="fineprint">
       <span class="zh">Store 版自動更新。桌面版未簽章 —— 防毒可能誤刪安裝檔,可改用免安裝 zip(功能相同)。</span>
       <span class="en">The Store build auto-updates. Desktop builds are unsigned — antivirus may flag the installer; the portable zip is functionally identical.</span>
+      <span class="cn">Store 版自動更新。桌面版未签名 —— 杀毒软件可能误删安装程序,可改用免安装 zip(功能相同)。</span>
     </p>
   </div>
 </section>
@@ -176,13 +188,14 @@
 <!-- DEMO -->
 <section>
   <div class="wrap" style="text-align:center">
-    <span class="eyebrow"><span class="zh">實機示範</span><span class="en">Live demo</span></span>
-    <h2><span class="zh">打字、切視窗,模式跟著你走</span><span class="en">Type, switch windows, the mode follows you</span></h2>
+    <span class="eyebrow"><span class="zh">實機示範</span><span class="en">Live demo</span><span class="cn">实机演示</span></span>
+    <h2><span class="zh">打字、切視窗,模式跟著你走</span><span class="en">Type, switch windows, the mode follows you</span><span class="cn">打字、切窗口,模式跟着你走</span></h2>
     <figure>
       <img src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/demo.webp" alt="Live typing and caret indicator demo" loading="lazy">
       <figcaption>
         <span class="zh">微軟注音實機驗證,含游標旁的 <code>中</code> / <code>A</code> 輸入指示器。</span>
         <span class="en">Verified with Microsoft Bopomofo on real hardware, with the <code>中</code> / <code>A</code> caret indicator.</span>
+        <span class="cn">微软注音实机验证,含光标旁的 <code>中</code> / <code>A</code> 输入指示器。</span>
       </figcaption>
     </figure>
   </div>
@@ -191,15 +204,17 @@
 <!-- WHY -->
 <section style="background:var(--bg-soft)">
   <div class="wrap">
-    <span class="eyebrow"><span class="zh">為什麼需要它</span><span class="en">Why you need it</span></span>
-    <h2><span class="zh">Windows 沒有任何設定能維持「轉換模式」</span><span class="en">No Windows setting covers the conversion mode</span></h2>
+    <span class="eyebrow"><span class="zh">為什麼需要它</span><span class="en">Why you need it</span><span class="cn">为什么需要它</span></span>
+    <h2><span class="zh">Windows 沒有任何設定能維持「轉換模式」</span><span class="en">No Windows setting covers the conversion mode</span><span class="cn">Windows 没有任何设置能维持「转换模式」</span></h2>
     <p class="lead" style="max-width:52em">
       <span class="zh">Windows 的 IME 狀態是<strong>逐執行緒</strong>的。切到另一個視窗,轉換模式就回到 IME 預設 —— 中文鍵盤就是變回<strong>中文</strong>。於是你按 Shift 切英數、換個視窗,又在打中文了。「為每個應用程式視窗設定不同的輸入法」那個設定<strong>治不了這個</strong> —— 它只管「用哪個輸入法」,不管「中/英模式」。</span>
       <span class="en">Windows keeps IME state <strong>per thread</strong>. Move to another window and the conversion mode reverts to the IME's default — for a Chinese keyboard, that means <strong>Chinese</strong>. The “different input method for each app window” setting <strong>does not fix this</strong>: it governs <em>which</em> method is active, not whether it is in native or alphanumeric mode.</span>
+      <span class="cn">Windows 的 IME 状态是<strong>逐线程</strong>的。切到另一个窗口,转换模式就回到 IME 默认 —— 中文键盘就是变回<strong>中文</strong>。于是你按 Shift 切英数、换个窗口,又在打中文了。「为每个应用窗口设置不同的输入法」那个设置<strong>治不了这个</strong> —— 它只管「用哪个输入法」,不管「中/英模式」。</span>
     </p>
     <p class="lead" style="max-width:52em">
       <span class="zh">維持你選的中/英模式,就是這個工具的<strong>第一個</strong>用途;<strong>第二個</strong>是把特定程式釘在某個輸入語言 —— 包含任何設定都搆不到的那種(直接讀原始輸入的全螢幕遊戲)。</span>
       <span class="en">Carrying that native/alphanumeric mode is this utility's <strong>first</strong> purpose. Its <strong>second</strong> is pinning a program to an input language — including the kind no setting can reach, like a fullscreen game reading raw input.</span>
+      <span class="cn">维持你选的中/英模式,就是这个工具的<strong>第一个</strong>用途;<strong>第二个</strong>是把特定程序钉在某个输入语言 —— 包含任何设置都够不到的那种(直接读原始输入的全屏游戏)。</span>
     </p>
   </div>
 </section>
@@ -207,32 +222,32 @@
 <!-- FEATURES -->
 <section>
   <div class="wrap">
-    <span class="eyebrow"><span class="zh">功能</span><span class="en">Features</span></span>
-    <h2><span class="zh">它能做什麼</span><span class="en">What it does</span></h2>
+    <span class="eyebrow"><span class="zh">功能</span><span class="en">Features</span><span class="cn">功能</span></span>
+    <h2><span class="zh">它能做什麼</span><span class="en">What it does</span><span class="cn">它能做什么</span></h2>
     <div class="grid">
       <div class="card">
-        <h3><span class="zh">跨視窗維持模式</span><span class="en">Mode persistence</span></h3>
-        <p><span class="zh">在 A 視窗打中文 → 切到 B 仍是中文;按 Shift 變英數 → 切到 C 仍是英數。跟著你最近一次刻意的選擇走,可從托盤關閉。</span><span class="en">Type Chinese in A → B stays Chinese; press Shift for alphanumeric → C stays alphanumeric. Follows your most recent deliberate change; toggleable from the tray.</span></p>
+        <h3><span class="zh">跨視窗維持模式</span><span class="en">Mode persistence</span><span class="cn">跨窗口维持模式</span></h3>
+        <p><span class="zh">在 A 視窗打中文 → 切到 B 仍是中文;按 Shift 變英數 → 切到 C 仍是英數。跟著你最近一次刻意的選擇走,可從托盤關閉。</span><span class="en">Type Chinese in A → B stays Chinese; press Shift for alphanumeric → C stays alphanumeric. Follows your most recent deliberate change; toggleable from the tray.</span><span class="cn">在 A 窗口打中文 → 切到 B 仍是中文;按 Shift 变英数 → 切到 C 仍是英数。跟着你最近一次有意的选择走,可从托盘关闭。</span></p>
       </div>
       <div class="card">
-        <h3><span class="zh">每 App 綁定輸入語言</span><span class="en">Per-app language binding</span></h3>
-        <p><span class="zh">把終端機綁英文、Word 綁中文。支援完整路徑 / 檔名 / 視窗類別 / 萬用字元;可拖曳排序(最上者優先)、套用一次、預設語言。</span><span class="en">Bind a terminal to English, Word to Chinese. Full path / file name / window class / wildcards; drag to reorder (topmost wins), apply-once, and an optional default.</span></p>
+        <h3><span class="zh">每 App 綁定輸入語言</span><span class="en">Per-app language binding</span><span class="cn">每 App 绑定输入语言</span></h3>
+        <p><span class="zh">把終端機綁英文、Word 綁中文。支援完整路徑 / 檔名 / 視窗類別 / 萬用字元;可拖曳排序(最上者優先)、套用一次、預設語言。</span><span class="en">Bind a terminal to English, Word to Chinese. Full path / file name / window class / wildcards; drag to reorder (topmost wins), apply-once, and an optional default.</span><span class="cn">把终端绑英文、Word 绑中文。支持完整路径 / 文件名 / 窗口类 / 通配符;可拖动排序(最上者优先)、套用一次、默认语言。</span></p>
       </div>
       <div class="card">
-        <h3><span class="zh">游標輸入指示器</span><span class="en">Caret input indicator</span></h3>
-        <p><span class="zh">游標旁顯示你實際會打出的:<code>中</code>/<code>あ</code>/<code>한</code>、<code>Ａ</code>(英數)或語言碼。預設關閉。</span><span class="en">A badge beside the caret showing what you'll actually type: <code>中</code>/<code>あ</code>/<code>한</code>, <code>Ａ</code>, or a language code. Off by default.</span></p>
+        <h3><span class="zh">游標輸入指示器</span><span class="en">Caret input indicator</span><span class="cn">光标输入指示器</span></h3>
+        <p><span class="zh">游標旁顯示你實際會打出的:<code>中</code>/<code>あ</code>/<code>한</code>、<code>Ａ</code>(英數)或語言碼。預設關閉。</span><span class="en">A badge beside the caret showing what you'll actually type: <code>中</code>/<code>あ</code>/<code>한</code>, <code>Ａ</code>, or a language code. Off by default.</span><span class="cn">光标旁显示你实际会打出的:<code>中</code>/<code>あ</code>/<code>한</code>、<code>Ａ</code>(英数)或语言代码。默认关闭。</span></p>
       </div>
       <div class="card">
-        <h3><span class="zh">現代 TSF/WinUI 支援</span><span class="en">Modern TSF/WinUI support</span></h3>
-        <p><span class="zh">新版記事本這類 UIPI 保護的視窗,靠 <strong>Sidecar Helper</strong> 跨越權限邊界維持模式 —— <strong>Store 版與桌面版皆可</strong>。</span><span class="en">UIPI-protected windows like the modern Notepad are handled by a <strong>Sidecar Helper</strong> that bridges the barrier — <strong>in both the Store and desktop builds</strong>.</span></p>
+        <h3><span class="zh">現代 TSF/WinUI 支援</span><span class="en">Modern TSF/WinUI support</span><span class="cn">现代 TSF/WinUI 支持</span></h3>
+        <p><span class="zh">新版記事本這類 UIPI 保護的視窗,靠 <strong>Sidecar Helper</strong> 跨越權限邊界維持模式 —— <strong>Store 版與桌面版皆可</strong>。</span><span class="en">UIPI-protected windows like the modern Notepad are handled by a <strong>Sidecar Helper</strong> that bridges the barrier — <strong>in both the Store and desktop builds</strong>.</span><span class="cn">新版记事本这类 UIPI 保护的窗口,靠 <strong>Sidecar Helper</strong> 跨越权限边界维持模式 —— <strong>Store 版与桌面版皆可</strong>。</span></p>
       </div>
       <div class="card">
-        <h3><span class="zh">防作弊全螢幕遊戲</span><span class="en">Anti-cheat fullscreen games</span></h3>
-        <p><span class="zh">用視窗類別(<code>class:…</code>)綁定,連管理員都讀不到路徑的遊戲也治得了。Helldivers 2 實測可用。</span><span class="en">Bind by window class (<code>class:…</code>) to reach games whose path not even an admin can read. Confirmed with Helldivers 2.</span></p>
+        <h3><span class="zh">防作弊全螢幕遊戲</span><span class="en">Anti-cheat fullscreen games</span><span class="cn">反作弊全屏游戏</span></h3>
+        <p><span class="zh">用視窗類別(<code>class:…</code>)綁定,連管理員都讀不到路徑的遊戲也治得了。Helldivers 2 實測可用。</span><span class="en">Bind by window class (<code>class:…</code>) to reach games whose path not even an admin can read. Confirmed with Helldivers 2.</span><span class="cn">用窗口类(<code>class:…</code>)绑定,连管理员都读不到路径的游戏也治得了。Helldivers 2 实测可用。</span></p>
       </div>
       <div class="card">
-        <h3><span class="zh">不注入、不掛勾</span><span class="en">No injection, no hooks</span></h3>
-        <p><span class="zh">不注入、不掛勾、不模擬按鍵,只用 Windows/TSF 的公開機制。原始碼、建置與發佈產物全公開、可用 <code>gh attestation verify</code> 驗證。</span><span class="en">Nothing injected, hooked or synthesised — only public Windows/TSF mechanisms. Source, build and artifacts are public and verifiable with <code>gh attestation verify</code>.</span></p>
+        <h3><span class="zh">不注入、不掛勾</span><span class="en">No injection, no hooks</span><span class="cn">不注入、不挂钩</span></h3>
+        <p><span class="zh">不注入、不掛勾、不模擬按鍵,只用 Windows/TSF 的公開機制。原始碼、建置與發佈產物全公開、可用 <code>gh attestation verify</code> 驗證。</span><span class="en">Nothing injected, hooked or synthesised — only public Windows/TSF mechanisms. Source, build and artifacts are public and verifiable with <code>gh attestation verify</code>.</span><span class="cn">不注入、不挂钩、不模拟按键,只用 Windows/TSF 的公开机制。源代码、构建与发布产物全公开、可用 <code>gh attestation verify</code> 验证。</span></p>
       </div>
     </div>
   </div>
@@ -241,23 +256,26 @@
 <!-- SCREENSHOTS -->
 <section style="background:var(--bg-soft)">
   <div class="wrap">
-    <span class="eyebrow"><span class="zh">畫面</span><span class="en">Screenshots</span></span>
-    <h2><span class="zh">介面一覽</span><span class="en">A look at the UI</span></h2>
+    <span class="eyebrow"><span class="zh">畫面</span><span class="en">Screenshots</span><span class="cn">界面截图</span></span>
+    <h2><span class="zh">介面一覽</span><span class="en">A look at the UI</span><span class="cn">界面一览</span></h2>
     <div class="shots">
       <figure>
         <img class="zh" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/menu-zh-tw-light.png" alt="托盤選單" loading="lazy" style="max-width:280px">
         <img class="en" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/menu-en-light.png" alt="Tray menu" loading="lazy" style="max-width:280px">
-        <figcaption><span class="zh">托盤右鍵選單</span><span class="en">Tray right-click menu</span></figcaption>
+        <img class="cn" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/menu-zh-cn-light.png" alt="托盘菜单" loading="lazy" style="max-width:280px">
+        <figcaption><span class="zh">托盤右鍵選單</span><span class="en">Tray right-click menu</span><span class="cn">托盘右键菜单</span></figcaption>
       </figure>
       <figure>
         <img class="zh" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/rules-zh-tw-light.png" alt="程式綁定對話框" loading="lazy">
         <img class="en" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/rules-en-light.png" alt="App language bindings dialog" loading="lazy">
-        <figcaption><span class="zh">程式綁定輸入語言(可拖曳排序,最上者優先)</span><span class="en">App language bindings (drag to reorder; topmost wins)</span></figcaption>
+        <img class="cn" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/rules-zh-cn-light.png" alt="程序绑定对话框" loading="lazy">
+        <figcaption><span class="zh">程式綁定輸入語言(可拖曳排序,最上者優先)</span><span class="en">App language bindings (drag to reorder; topmost wins)</span><span class="cn">程序绑定输入语言(可拖动排序,最上者优先)</span></figcaption>
       </figure>
       <figure>
         <img class="zh" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/status-zh-tw-light.png" alt="完整狀態" loading="lazy" style="max-width:360px">
         <img class="en" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/status-en-light.png" alt="Full status" loading="lazy" style="max-width:360px">
-        <figcaption><span class="zh">滑鼠停留可看目前程式、綁定語言、實際使用的語言與上次切換結果</span><span class="en">Hover for the current app, its bound language, the language in use, and the last switch result</span></figcaption>
+        <img class="cn" src="https://raw.githubusercontent.com/mangokingTW/ImeModePersistence/main/docs/screenshots/status-zh-cn-light.png" alt="完整状态" loading="lazy" style="max-width:360px">
+        <figcaption><span class="zh">滑鼠停留可看目前程式、綁定語言、實際使用的語言與上次切換結果</span><span class="en">Hover for the current app, its bound language, the language in use, and the last switch result</span><span class="cn">鼠标停留可看当前程序、绑定语言、实际使用的语言与上次切换结果</span></figcaption>
       </figure>
     </div>
   </div>
@@ -266,11 +284,12 @@
 <!-- INSTALL -->
 <section>
   <div class="wrap">
-    <span class="eyebrow"><span class="zh">安裝</span><span class="en">Install</span></span>
-    <h2><span class="zh">開始使用</span><span class="en">Get started</span></h2>
+    <span class="eyebrow"><span class="zh">安裝</span><span class="en">Install</span><span class="cn">安装</span></span>
+    <h2><span class="zh">開始使用</span><span class="en">Get started</span><span class="cn">开始使用</span></h2>
     <p class="lead">
       <span class="zh">最簡單:從 <a href="https://apps.microsoft.com/detail/9P05QQZ2P5XC">Microsoft Store</a> 安裝(自動更新)。或用套件管理器:</span>
       <span class="en">Easiest: install from the <a href="https://apps.microsoft.com/detail/9P05QQZ2P5XC">Microsoft Store</a> (auto-updates). Or a package manager:</span>
+      <span class="cn">最简单:从 <a href="https://apps.microsoft.com/detail/9P05QQZ2P5XC">Microsoft Store</a> 安装(自动更新)。或用包管理器:</span>
     </p>
     <table>
       <tr><th>Scoop</th><td><pre style="margin:0"><code>scoop bucket add mango https://github.com/mangokingTW/scoop-bucket
@@ -281,13 +300,15 @@ scoop install mango/ImeModePersistence</code></pre></td></tr>
     <p class="muted" style="font-size:.9rem; margin-top:12px">
       <span class="zh">Scoop 現已可用;winget 與 Chocolatey 套件正在社群審核中,通過後即可安裝。也可從 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下載安裝檔或免安裝 zip。</span>
       <span class="en">Scoop is available now; the winget and Chocolatey packages are pending community moderation. You can also grab the installer or portable zip from <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>.</span>
+      <span class="cn">Scoop 现已可用;winget 与 Chocolatey 包正在社区审核中,通过后即可安装。也可从 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下载安装程序或免安装 zip。</span>
     </p>
 
     <div class="callout">
-      <strong><span class="zh">現代 TSF/WinUI 程式(如新版記事本)</span><span class="en">Modern TSF/WinUI apps (e.g. the new Notepad)</span></strong>
+      <strong><span class="zh">現代 TSF/WinUI 程式(如新版記事本)</span><span class="en">Modern TSF/WinUI apps (e.g. the new Notepad)</span><span class="cn">现代 TSF/WinUI 程序(如新版记事本)</span></strong>
       <p class="muted" style="margin:.5em 0 0">
         <span class="zh">這類視窗受 Windows UIPI 保護。托盤點「<strong>啟用 WinUI/管理員支援</strong>」(接受一次 UAC 啟動 Sidecar Helper)即可維持其模式 —— Store 版與桌面版皆可。未啟用時傳統程式與 Chromium(Chrome、Discord)照常,受保護的現代視窗則不維持。</span>
         <span class="en">These windows are protected by Windows UIPI. Click “<strong>Enable WinUI/Admin support</strong>” in the tray (one UAC prompt starts the Sidecar Helper) to hold their mode — in both Store and desktop builds. Without it, classic and Chromium apps still work; UIPI-protected modern windows don't persist.</span>
+        <span class="cn">这类窗口受 Windows UIPI 保护。托盘点「<strong>启用 WinUI/管理员支持</strong>」(接受一次 UAC 启动 Sidecar Helper)即可维持其模式 —— Store 版与桌面版皆可。未启用时传统程序与 Chromium(Chrome、Discord)照常,受保护的现代窗口则不维持。</span>
       </p>
     </div>
   </div>
@@ -297,25 +318,34 @@ scoop install mango/ImeModePersistence</code></pre></td></tr>
 <footer>
   <div class="wrap">
     <span>© <span id="year"></span> Mango Yen · MIT</span>
-    <a href="https://github.com/mangokingTW/ImeModePersistence"><span class="zh">原始碼</span><span class="en">Source</span></a>
-    <a href="wiki/"><span class="zh">說明文件</span><span class="en">Guides</span></a>
-    <a href="https://github.com/mangokingTW/ImeModePersistence/blob/main/docs/design.md"><span class="zh">設計文件</span><span class="en">Design notes</span></a>
-    <a href="https://github.com/mangokingTW/ImeModePersistence/releases"><span class="zh">版本發佈</span><span class="en">Releases</span></a>
+    <a href="https://github.com/mangokingTW/ImeModePersistence"><span class="zh">原始碼</span><span class="en">Source</span><span class="cn">源代码</span></a>
+    <a href="wiki/"><span class="zh">說明文件</span><span class="en">Guides</span><span class="cn">说明文档</span></a>
+    <a href="https://github.com/mangokingTW/ImeModePersistence/blob/main/docs/design.md"><span class="zh">設計文件</span><span class="en">Design notes</span><span class="cn">设计文档</span></a>
+    <a href="https://github.com/mangokingTW/ImeModePersistence/releases"><span class="zh">版本發佈</span><span class="en">Releases</span><span class="cn">版本发布</span></a>
     <span class="muted" style="flex:1; text-align:right">
-      <span class="zh">介面語言:英文 · 繁中 · 簡中 · 日 · 韓</span><span class="en">UI: EN · 繁中 · 简中 · 日 · 한</span>
+      <span class="zh">介面語言:英文 · 繁中 · 簡中 · 日 · 韓</span><span class="en">UI: EN · 繁中 · 简中 · 日 · 한</span><span class="cn">界面语言:英文 · 繁中 · 简中 · 日 · 韩</span>
     </span>
   </div>
 </footer>
 
 <script>
   (function(){
-    var saved = localStorage.getItem("imp-lang");
-    if(saved === "en") document.body.classList.add("lang-en");
-    document.getElementById("langToggle").addEventListener("click", function(){
-      var en = document.body.classList.toggle("lang-en");
-      document.documentElement.lang = en ? "en" : "zh-Hant";
-      localStorage.setItem("imp-lang", en ? "en" : "zh");
-    });
+    function setLang(l){
+      document.body.dataset.lang = l;
+      document.documentElement.lang = l === "en" ? "en" : (l === "cn" ? "zh-Hans" : "zh-Hant");
+      var btns = document.querySelectorAll(".langbtn");
+      for (var i = 0; i < btns.length; i++) {
+        btns[i].setAttribute("aria-pressed", btns[i].dataset.setlang === l ? "true" : "false");
+      }
+      try { localStorage.setItem("imp-lang", l); } catch (e) {}
+    }
+    var saved;
+    try { saved = localStorage.getItem("imp-lang"); } catch (e) {}
+    setLang(saved === "en" || saved === "cn" ? saved : "zh");
+    var btns = document.querySelectorAll(".langbtn");
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener("click", function(){ setLang(this.dataset.setlang); });
+    }
     document.getElementById("year").textContent = new Date().getFullYear();
   })();
 </script>
