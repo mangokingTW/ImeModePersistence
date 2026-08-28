@@ -8,6 +8,9 @@ name: "Spike: ARM64 IME recording"
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/spike-arm64-ime-recording.yml"
 
 permissions:
   contents: read
