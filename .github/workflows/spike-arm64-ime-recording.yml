@@ -27,36 +27,18 @@ jobs:
           mkdir diag -Force | Out-Null
           .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-fix"
 
-      - name: Suppress the first-logon "Choose privacy settings" screen
+      - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
         shell: pwsh
         run: |
-          # Confirmed via screenshot that this IS the "Choose privacy settings
-          # for your device" screen (class Shell_OOBEProxy). Setting this
-          # alone, mid-session, did NOT dismiss an already-shown screen in an
-          # earlier run -- the policy is presumably only checked once, and
-          # that check already happened before our job's first step ran. The
-          # next step forces a fresh check by restarting the shell.
-          New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
-          Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
-
-      - name: Restart the shell so it re-checks the privacy-experience policy
-        shell: pwsh
-        run: |
-          # Shell_OOBEProxy is hosted inside explorer.exe itself (not a
-          # separate process), so it can't be killed on its own. Killing and
-          # restarting explorer.exe forces a fresh instance to decide whether
-          # to show onboarding again, this time with the policy already set
-          # beforehand -- unlike the first, already-triggered instance.
-          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 3
-          Start-Process explorer.exe
-          Start-Sleep -Seconds 8
-          Write-Host "Explorer restarted."
-
-      - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (fallback if still present)
-        shell: pwsh
-        run: |
+          # Confirmed via UIA dump: this is the "Choose privacy settings for
+          # your device" screen (class Shell_OOBEProxy), rendered as embedded
+          # web content. Its button's accessible name is a full phrase ("Next,
+          # tab through all privacy settings to continue"), not "Next" --
+          # exact-name matching never found it. The registry policy
+          # (DisablePrivacyExperience) doesn't dismiss an already-shown screen,
+          # and restarting explorer.exe just recreates the same screen from
+          # scratch -- clicking through via AutomationId/substring match
+          # (dismiss_onboarding_screens.ps1) is what actually works.
           .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 90
 
       - name: Report runner arch

@@ -2,12 +2,19 @@
 # apparently doesn't suppress Windows' first-interactive-logon onboarding flow
 # the way the mature x64 image does. It shows up as a top-level window with
 # class "Shell_OOBEProxy" (observed title "Microsoft account", first page seen
-# was "Choose privacy settings for your device") that sits in the foreground
-# across every virtual desktop and swallows input meant for real apps.
+# was "Choose privacy settings for your device", rendered as embedded web
+# content inside an Internet Explorer_Server control) that sits in the
+# foreground and swallows input meant for real apps. Registry policy
+# (DisablePrivacyExperience) did not dismiss an already-shown screen, and
+# restarting explorer.exe just recreates it from scratch -- clicking through
+# is the only thing that actually works.
 #
-# Rather than guess how many pages it has, repeatedly find the window and
-# click whatever known "move on" button is present, until it's gone or we
-# time out.
+# The button's accessible Name is a full descriptive phrase (e.g. "Next, tab
+# through all privacy settings to continue"), not a plain "Next" -- exact
+# matching against short labels never finds it. Rather than guess how many
+# pages the flow has, repeatedly find the window and click whatever known
+# "move on" control is present (by AutomationId first, then by substring match
+# on Name), until the window is gone or we time out.
 param(
     [int]$TimeoutSeconds = 90
 )
@@ -19,7 +26,14 @@ Add-Type -AssemblyName UIAutomationTypes
 $root = [System.Windows.Automation.AutomationElement]::RootElement
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $clicked = 0
-$buttonNames = @("Next", "Accept", "Skip for now", "Skip", "OK", "I agree", "Continue", "Not now", "Decline", "Ask me later", "Close")
+
+# The button's accessible Name is a full descriptive phrase (e.g. "Next, tab
+# through all privacy settings to continue"), not a plain "Next" -- exact
+# matching against short labels never found it. AutomationId is stable and
+# known for this specific page; substring matching on Name is the fallback for
+# whatever page comes next in the flow, since we don't know its exact wording.
+$knownAutomationIds = @("OobeSettingsAcceptButton")
+$nameSubstrings = @("next", "accept", "skip", "continue", "i agree", "not now", "decline", "ask me later", "close", "sign in later", "do this later")
 
 while ((Get-Date) -lt $deadline) {
     $classCond = New-Object System.Windows.Automation.PropertyCondition(
@@ -33,22 +47,35 @@ while ((Get-Date) -lt $deadline) {
 
     Write-Host "Shell_OOBEProxy present (Name='$($proxy.Current.Name)'); looking for a button to advance..."
     $found = $null
-    $foundName = $null
-    foreach ($name in $buttonNames) {
-        $cond = New-Object System.Windows.Automation.AndCondition(@(
-            (New-Object System.Windows.Automation.PropertyCondition(
-                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [System.Windows.Automation.ControlType]::Button)),
-            (New-Object System.Windows.Automation.PropertyCondition(
-                [System.Windows.Automation.AutomationElement]::NameProperty, $name))
-        ))
+    $foundBy = $null
+
+    foreach ($autoId in $knownAutomationIds) {
+        $cond = New-Object System.Windows.Automation.PropertyCondition(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $autoId)
         $btn = $proxy.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
-        if ($btn) { $found = $btn; $foundName = $name; break }
+        if ($btn) { $found = $btn; $foundBy = "AutomationId='$autoId'"; break }
+    }
+
+    if (-not $found) {
+        $buttonCond = New-Object System.Windows.Automation.PropertyCondition(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Button)
+        $allButtons = $proxy.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCond)
+        foreach ($btn in $allButtons) {
+            $name = $btn.Current.Name
+            if ([string]::IsNullOrEmpty($name)) { continue }
+            foreach ($sub in $nameSubstrings) {
+                if ($name.ToLowerInvariant().Contains($sub)) {
+                    $found = $btn; $foundBy = "Name contains '$sub' (full name: '$name')"; break
+                }
+            }
+            if ($found) { break }
+        }
     }
 
     if ($found) {
         try {
-            Write-Host "  invoking button '$foundName'"
+            Write-Host "  invoking button matched by $foundBy"
             $invoke = $found.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
             $invoke.Invoke()
             $clicked++
@@ -56,18 +83,13 @@ while ((Get-Date) -lt $deadline) {
             Write-Host "  invoke failed: $($_.Exception.Message)"
         }
     } else {
-        Write-Host "  no known button found on this page yet; dumping all buttons/hyperlinks in the window:"
-        $anyControlCond = New-Object System.Windows.Automation.OrCondition(@(
-            (New-Object System.Windows.Automation.PropertyCondition(
-                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [System.Windows.Automation.ControlType]::Button)),
-            (New-Object System.Windows.Automation.PropertyCondition(
-                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [System.Windows.Automation.ControlType]::Hyperlink))
-        ))
-        $all = $proxy.FindAll([System.Windows.Automation.TreeScope]::Descendants, $anyControlCond)
+        Write-Host "  no matching button found on this page yet; buttons present:"
+        $buttonCond = New-Object System.Windows.Automation.PropertyCondition(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Button)
+        $all = $proxy.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCond)
         foreach ($el in $all) {
-            Write-Host "    control: Name='$($el.Current.Name)' AutomationId='$($el.Current.AutomationId)' ControlType='$($el.Current.ControlType.ProgrammaticName)'"
+            Write-Host "    Name='$($el.Current.Name)' AutomationId='$($el.Current.AutomationId)'"
         }
         Write-Host "  waiting..."
     }

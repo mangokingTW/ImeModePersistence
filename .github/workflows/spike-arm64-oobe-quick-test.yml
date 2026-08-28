@@ -26,17 +26,22 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
-      - name: 'Diagnose desktop state: as-is'
+      - name: 'Diagnose desktop state: before dismiss'
         shell: pwsh
         run: |
           mkdir diag -Force | Out-Null
-          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/as-is"
+          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before"
 
-      - name: Dump full UIA tree of whatever has focus
+      - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
+        shell: pwsh
+        run: |
+          .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 60
+
+      - name: 'Diagnose desktop state: after dismiss'
         shell: pwsh
         run: |
           mkdir diag -Force | Out-Null
-          .\tests\ui\dump_full_uia_tree.ps1 *>&1 | Tee-Object -FilePath "diag/uia-tree.txt"
+          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/after"
 
       - name: Upload desktop-state diagnostics
         if: always()
