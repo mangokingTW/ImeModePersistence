@@ -116,6 +116,33 @@ jobs:
           python --version
           pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
 
+      - name: Switch to a fresh virtual desktop (Win+Ctrl+D)
+        shell: pwsh
+        run: |
+          # If the privacy-settings screen is pinned to the session's original
+          # virtual desktop, creating and switching to a brand new one should
+          # give the capture script an empty desktop to open its windows on.
+          # Win+Ctrl+D is a system-level shortcut handled by the shell, not a
+          # specific window, so it should go through even with a full-screen
+          # modal in the foreground.
+          Add-Type @"
+          using System;
+          using System.Runtime.InteropServices;
+          public class DiagKbd {
+              [DllImport("user32.dll")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);
+          }
+          "@
+          $VK_LWIN = 0x5B; $VK_LCONTROL = 0x11; $VK_D = 0x44; $KEYUP = 0x0002
+          [DiagKbd]::keybd_event($VK_LWIN, 0, 0, [UIntPtr]::Zero)
+          [DiagKbd]::keybd_event($VK_LCONTROL, 0, 0, [UIntPtr]::Zero)
+          [DiagKbd]::keybd_event($VK_D, 0, 0, [UIntPtr]::Zero)
+          Start-Sleep -Milliseconds 150
+          [DiagKbd]::keybd_event($VK_D, 0, $KEYUP, [UIntPtr]::Zero)
+          [DiagKbd]::keybd_event($VK_LCONTROL, 0, $KEYUP, [UIntPtr]::Zero)
+          [DiagKbd]::keybd_event($VK_LWIN, 0, $KEYUP, [UIntPtr]::Zero)
+          Start-Sleep -Seconds 3
+          Write-Host "Sent Win+Ctrl+D to create/switch to a new virtual desktop"
+
       - name: 'Diagnose desktop state: right before capture'
         shell: pwsh
         run: |
