@@ -15,6 +15,7 @@ on:
       - ".github/workflows/spike-arm64-oobe-quick-test.yml"
       - "tests/ui/dismiss_onboarding_screens.ps1"
       - "tests/ui/diag_desktop_state.ps1"
+      - "tests/ui/dump_full_uia_tree.ps1"
 
 permissions:
   contents: read
@@ -25,38 +26,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
-      - name: 'Diagnose desktop state: before fix'
+      - name: 'Diagnose desktop state: as-is'
         shell: pwsh
         run: |
           mkdir diag -Force | Out-Null
-          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-fix"
+          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/as-is"
 
-      - name: Suppress the first-logon "Choose privacy settings" screen
-        shell: pwsh
-        run: |
-          New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
-          Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
-
-      - name: Restart the shell so it re-checks the privacy-experience policy
-        shell: pwsh
-        run: |
-          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 3
-          Start-Process explorer.exe
-          Start-Sleep -Seconds 8
-          Write-Host "Explorer restarted."
-
-      - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (fallback if still present)
-        shell: pwsh
-        run: |
-          .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 60
-
-      - name: 'Diagnose desktop state: after fix'
+      - name: Dump full UIA tree of whatever has focus
         shell: pwsh
         run: |
           mkdir diag -Force | Out-Null
-          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/after-fix"
+          .\tests\ui\dump_full_uia_tree.ps1 *>&1 | Tee-Object -FilePath "diag/uia-tree.txt"
 
       - name: Upload desktop-state diagnostics
         if: always()
