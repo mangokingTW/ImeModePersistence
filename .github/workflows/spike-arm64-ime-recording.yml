@@ -1,0 +1,97 @@
+name: "Spike: ARM64 IME recording"
+
+# One-off experiment: cross-... actually native build the app for ARM64 and run
+# the same real-IME recording/E2E flow as ime-recording.yml, but on GitHub's
+# windows-11-arm hosted runner. Not wired into the release pipeline -- manual
+# dispatch only, to see whether an ARM64 build behaves the same as x64 before
+# deciding whether ARM64 support is worth the packaging/CI work.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-ime-recording:
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Report runner arch
+        shell: pwsh
+        run: |
+          Write-Host "PROCESSOR_ARCHITECTURE=$env:PROCESSOR_ARCHITECTURE"
+          [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+          [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture
+
+      - name: Build ARM64
+        shell: pwsh
+        run: |
+          cmake -S . -B build-arm64 -A ARM64 -DBUILD_TESTING=OFF
+          cmake --build build-arm64 --config Release
+
+      - name: Confirm the binary is actually ARM64
+        shell: pwsh
+        run: |
+          $exe = "build-arm64/Release/ImeModePersistence.exe"
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          # 0x8664 = x64, 0xAA64 = ARM64
+          Write-Host ("Machine field: 0x{0:X4}" -f $machine)
+          if ($machine -ne 0xAA64) { throw "Not an ARM64 PE image (got 0x$($machine.ToString('X4')))" }
+
+      - name: Install Traditional Chinese (zh-TW) IME
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Write-Host "Installing Traditional Chinese (zh-TW) IME via DISM..."
+          dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
+
+          $list = New-WinUserLanguageList "zh-TW"
+          Set-WinUserLanguageList $list -Force
+          $tips = (Get-WinUserLanguageList).InputMethodTips
+          Write-Host "Active zh-TW InputMethodTips: $tips"
+
+          New-Item -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Name "EnableAutoTray" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
+          New-Item -Path "HKCU:\Software\ImeModePersistence" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "ShowCaretIndicator" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "PersistMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "UiLanguage" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+
+          $notifyPath = "HKCU:\Control Panel\NotifyIconSettings"
+          if (Test-Path $notifyPath) {
+            Get-ChildItem $notifyPath | ForEach-Object {
+              Set-ItemProperty -Path $_.PSPath -Name "IsPromoted" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+      - name: Install Python test dependencies
+        shell: pwsh
+        run: |
+          python --version
+          pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
+
+      - name: Capture continuous IME persistence recording
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          python tests/ui/capture_ime_recording.py "build-arm64/Release/ImeModePersistence.exe" ime-recording-arm64
+
+      - name: Run real-IME E2E tests
+        shell: pwsh
+        run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+
+      - name: Upload recording artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: ime-recording-arm64
+          path: ime-recording-arm64/ime-recording.mp4
+          if-no-files-found: warn
