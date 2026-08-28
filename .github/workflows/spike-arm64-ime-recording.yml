@@ -21,6 +21,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
+      - name: 'Diagnose desktop state: before privacy-experience fix'
+        shell: pwsh
+        run: |
+          mkdir diag -Force | Out-Null
+          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-fix"
+
       - name: Suppress the first-logon "Choose privacy settings" screen
         shell: pwsh
         run: |
@@ -110,6 +116,12 @@ jobs:
           python --version
           pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
 
+      - name: 'Diagnose desktop state: right before capture'
+        shell: pwsh
+        run: |
+          mkdir diag -Force | Out-Null
+          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-capture"
+
       - name: Capture continuous IME persistence recording
         shell: pwsh
         continue-on-error: true
@@ -129,4 +141,12 @@ jobs:
         with:
           name: ime-recording-arm64
           path: ime-recording-arm64/ime-recording.mp4
+          if-no-files-found: warn
+
+      - name: Upload desktop-state diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: desktop-diagnostics
+          path: diag/
           if-no-files-found: warn
