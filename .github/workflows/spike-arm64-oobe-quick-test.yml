@@ -26,31 +26,18 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
-      - name: 'Diagnose desktop state: before'
+      - name: 'Diagnose desktop state: before dismiss'
         shell: pwsh
         run: |
           mkdir diag -Force | Out-Null
           .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before"
 
-      - name: Kill CloudExperienceHostBroker + explorer, then restart the shell
+      - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
         shell: pwsh
         run: |
-          # CloudExperienceHostBroker.exe is the actual Microsoft-documented
-          # broker behind first-sign-in/OOBE-family flows (account sign-in,
-          # privacy consent, "meet Copilot", etc.) -- Shell_OOBEProxy is just
-          # the shell-side window/frame for it. Restarting explorer.exe alone
-          # (already tried) just recreates the identical screen; this
-          # additionally kills the broker in case IT is what remembers "this
-          # profile hasn't seen this yet" independent of explorer's lifecycle.
-          Get-Process -Name "CloudExperienceHostBroker" -ErrorAction SilentlyContinue
-          Stop-Process -Name "CloudExperienceHostBroker" -Force -ErrorAction SilentlyContinue
-          Stop-Process -Name "explorer" -Force -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 3
-          Start-Process explorer.exe
-          Start-Sleep -Seconds 8
-          Write-Host "Done."
+          .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 60
 
-      - name: 'Diagnose desktop state: after'
+      - name: 'Diagnose desktop state: after dismiss'
         shell: pwsh
         run: |
           mkdir diag -Force | Out-Null

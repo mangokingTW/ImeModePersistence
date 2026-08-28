@@ -4,17 +4,33 @@
 # class "Shell_OOBEProxy" (observed title "Microsoft account", first page seen
 # was "Choose privacy settings for your device", rendered as embedded web
 # content inside an Internet Explorer_Server control) that sits in the
-# foreground and swallows input meant for real apps. Registry policy
-# (DisablePrivacyExperience) did not dismiss an already-shown screen, and
-# restarting explorer.exe just recreates it from scratch -- clicking through
-# is the only thing that actually works.
+# foreground and swallows input meant for real apps.
+#
+# Confirmed dead ends (all directly tested, none changed anything):
+#   - HKLM DisablePrivacyExperience alone
+#   - HKLM + HKCU DisablePrivacyExperience + explorer.exe restart
+#   - Killing CloudExperienceHostBroker.exe alongside explorer.exe (doesn't
+#     even exist on this image)
+#   - Shell_OOBEProxy's window is directly confirmed (GetWindowThreadProcessId)
+#     to be owned by explorer.exe itself, every time, on every run -- not
+#     LogonUI, winlogon, ShellExperienceHost, or WWAHost. Killing/restarting
+#     explorer.exe just recreates the identical screen from scratch.
+# Clicking through is the only thing left to try.
 #
 # The button's accessible Name is a full descriptive phrase (e.g. "Next, tab
 # through all privacy settings to continue"), not a plain "Next" -- exact
-# matching against short labels never finds it. Rather than guess how many
-# pages the flow has, repeatedly find the window and click whatever known
-# "move on" control is present (by AutomationId first, then by substring match
-# on Name), until the window is gone or we time out.
+# matching against short labels never finds it, AND a top-down
+# FindAll(Descendants) search from the Shell_OOBEProxy element never finds the
+# button at all (confirmed empty results every time), even though the button
+# demonstrably exists -- AutomationElement.FocusedElement finds it instantly.
+# This looks like a UIA traversal quirk specific to this CoreWindow/legacy-web
+# hybrid content on this runner image, where top-down enumeration silently
+# misses elements that direct focused-element access reaches fine.
+#
+# Strategy: keep using the Shell_OOBEProxy presence check purely as the loop's
+# "are we still stuck" gate, but find what to click via FocusedElement (and a
+# short walk up its ancestors, in case focus lands on a child of the real
+# button) instead of searching down from the window.
 param(
     [int]$TimeoutSeconds = 90
 )
@@ -24,16 +40,30 @@ Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 
 $root = [System.Windows.Automation.AutomationElement]::RootElement
+$walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
 $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 $clicked = 0
 
-# The button's accessible Name is a full descriptive phrase (e.g. "Next, tab
-# through all privacy settings to continue"), not a plain "Next" -- exact
-# matching against short labels never found it. AutomationId is stable and
-# known for this specific page; substring matching on Name is the fallback for
-# whatever page comes next in the flow, since we don't know its exact wording.
 $knownAutomationIds = @("OobeSettingsAcceptButton")
 $nameSubstrings = @("next", "accept", "skip", "continue", "i agree", "not now", "decline", "ask me later", "close", "sign in later", "do this later")
+
+function Test-IsMatchingButton($element) {
+    if ($null -eq $element) { return $false }
+    try {
+        $c = $element.Current
+    } catch {
+        return $false
+    }
+    if ($c.ControlType -ne [System.Windows.Automation.ControlType]::Button) { return $false }
+    if ($knownAutomationIds -contains $c.AutomationId) { return $true }
+    if (-not [string]::IsNullOrEmpty($c.Name)) {
+        $lower = $c.Name.ToLowerInvariant()
+        foreach ($sub in $nameSubstrings) {
+            if ($lower.Contains($sub)) { return $true }
+        }
+    }
+    return $false
+}
 
 while ((Get-Date) -lt $deadline) {
     $classCond = New-Object System.Windows.Automation.PropertyCondition(
@@ -45,37 +75,27 @@ while ((Get-Date) -lt $deadline) {
         break
     }
 
-    Write-Host "Shell_OOBEProxy present (Name='$($proxy.Current.Name)'); looking for a button to advance..."
+    Write-Host "Shell_OOBEProxy present (Name='$($proxy.Current.Name)'); checking FocusedElement..."
     $found = $null
-    $foundBy = $null
-
-    foreach ($autoId in $knownAutomationIds) {
-        $cond = New-Object System.Windows.Automation.PropertyCondition(
-            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $autoId)
-        $btn = $proxy.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cond)
-        if ($btn) { $found = $btn; $foundBy = "AutomationId='$autoId'"; break }
-    }
-
-    if (-not $found) {
-        $buttonCond = New-Object System.Windows.Automation.PropertyCondition(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::Button)
-        $allButtons = $proxy.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCond)
-        foreach ($btn in $allButtons) {
-            $name = $btn.Current.Name
-            if ([string]::IsNullOrEmpty($name)) { continue }
-            foreach ($sub in $nameSubstrings) {
-                if ($name.ToLowerInvariant().Contains($sub)) {
-                    $found = $btn; $foundBy = "Name contains '$sub' (full name: '$name')"; break
-                }
+    try {
+        $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+        if (Test-IsMatchingButton $focused) {
+            $found = $focused
+        } else {
+            $node = $focused
+            for ($i = 0; $i -lt 4 -and $null -ne $node; $i++) {
+                $node = $walker.GetParent($node)
+                if (Test-IsMatchingButton $node) { $found = $node; break }
             }
-            if ($found) { break }
         }
+    } catch {
+        Write-Host "  could not read FocusedElement: $($_.Exception.Message)"
     }
 
     if ($found) {
         try {
-            Write-Host "  invoking button matched by $foundBy"
+            $fc = $found.Current
+            Write-Host "  invoking focused button: Name='$($fc.Name)' AutomationId='$($fc.AutomationId)'"
             $invoke = $found.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
             $invoke.Invoke()
             $clicked++
@@ -83,13 +103,11 @@ while ((Get-Date) -lt $deadline) {
             Write-Host "  invoke failed: $($_.Exception.Message)"
         }
     } else {
-        Write-Host "  no matching button found on this page yet; buttons present:"
-        $buttonCond = New-Object System.Windows.Automation.PropertyCondition(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::Button)
-        $all = $proxy.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCond)
-        foreach ($el in $all) {
-            Write-Host "    Name='$($el.Current.Name)' AutomationId='$($el.Current.AutomationId)'"
+        try {
+            $fc = [System.Windows.Automation.AutomationElement]::FocusedElement.Current
+            Write-Host "  focused element doesn't match: [$($fc.ControlType.ProgrammaticName)] Name='$($fc.Name)' AutomationId='$($fc.AutomationId)'"
+        } catch {
+            Write-Host "  no focused element readable"
         }
         Write-Host "  waiting..."
     }
