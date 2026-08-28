@@ -32,27 +32,23 @@ jobs:
           mkdir diag -Force | Out-Null
           .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before"
 
-      - name: Suppress privacy experience in BOTH HKLM and HKCU, then restart the shell
+      - name: Kill CloudExperienceHostBroker + explorer, then restart the shell
         shell: pwsh
         run: |
-          # Multiple independent sources document that this specific "first
-          # sign-in" privacy screen (distinct from full install-time OOBE via
-          # unattend.xml) is gated per-user (HKCU), not just machine-wide
-          # (HKLM) -- our first attempt only set HKLM, which didn't stop the
-          # screen from reappearing after an explorer.exe restart. Testing the
-          # documented combination this time.
-          New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
-          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
-          New-Item -Path "HKCU:\Software\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
-          Set-ItemProperty -Path "HKCU:\Software\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
-          Write-Host "HKLM value:"; Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
-          Write-Host "HKCU value:"; Get-ItemProperty -Path "HKCU:\Software\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
-
-          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+          # CloudExperienceHostBroker.exe is the actual Microsoft-documented
+          # broker behind first-sign-in/OOBE-family flows (account sign-in,
+          # privacy consent, "meet Copilot", etc.) -- Shell_OOBEProxy is just
+          # the shell-side window/frame for it. Restarting explorer.exe alone
+          # (already tried) just recreates the identical screen; this
+          # additionally kills the broker in case IT is what remembers "this
+          # profile hasn't seen this yet" independent of explorer's lifecycle.
+          Get-Process -Name "CloudExperienceHostBroker" -ErrorAction SilentlyContinue
+          Stop-Process -Name "CloudExperienceHostBroker" -Force -ErrorAction SilentlyContinue
+          Stop-Process -Name "explorer" -Force -ErrorAction SilentlyContinue
           Start-Sleep -Seconds 3
           Start-Process explorer.exe
           Start-Sleep -Seconds 8
-          Write-Host "Explorer restarted."
+          Write-Host "Done."
 
       - name: 'Diagnose desktop state: after'
         shell: pwsh
