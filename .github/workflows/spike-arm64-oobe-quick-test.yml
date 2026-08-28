@@ -1,0 +1,67 @@
+name: "Spike: ARM64 OOBE dismissal quick test"
+
+# Fast-iteration companion to spike-arm64-ime-recording.yml: skips the build,
+# the ~20 minute zh-TW IME install, the ffmpeg download, and the actual
+# capture/E2E run -- only exercises the desktop-state diagnostic and the
+# Shell_OOBEProxy dismissal logic, so that specific problem can be iterated on
+# in a couple of minutes instead of ~20-25 per attempt. Delete once the real
+# fix is confirmed and folded back into the real spike (or the ARM64 spike is
+# closed out entirely).
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/spike-arm64-oobe-quick-test.yml"
+      - "tests/ui/dismiss_onboarding_screens.ps1"
+      - "tests/ui/diag_desktop_state.ps1"
+
+permissions:
+  contents: read
+
+jobs:
+  quick-oobe-test:
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: 'Diagnose desktop state: before fix'
+        shell: pwsh
+        run: |
+          mkdir diag -Force | Out-Null
+          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-fix"
+
+      - name: Suppress the first-logon "Choose privacy settings" screen
+        shell: pwsh
+        run: |
+          New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
+          Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
+
+      - name: Restart the shell so it re-checks the privacy-experience policy
+        shell: pwsh
+        run: |
+          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 3
+          Start-Process explorer.exe
+          Start-Sleep -Seconds 8
+          Write-Host "Explorer restarted."
+
+      - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (fallback if still present)
+        shell: pwsh
+        run: |
+          .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 60
+
+      - name: 'Diagnose desktop state: after fix'
+        shell: pwsh
+        run: |
+          mkdir diag -Force | Out-Null
+          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/after-fix"
+
+      - name: Upload desktop-state diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: desktop-diagnostics-quick
+          path: diag/
+          if-no-files-found: warn
