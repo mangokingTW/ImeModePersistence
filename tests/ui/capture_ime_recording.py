@@ -509,9 +509,17 @@ def main() -> int:
             w = all_frames[0].width - (all_frames[0].width % 2)
             h = all_frames[0].height - (all_frames[0].height % 2)
 
+            # imageio_ffmpeg bundles a prebuilt binary for common platforms, but
+            # on one it doesn't cover (observed on Windows ARM64) get_ffmpeg_exe()
+            # returns a path with nothing there instead of raising -- so the
+            # except below never fires and Popen dies with a raw WinError 2.
+            # Checking the path actually exists catches that case too, falling
+            # back to a system "ffmpeg" on PATH.
             try:
                 import imageio_ffmpeg
                 ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+                if not os.path.isfile(ffmpeg_bin):
+                    raise FileNotFoundError(ffmpeg_bin)
             except Exception:
                 ffmpeg_bin = "ffmpeg"
 
