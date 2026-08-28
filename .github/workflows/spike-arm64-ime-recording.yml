@@ -8,9 +8,11 @@ name: "Spike: ARM64 IME recording"
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - ".github/workflows/spike-arm64-ime-recording.yml"
+  # pull_request trigger temporarily removed: GitHub's `paths` filter for
+  # pull_request events matches against the PR's cumulative diff vs. base, not
+  # just the latest push, so every push here kept re-triggering this ~20-25
+  # min ARM64 job while iterating on the unrelated OOBE dismissal problem in
+  # the companion quick-test workflow. Re-add once ready for a final full run.
 
 permissions:
   contents: read
