@@ -26,18 +26,35 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
-      - name: 'Diagnose desktop state: before dismiss'
+      - name: 'Diagnose desktop state: before'
         shell: pwsh
         run: |
           mkdir diag -Force | Out-Null
           .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before"
 
-      - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
+      - name: Suppress privacy experience in BOTH HKLM and HKCU, then restart the shell
         shell: pwsh
         run: |
-          .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 60
+          # Multiple independent sources document that this specific "first
+          # sign-in" privacy screen (distinct from full install-time OOBE via
+          # unattend.xml) is gated per-user (HKCU), not just machine-wide
+          # (HKLM) -- our first attempt only set HKLM, which didn't stop the
+          # screen from reappearing after an explorer.exe restart. Testing the
+          # documented combination this time.
+          New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
+          New-Item -Path "HKCU:\Software\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
+          Set-ItemProperty -Path "HKCU:\Software\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
+          Write-Host "HKLM value:"; Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
+          Write-Host "HKCU value:"; Get-ItemProperty -Path "HKCU:\Software\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
 
-      - name: 'Diagnose desktop state: after dismiss'
+          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 3
+          Start-Process explorer.exe
+          Start-Sleep -Seconds 8
+          Write-Host "Explorer restarted."
+
+      - name: 'Diagnose desktop state: after'
         shell: pwsh
         run: |
           mkdir diag -Force | Out-Null
