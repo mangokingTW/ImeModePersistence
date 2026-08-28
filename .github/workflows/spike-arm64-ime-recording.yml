@@ -27,19 +27,34 @@ jobs:
           mkdir diag -Force | Out-Null
           .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-fix"
 
-      - name: Suppress the first-logon "Choose privacy settings" screen (belt and suspenders)
+      - name: Suppress the first-logon "Choose privacy settings" screen
         shell: pwsh
         run: |
           # Confirmed via screenshot that this IS the "Choose privacy settings
-          # for your device" screen (class Shell_OOBEProxy). This registry
-          # policy alone did NOT dismiss it in an earlier run -- the real fix
-          # is clicking through it (next step) -- but setting it can't hurt in
-          # case it prevents a later page in the same flow from reappearing.
+          # for your device" screen (class Shell_OOBEProxy). Setting this
+          # alone, mid-session, did NOT dismiss an already-shown screen in an
+          # earlier run -- the policy is presumably only checked once, and
+          # that check already happened before our job's first step ran. The
+          # next step forces a fresh check by restarting the shell.
           New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
           Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
           Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
 
-      - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
+      - name: Restart the shell so it re-checks the privacy-experience policy
+        shell: pwsh
+        run: |
+          # Shell_OOBEProxy is hosted inside explorer.exe itself (not a
+          # separate process), so it can't be killed on its own. Killing and
+          # restarting explorer.exe forces a fresh instance to decide whether
+          # to show onboarding again, this time with the policy already set
+          # beforehand -- unlike the first, already-triggered instance.
+          Stop-Process -Name explorer -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 3
+          Start-Process explorer.exe
+          Start-Sleep -Seconds 8
+          Write-Host "Explorer restarted."
+
+      - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (fallback if still present)
         shell: pwsh
         run: |
           .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 90

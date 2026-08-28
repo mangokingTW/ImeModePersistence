@@ -56,7 +56,20 @@ while ((Get-Date) -lt $deadline) {
             Write-Host "  invoke failed: $($_.Exception.Message)"
         }
     } else {
-        Write-Host "  no known button found on this page yet; waiting..."
+        Write-Host "  no known button found on this page yet; dumping all buttons/hyperlinks in the window:"
+        $anyControlCond = New-Object System.Windows.Automation.OrCondition(@(
+            (New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Button)),
+            (New-Object System.Windows.Automation.PropertyCondition(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Hyperlink))
+        ))
+        $all = $proxy.FindAll([System.Windows.Automation.TreeScope]::Descendants, $anyControlCond)
+        foreach ($el in $all) {
+            Write-Host "    control: Name='$($el.Current.Name)' AutomationId='$($el.Current.AutomationId)' ControlType='$($el.Current.ControlType.ProgrammaticName)'"
+        }
+        Write-Host "  waiting..."
     }
     Start-Sleep -Seconds 2
 }
