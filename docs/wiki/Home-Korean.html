@@ -88,16 +88,9 @@
 </h1>
 <p><a href="Home.html">繁體中文</a> · <a href="Home-English.html">English</a> · <a href="Home-Simplified.html">简体中文</a> · <a href="Home-Japanese.html">日本語</a> · <strong>한국어</strong></p>
 <p>입력기가 프로그램 간에 동작하는 방식을 제어하는 Windows 유틸리티입니다. <strong>마지막으로 선택한 입력 모드</strong>(한글/영문 등의 고유 모드 또는 영숫자 모드)를 다음 창으로 이어주며, 실행 파일을 읽을 수 없는 프로그램(예: 안티치트로 보호되는 전체 화면 게임)을 포함해 <strong>특정 프로그램을 고정된 입력 언어로 바인딩</strong>할 수 있습니다.</p>
-<blockquote>
-<h3>⚠ 개발 중이며 서명되지 않음 — 직접 판단하세요</h3>
-<p>이 유틸리티는 아직 개발 중이며 <strong>코드 서명 인증서가 없습니다</strong>. 그래서 Windows Defender가 이를 바이러스로 분류하여 <strong>곧바로 삭제</strong>할 수 있습니다. 알려진 탐지 항목은 <code>Behavior:Win32/Persistence.A!ml</code>입니다.</p>
-<p>이 탐지는 <em>로그온 시 자동 시작</em> 기능이 만드는 로그온 작업에 대한 것입니다. 로그온 시 시작을 제공하는 프로그램은 모두 동일한 작업을 해야 하며, 서명되지 않은 프로그램이 이를 수행하는 것이 바로 동작 모니터링이 감시하는 대상입니다. 오탐 신고는 Microsoft에 제출했지만, <strong>백신이 어떻게 판단할지는 누구도 보장할 수 없습니다.</strong></p>
-<p>소스 코드, 빌드 워크플로, 릴리스 산출물은 모두 공개되어 있으며 태그된 커밋으로부터 GitHub Actions가 빌드하므로, 직접 검토하거나 재현할 수 있습니다. 이를 바탕으로 <strong>계속 사용할지 여부는 당신의 결정입니다.</strong></p>
-<p>삭제되는 경우: 포터블 <code>zip</code>을 사용하거나, <em>로그온 시 자동 시작</em>을 체크하지 않은 채로 두세요.</p>
-<p><strong>코드 서명:</strong> 릴리스는 서명되지 않습니다. 대신 각 아티팩트에 빌드 프로버넌스(build provenance)가 포함됩니다 — GitHub Actions가 태그에서 빌드하며 <code>gh attestation verify</code>로 검증할 수 있는 증명이 첨부됩니다.</p>
-</blockquote>
 <h2>설치</h2>
-<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>에서 받을 수 있습니다:</p>
+<p><strong>추천: <a href="https://apps.microsoft.com/detail/9P05QQZ2P5XC">Microsoft Store</a></strong> —— 서명되어 있고 자동 업데이트되며, 아래에서 설명하는 문제가 없습니다.</p>
+<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>에서 받을 수도 있습니다:</p>
 <table>
 <thead>
 <tr>
@@ -108,7 +101,7 @@
 <tbody>
 <tr>
 <td><code>...-setup.exe</code></td>
-<td><strong>추천</strong>：표준 설치 프로그램（현재 사용자 또는 모든 사용자 설치 선택 가능）</td>
+<td>표준 설치 프로그램（현재 사용자 또는 모든 사용자 설치 선택 가능）</td>
 </tr>
 <tr>
 <td><code>...-x64.zip</code></td>
@@ -117,11 +110,16 @@
 </tbody>
 </table>
 <p>설치 중 <strong>로그온 시 자동 시작</strong>을 체크하세요. 그러면 화면 오른쪽 아래 알림 영역에서 실행됩니다 — Windows 11은 새 아이콘을 시계 옆의 <strong>⌃</strong> 꺾쇠 뒤에 숨깁니다. 설치하자마자 작동하며, 별도의 설정이 필요 없습니다.</p>
-<p>흔히 두 가지가 방해가 됩니다:</p>
+<blockquote>
+<h3>⚠ GitHub 빌드는 서명되지 않았습니다</h3>
+<p>이 안내는 <strong>GitHub Releases에서 다운로드한</strong> 설치 프로그램이나 zip에만 해당됩니다. 위의 <strong>Microsoft Store 버전은 서명되어 있어</strong> 아래 문제가 발생하지 않습니다.</p>
+<p>GitHub 빌드는 현재 코드 서명 인증서가 없어 다음과 같은 일이 있을 수 있습니다:</p>
 <ul>
-<li>파란색 <strong>Windows의 PC 보호</strong> 화면 → <em>추가 정보 → 실행</em>. 파일이 서명되지 않았기 때문에 이는 바이러스 탐지가 아니라 평판 경고입니다.</li>
-<li><strong>백신이 설치 프로그램을 삭제</strong> → 서명되지 않은 설치 프로그램은 휴리스틱에 자주 걸립니다. 기능적으로 동일한 포터블 <code>zip</code>을 사용하세요.</li>
+<li>파란색 <strong>Windows의 PC 보호</strong> 화면 → <em>추가 정보 → 실행</em>. 이는 바이러스 탐지가 아니라 평판 경고입니다.</li>
+<li><strong>백신이 설치 프로그램을 삭제</strong> —— 알려진 탐지 항목은 <code>Behavior:Win32/Persistence.A!ml</code>이며, <em>로그온 시 자동 시작</em>이 만드는 로그온 작업에 대한 것입니다. 포터블 <code>zip</code>을 사용하거나 해당 옵션을 체크하지 마세요. 오탐 신고는 Microsoft에 제출했지만, 백신이 어떻게 판단할지는 누구도 보장할 수 없습니다.</li>
 </ul>
+<p>소스 코드, 빌드 워크플로, 릴리스 산출물은 모두 공개되어 있으며 태그된 커밋으로부터 GitHub Actions가 빌드하고, <code>gh attestation verify</code>로 검증할 수 있는 빌드 프로버넌스가 첨부됩니다. 신경 쓰인다면 위의 Microsoft Store 버전을 사용하면 이 문제를 완전히 피할 수 있습니다.</p>
+</blockquote>
 <h2>왜 필요한가</h2>
 <p>Windows는 IME 상태를 <strong>스레드별로</strong> 유지합니다. 다른 창으로 이동하면 변환 모드가 IME의 기본값으로 되돌아갑니다 — 중국어 키보드라면 <strong>중국어</strong>가 됩니다. 그래서 Shift를 눌러 영숫자로 바꾸고 창을 전환하면, 다시 중국어를 입력하게 됩니다.</p>
 <p><strong>설정 → 시간 및 언어 → 입력 → 고급 키보드 설정 → <em>각 앱 창에 대해 서로 다른 입력 방법 사용</em> 은 이 문제를 해결하지 못합니다.</strong> 이 설정은 <em>어떤</em> 입력 방법이 활성화되는지를 관장할 뿐, 그 입력 방법이 고유 모드인지 영숫자 모드인지는 관장하지 않습니다 — 이를 꺼도 창을 전환하면 여전히 중국어로 되돌아갑니다.</p>

@@ -89,16 +89,9 @@
 <p><strong>跨窗口维持中/英，并为程序绑定输入语言</strong></p>
 <p><a href="Home.html">繁體中文</a> · <a href="Home-English.html">English</a> · <strong>简体中文</strong> · <a href="Home-Japanese.html">日本語</a> · <a href="Home-Korean.html">한국어</a></p>
 <p>Windows 小工具，控制输入法在程序之间的行为：切换窗口时延续你最后选择的<strong>输入模式</strong>（中文／英数），并可把指定程序<strong>绑定到固定的输入语言</strong> —— 连读不到可执行文件的程序也行，例如有反作弊的全屏游戏。</p>
-<blockquote>
-<h3>⚠ 开发阶段，未经签名 —— 请自行评估是否使用</h3>
-<p>本工具还在开发中，<strong>没有代码签名证书</strong>。因此 Windows Defender 可能把它判定为病毒并<strong>直接删除</strong>，已知的检测名称是 <code>Behavior:Win32/Persistence.A!ml</code>。</p>
-<p>那个检测针对的是「开机时自动启动」所建立的登录任务 —— 任何提供开机自动启动的程序都必须做同样的事，而未签名的程序做这件事就会被行为监控盯上。已向微软提交误判报告，但<strong>没有人能保证杀毒软件的判断</strong>。</p>
-<p>源代码、构建流程与发布产物全部公开，由 GitHub Actions 从对应的 tag 构建，你可以自行查看或重建。在此前提下，<strong>是否要继续使用请自行决定。</strong></p>
-<p>遇到删除时：改用免安装的 <code>zip</code>，或不勾选「开机时自动启动」。</p>
-<p><strong>代码签名：</strong> 发布文件未签名。改以构建来源证明（build provenance）佐证 —— 每个发布产物都由 GitHub Actions 从对应 tag 构建并附上证明，可用 <code>gh attestation verify</code> 验证。</p>
-</blockquote>
 <h2>安装</h2>
-<p>到 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下载：</p>
+<p><strong>推荐：<a href="https://apps.microsoft.com/detail/9P05QQZ2P5XC">Microsoft Store</a></strong> —— 已签名、自动更新，没有下面提到的问题。</p>
+<p>也可以到 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下载：</p>
 <table>
 <thead>
 <tr>
@@ -109,7 +102,7 @@
 <tbody>
 <tr>
 <td><code>...-setup.exe</code></td>
-<td><strong>推荐</strong>：标准安装程序（安装时可选择为当前用户或全机安装）</td>
+<td>标准安装程序（安装时可选择为当前用户或全机安装）</td>
 </tr>
 <tr>
 <td><code>...-x64.zip</code></td>
@@ -119,11 +112,16 @@
 </table>
 <p>安装时勾选 <strong>开机时自动启动</strong>。装好就会运行，不需要其他设置。</p>
 <p>程序常驻在<strong>通知区域</strong> —— 屏幕右下角、时钟左边。Windows 11 默认把新图标收起来，要先点时钟旁的 <strong>⌃</strong> 才看得到。图标是蓝色圆角方块里一个白色的「中」。</p>
-<p><strong>两种常见的拦阻：</strong></p>
+<blockquote>
+<h3>⚠ 从 GitHub 下载的版本尚未签名</h3>
+<p>这一节只适用于<strong>从 GitHub Releases 下载</strong>的安装文件或 zip；上面的 <strong>Microsoft Store 版本已签名，不会遇到以下问题</strong>。</p>
+<p>GitHub 构建目前没有代码签名证书，因此可能遇到：</p>
 <ul>
-<li>蓝色的「Windows 已保护你的电脑」→ 点「更多信息 → 仍要运行」。文件未签名，这是信誉警告而非病毒检测。</li>
-<li><strong>杀毒软件把安装文件删掉</strong> → 未签名的安装文件常被启发式误判。改用免安装的 <code>zip</code>，功能完全相同。</li>
+<li>蓝色的「Windows 已保护你的电脑」→ 点「更多信息 → 仍要运行」。这是信誉警告而非病毒检测。</li>
+<li><strong>杀毒软件把安装文件删掉</strong> —— 已知检测名称是 <code>Behavior:Win32/Persistence.A!ml</code>，针对的是「开机时自动启动」建立的登录任务。遇到时改用免安装的 <code>zip</code>，或不勾选「开机时自动启动」。已向微软提交误判报告，但没有人能保证杀毒软件的判断。</li>
 </ul>
+<p>源代码、构建流程与发布产物全部公开，由 GitHub Actions 从对应的 tag 构建并附上构建来源证明（build provenance），可用 <code>gh attestation verify</code> 验证。介意的话，改用上方的 Microsoft Store 版本即可完全避开这些问题。</p>
+</blockquote>
 <h2>为什么会需要它</h2>
 <p>Windows 把输入法状态绑在<strong>每个线程</strong>上。切到另一个窗口时，中／英转换模式会回到该输入法的默认值 —— 对中文键盘来说就是<strong>中文</strong>。所以你刚按 Shift 切成英数，换个窗口又打出中文。</p>
 <p>「设置 → 时间和语言 → 输入 → 高级键盘设置」里的**「允许我为每个应用程序窗口使用不同的输入法」解决不了这件事**。那个设置管的是「哪一个输入法在作用」，不管「该输入法处于中文还是英数」—— 关掉它之后，切换窗口照样切回中文。</p>

@@ -89,16 +89,9 @@
 <p><strong>跨視窗維持中/英，並為程式綁定輸入語言</strong></p>
 <p><strong>繁體中文</strong> · <a href="Home-English.html">English</a> · <a href="Home-Simplified.html">简体中文</a> · <a href="Home-Japanese.html">日本語</a> · <a href="Home-Korean.html">한국어</a></p>
 <p>Windows 小工具，控制輸入法在程式之間的行為：切換視窗時延續你最後選擇的<strong>輸入模式</strong>（中文／英數），並可把指定程式<strong>綁定到固定的輸入語言</strong> —— 連讀不到執行檔的程式也行，例如有防作弊的全螢幕遊戲。</p>
-<blockquote>
-<h3>⚠ 開發階段，未經簽章 —— 請自行評估是否使用</h3>
-<p>本工具還在開發中，<strong>沒有程式碼簽章憑證</strong>。因此 Windows Defender 可能把它判定為病毒並<strong>直接刪除</strong>，已知的偵測名稱是 <code>Behavior:Win32/Persistence.A!ml</code>。</p>
-<p>那個偵測針對的是「開機時自動啟動」所建立的登入工作 —— 任何提供開機自動啟動的程式都必須做同樣的事，而未簽章的程式做這件事就會被行為監控盯上。已向微軟提交誤判回報，但<strong>沒有人能保證防毒軟體的判斷</strong>。</p>
-<p>原始碼、建置流程與發佈產物全部公開，由 GitHub Actions 從對應的 tag 建置，你可以自行檢視或重建。在此前提下，<strong>是否要繼續使用請自行決定。</strong></p>
-<p>遇到刪除時：改用免安裝的 <code>zip</code>，或不勾選「開機時自動啟動」。</p>
-<p><strong>程式碼簽章：</strong> 釋出檔未簽章。改以建置來源證明（build provenance）佐證 —— 每個釋出產物都由 GitHub Actions 從對應 tag 建置並附上證明，可用 <code>gh attestation verify</code> 驗證。</p>
-</blockquote>
 <h2>安裝</h2>
-<p>到 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下載：</p>
+<p><strong>推薦：<a href="https://apps.microsoft.com/detail/9P05QQZ2P5XC">Microsoft Store</a></strong> —— 已簽章、自動更新，沒有下面提到的問題。</p>
+<p>也可以到 <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> 下載：</p>
 <table>
 <thead>
 <tr>
@@ -109,7 +102,7 @@
 <tbody>
 <tr>
 <td><code>...-setup.exe</code></td>
-<td><strong>推薦</strong>：標準安裝檔（安裝時可選擇為目前使用者或全機安裝）</td>
+<td>標準安裝檔（安裝時可選擇為目前使用者或全機安裝）</td>
 </tr>
 <tr>
 <td><code>...-x64.zip</code></td>
@@ -119,11 +112,16 @@
 </table>
 <p>安裝時勾選 <strong>開機時自動啟動</strong>。裝好就會運作，不需要其他設定。</p>
 <p>程式常駐在<strong>通知區域</strong> —— 螢幕右下角、時鐘左邊。Windows 11 預設把新圖示收起來，要先點時鐘旁的 <strong>⌃</strong> 才看得到。圖示是藍色圓角方塊裡一個白色的「中」。</p>
-<p><strong>兩種常見的攔阻：</strong></p>
+<blockquote>
+<h3>⚠ 從 GitHub 下載的版本尚未簽章</h3>
+<p>這一節只適用於<strong>從 GitHub Releases 下載</strong>的安裝檔或 zip；上面的 <strong>Microsoft Store 版本已簽章，不會遇到以下問題</strong>。</p>
+<p>GitHub 建置目前沒有程式碼簽章憑證，因此可能遇到：</p>
 <ul>
-<li>藍色的「Windows 已保護您的電腦」→ 點「更多資訊 → 仍要執行」。檔案未簽章，這是信譽警告而非病毒偵測。</li>
-<li><strong>防毒軟體把安裝檔刪掉</strong> → 未簽章的安裝檔常被啟發式誤判。改用免安裝的 <code>zip</code>，功能完全相同。</li>
+<li>藍色的「Windows 已保護您的電腦」→ 點「更多資訊 → 仍要執行」。這是信譽警告而非病毒偵測。</li>
+<li><strong>防毒軟體把安裝檔刪掉</strong> —— 已知偵測名稱是 <code>Behavior:Win32/Persistence.A!ml</code>，針對的是「開機時自動啟動」建立的登入工作。遇到時改用免安裝的 <code>zip</code>，或不勾選「開機時自動啟動」。已向微軟提交誤判回報，但沒有人能保證防毒軟體的判斷。</li>
 </ul>
+<p>原始碼、建置流程與發佈產物全部公開，由 GitHub Actions 從對應的 tag 建置並附上建置來源證明（build provenance），可用 <code>gh attestation verify</code> 驗證。介意的話，改用上方的 Microsoft Store 版本即可完全避開這些問題。</p>
+</blockquote>
 <h2>為什麼會需要它</h2>
 <p>Windows 把輸入法狀態綁在<strong>每個執行緒</strong>上。切到另一個視窗時，中／英轉換模式會回到該輸入法的預設值 —— 對中文鍵盤來說就是<strong>中文</strong>。所以你剛按 Shift 切成英數，換個視窗又打出中文。</p>
 <p>「設定 → 時間與語言 → 輸入 → 進階鍵盤設定」裡的**「允許我為每個應用程式視窗使用不同的輸入法」解決不了這件事**。那個設定管的是「哪一個輸入法在作用」，不管「該輸入法處於中文還是英數」—— 關掉它之後，切換視窗照樣切回中文。</p>
