@@ -21,6 +21,20 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
+      - name: Suppress the first-logon "Choose privacy settings" screen
+        shell: pwsh
+        run: |
+          # The recorded video showed the interactive session stuck on Windows'
+          # "Choose privacy settings for your device" screen, not a real desktop
+          # -- that's a one-time prompt Windows shows on a profile's first
+          # interactive sign-in, which x64 hosted-runner images already suppress
+          # but this ARM64 preview image apparently doesn't yet. Setting this
+          # policy before anything else needs the real desktop should stop it
+          # from appearing when the capture script opens its first window.
+          New-Item -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Force | Out-Null
+          Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience" -Value 1 -Type DWord -Force
+          Get-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\OOBE" -Name "DisablePrivacyExperience"
+
       - name: Report runner arch
         shell: pwsh
         run: |
