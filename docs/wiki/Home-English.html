@@ -89,16 +89,9 @@
 <p><strong>Carry your input mode across windows, and bind programs to a fixed input language</strong></p>
 <p><a href="Home.html">繁體中文</a> · <strong>English</strong> · <a href="Home-Simplified.html">简体中文</a> · <a href="Home-Japanese.html">日本語</a> · <a href="Home-Korean.html">한국어</a></p>
 <p>Windows utility that controls how input methods behave across programs: it carries the <strong>input mode you last chose</strong> (native or alphanumeric) to the next window, and can <strong>bind a program to a fixed input language</strong> — including programs whose executable cannot be read, such as anti-cheat protected fullscreen games.</p>
-<blockquote>
-<h3>⚠ In development and unsigned — judge for yourself</h3>
-<p>This utility is still in development and has <strong>no code-signing certificate</strong>. Windows Defender may therefore classify it as a virus and <strong>delete it outright</strong>; the known detection is <code>Behavior:Win32/Persistence.A!ml</code>.</p>
-<p>That detection is on the logon task created by <em>Start automatically at logon</em>. Any program offering to start at logon must do the same thing, and an unsigned program doing it is what behaviour monitoring watches for. A false-positive report has been submitted to Microsoft, but <strong>nobody can guarantee what an antivirus will decide.</strong></p>
-<p>The source, build workflow and release artifacts are all public and built by GitHub Actions from the tagged commit, so you can inspect or reproduce them. On that basis, <strong>whether to keep using it is your decision.</strong></p>
-<p>If it gets deleted: use the portable <code>zip</code>, or leave <em>Start automatically at logon</em> unticked.</p>
-<p><strong>Code signing:</strong> releases are unsigned. Each artifact ships build provenance instead — built by GitHub Actions from its tag with an attestation you can check via <code>gh attestation verify</code>.</p>
-</blockquote>
 <h2>Install</h2>
-<p>From <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>:</p>
+<p><strong>Recommended: <a href="https://apps.microsoft.com/detail/9P05QQZ2P5XC">Microsoft Store</a></strong> — signed, auto-updates, and doesn't hit the issues noted below.</p>
+<p>You can also get it from <a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a>:</p>
 <table>
 <thead>
 <tr>
@@ -109,7 +102,7 @@
 <tbody>
 <tr>
 <td><code>...-setup.exe</code></td>
-<td><strong>Recommended</strong>: standard installer (supports per-user or all-users installation)</td>
+<td>Standard installer (supports per-user or all-users installation)</td>
 </tr>
 <tr>
 <td><code>...-x64.zip</code></td>
@@ -118,11 +111,16 @@
 </tbody>
 </table>
 <p>Tick <strong>Start automatically at logon</strong> during setup. It then runs in the notification area at the bottom right — Windows 11 hides new icons behind the <strong>⌃</strong> chevron next to the clock. It works as soon as it is installed; no configuration needed.</p>
-<p>Two things commonly get in the way:</p>
+<blockquote>
+<h3>⚠ The GitHub build is unsigned</h3>
+<p>This note only applies to the installer or zip <strong>downloaded from GitHub Releases</strong> — the <strong>Microsoft Store build above is signed</strong> and does not hit any of this.</p>
+<p>The GitHub build currently has no code-signing certificate, so you may see:</p>
 <ul>
-<li>The blue <strong>Windows protected your PC</strong> screen → <em>More info → Run anyway</em>. The files are unsigned, so this is a reputation warning rather than a virus detection.</li>
-<li><strong>Antivirus deleting the installer</strong> → unsigned installers are frequently caught by heuristics. Use the portable <code>zip</code>, which is functionally identical.</li>
+<li>The blue <strong>Windows protected your PC</strong> screen → <em>More info → Run anyway</em>. This is a reputation warning, not a virus detection.</li>
+<li><strong>Antivirus deleting the installer</strong> — the known detection is <code>Behavior:Win32/Persistence.A!ml</code>, on the logon task created by <em>Start automatically at logon</em>. Use the portable <code>zip</code> instead, or leave that option unticked. A false-positive report has been submitted to Microsoft, but nobody can guarantee what an antivirus will decide.</li>
 </ul>
+<p>The source, build workflow and release artifacts are all public and built by GitHub Actions from the tagged commit, with build provenance you can check via <code>gh attestation verify</code>. If this bothers you, the Microsoft Store build above sidesteps it entirely.</p>
+</blockquote>
 <h2>Why you would want it</h2>
 <p>Windows keeps IME state <strong>per thread</strong>. Move to another window and the conversion mode reverts to the IME's default — for a Chinese keyboard, that means <strong>Chinese</strong>. So you press Shift for alphanumeric, switch window, and you are typing Chinese again.</p>
 <p><strong>Settings → Time &amp; language → Typing → Advanced keyboard settings → <em>Let me use a different input method for each app window</em> does not fix this.</strong> That setting governs <em>which</em> input method is active, not whether that method is in native or alphanumeric mode — turn it off and switching windows still reverts to Chinese.</p>

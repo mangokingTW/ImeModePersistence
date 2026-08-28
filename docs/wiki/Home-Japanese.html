@@ -88,16 +88,9 @@
 </h1>
 <p><a href="Home.html">繁體中文</a> · <a href="Home-English.html">English</a> · <a href="Home-Simplified.html">简体中文</a> · <strong>日本語</strong> · <a href="Home-Korean.html">한국어</a></p>
 <p>プログラム間での入力方式の挙動を制御する Windows ユーティリティです。<strong>最後に選んだ入力モード</strong>（かな入力または英数入力）を次のウィンドウへ引き継ぎ、さらに <strong>プログラムを特定の入力言語に固定</strong> できます。これは、アンチチートで保護されたフルスクリーンゲームのように、実行ファイルを読み取れないプログラムにも対応します。</p>
-<blockquote>
-<h3>⚠ 開発中かつ未署名 — ご自身で判断してください</h3>
-<p>このユーティリティはまだ開発中で、<strong>コード署名証明書がありません</strong>。そのため Windows Defender がウイルスと判定し、<strong>そのまま削除してしまう</strong>ことがあります。既知の検出名は <code>Behavior:Win32/Persistence.A!ml</code> です。</p>
-<p>この検出は、<em>ログオン時に自動的に起動する</em> によって作成されるログオンタスクに対するものです。ログオン時に起動しようとするプログラムはどれも同じことを行いますが、未署名のプログラムがそれを行うと、動作監視の警戒対象になります。誤検知としてマイクロソフトへ報告済みですが、<strong>ウイルス対策ソフトがどう判断するかは誰にも保証できません。</strong></p>
-<p>ソースコード、ビルドワークフロー、リリース成果物はすべて公開されており、タグ付けされたコミットから GitHub Actions によってビルドされています。そのため、検査や再現が可能です。これを踏まえ、<strong>使い続けるかどうかはあなたの判断です。</strong></p>
-<p>削除されてしまった場合は、ポータブル版の <code>zip</code> を使うか、<em>ログオン時に自動的に起動する</em> のチェックを外してください。</p>
-<p><strong>コード署名について:</strong> リリースは未署名です。代わりに各成果物へビルドの来歴（build provenance）が付きます —— GitHub Actions がタグからビルドし、<code>gh attestation verify</code> で検証できる証明が添付されます。</p>
-</blockquote>
 <h2>インストール</h2>
-<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> から入手してください：</p>
+<p><strong>推奨：<a href="https://apps.microsoft.com/detail/9P05QQZ2P5XC">Microsoft Store</a></strong> —— 署名済みで自動更新され、下記の問題は発生しません。</p>
+<p><a href="https://github.com/mangokingTW/ImeModePersistence/releases">Releases</a> から入手することもできます：</p>
 <table>
 <thead>
 <tr>
@@ -108,7 +101,7 @@
 <tbody>
 <tr>
 <td><code>...-setup.exe</code></td>
-<td><strong>推奨</strong>：標準インストーラー（現在のユーザー用または全ユーザー用を選択可能）</td>
+<td>標準インストーラー（現在のユーザー用または全ユーザー用を選択可能）</td>
 </tr>
 <tr>
 <td><code>...-x64.zip</code></td>
@@ -117,11 +110,16 @@
 </tbody>
 </table>
 <p>セットアップ中に <strong>ログオン時に自動的に起動する</strong> にチェックを入れてください。その後、右下の通知領域で動作します。Windows 11 では、新しいアイコンは時計の隣にある <strong>⌃</strong> シェブロンの奥に隠されます。インストールするとすぐに動作し、設定は不要です。</p>
-<p>よくある障害が 2 つあります。</p>
+<blockquote>
+<h3>⚠ GitHub 版は未署名です</h3>
+<p>この注意事項は <strong>GitHub Releases からダウンロードした</strong> インストーラーや zip にのみ当てはまります。上記の <strong>Microsoft Store 版は署名済み</strong> で、以下の問題は発生しません。</p>
+<p>GitHub ビルドには現在コード署名証明書がないため、次のような事象が起きることがあります：</p>
 <ul>
-<li>青い <strong>PC が保護されました</strong> 画面 → <em>詳細情報 → 実行</em> をクリックします。ファイルが未署名であるための評価に関する警告であり、ウイルス検出ではありません。</li>
-<li><strong>ウイルス対策ソフトがインストーラーを削除する</strong> → 未署名のインストーラーはヒューリスティックによって頻繁に捕捉されます。機能的に同一であるポータブル版の <code>zip</code> を使ってください。</li>
+<li>青い <strong>PC が保護されました</strong> 画面 → <em>詳細情報 → 実行</em> をクリックします。これは評価に関する警告であり、ウイルス検出ではありません。</li>
+<li><strong>ウイルス対策ソフトがインストーラーを削除する</strong> —— 既知の検出名は <code>Behavior:Win32/Persistence.A!ml</code> で、<em>ログオン時に自動的に起動する</em> が作成するログオンタスクに対するものです。ポータブル版の <code>zip</code> を使うか、そのチェックを外してください。誤検知としてマイクロソフトへ報告済みですが、ウイルス対策ソフトがどう判断するかは誰にも保証できません。</li>
 </ul>
+<p>ソースコード、ビルドワークフロー、リリース成果物はすべて公開されており、タグ付けされたコミットから GitHub Actions によってビルドされ、<code>gh attestation verify</code> で検証できるビルドの来歴が付きます。気になる場合は、上記の Microsoft Store 版を使えばこれらを完全に回避できます。</p>
+</blockquote>
 <h2>必要になる理由</h2>
 <p>Windows は IME の状態を <strong>スレッドごと</strong> に保持します。別のウィンドウへ移ると変換モードは IME の既定へ戻ります。中国語キーボードの場合、それは <strong>中国語</strong> を意味します。つまり Shift を押して英数にし、ウィンドウを切り替えると、また中国語を入力していることになります。</p>
 <p><strong>設定 → 時刻と言語 → 入力 → キーボードの詳細設定 → <em>アプリウィンドウごとに異なる入力方式を使用する</em> ではこれは解決しません。</strong> この設定は <em>どの</em> 入力方式が有効になるかを制御するだけで、その方式がかなモードか英数モードかは制御しません。オフにしても、ウィンドウを切り替えれば中国語に戻ります。</p>
