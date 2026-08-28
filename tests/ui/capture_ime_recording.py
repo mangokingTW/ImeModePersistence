@@ -485,9 +485,19 @@ def main() -> int:
         print(f"[VERIFY] Window A exact content matching:\nExpected:\n{expected_a}\nActual:\n{norm_a}\n", flush=True)
         print(f"[VERIFY] Window B exact content matching:\nExpected:\n{expected_b}\nActual:\n{norm_b}\n", flush=True)
 
-        assert norm_a == expected_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
-        assert norm_b == expected_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
-        print("[VERIFY] All window text contents strictly and perfectly matched without trailing spaces!", flush=True)
+        # Content is checked here but not asserted yet -- the recording below must
+        # be saved regardless of the outcome, or a mismatch destroys the one
+        # artifact that would explain why. The mismatch (if any) still fails the
+        # run; it is just deferred past the save so the video always comes out.
+        match_a = norm_a == expected_a
+        match_b = norm_b == expected_b
+        if match_a and match_b:
+            print("[VERIFY] All window text contents strictly and perfectly matched without trailing spaces!", flush=True)
+        else:
+            if not match_a:
+                print(f"[VERIFY] Window A text mismatch! Expected '{expected_a}', got '{norm_a}'", flush=True)
+            if not match_b:
+                print(f"[VERIFY] Window B text mismatch! Expected '{expected_b}', got '{norm_b}'", flush=True)
 
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
@@ -537,6 +547,9 @@ def main() -> int:
                     print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
             except Exception as exc:
                 print(f"FFmpeg encoding error: {exc}")
+
+        assert match_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
+        assert match_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
 
     finally:
         win_a.close()

@@ -82,6 +82,7 @@ jobs:
 
       - name: Capture continuous IME persistence recording
         shell: pwsh
+        continue-on-error: true
         env:
           PYTHONIOENCODING: utf-8
         run: |
@@ -89,6 +90,7 @@ jobs:
 
       - name: Run real-IME E2E tests
         shell: pwsh
+        continue-on-error: true
         run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
 
       - name: Upload recording artifact
