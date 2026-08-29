@@ -31,6 +31,21 @@ try:
 except Exception:
     pass
 
+try:
+    # pydirectinput aborts if the pointer reaches a screen corner, so a human
+    # can stop a script that has taken over their mouse. There is no human on a
+    # CI runner, and the abort is not harmless: once tripped, every later
+    # keystroke raises, so a single mislanded click kills the whole capture --
+    # which is exactly how an ARM64 run died, in type_english, long after the
+    # click that moved the pointer. Losing a keystroke is recoverable; losing
+    # the run is not. The corner position is logged instead, since a pointer in
+    # a corner still means a click went somewhere it should not have.
+    import pydirectinput as _pydirectinput
+
+    _pydirectinput.FAILSAFE = False
+except Exception:
+    pass
+
 EXE = sys.argv[1] if len(sys.argv) > 1 else r"build-x64\Release\ImeModePersistence.exe"
 
 OUT = sys.argv[2] if len(sys.argv) > 2 else "ime-recording"
@@ -125,6 +140,30 @@ def promote_all_tray_icons():
     HWND_BROADCAST = 0xFFFF
     WM_SETTINGCHANGE = 0x001A
     user32.PostMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 0)
+
+def _foreground_window_description() -> str:
+    """Class, title and owning pid of the foreground window, for diagnostics.
+
+    A hardware keystroke goes to whatever holds focus, so when one appears not
+    to arrive, the first question is which window actually had it.
+    """
+    try:
+        hwnd = user32.GetForegroundWindow()
+        if not hwnd:
+            return "<none>"
+        title = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(hwnd, title, 512)
+        cls = ctypes.create_unicode_buffer(256)
+        user32.GetClassNameW(hwnd, cls, 256)
+        pid = wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+        pos = wintypes.POINT()
+        user32.GetCursorPos(ctypes.byref(pos))
+        return (f"hwnd={hwnd} class={cls.value} title={title.value!r} "
+                f"pid={pid.value} cursor=({pos.x},{pos.y})")
+    except Exception as exc:
+        return f"<unavailable: {exc}>"
+
 
 _closed_terminals = set()
 
@@ -297,7 +336,7 @@ class NotepadWindow:
             self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
         time.sleep(0.3)
 
-    def press_enter(self, attempts: int = 5):
+    def press_enter(self, attempts: int = 3):
         """Adds a line break, confirming it actually landed.
 
         pywinauto's type_keys("\\n", with_newlines=True) sends a WM_CHAR
@@ -314,21 +353,36 @@ class NotepadWindow:
         apart. So rather than sending it and hoping, read the text back and
         send it again if the line count did not move.
 
-        Retrying is safe: a duplicate Enter only adds a blank line, and the
-        content check strips empty lines before comparing, so over-sending
-        cannot turn a passing run into a failing one.
+        Retrying is safe for the content check: a duplicate Enter only adds a
+        blank line, and empty lines are stripped before comparing. It is not
+        free otherwise -- each attempt re-runs set_foreground(), which clicks,
+        and on the ARM64 runner enough of those walked the pointer into a
+        screen corner and tripped pydirectinput's fail-safe, which then makes
+        every later keystroke raise. Hence few attempts, and the fail-safe
+        turned off in this script (see the top of the file).
+
+        Each failed attempt prints what was actually read back. The first
+        version of this only printed "did not register", and an ARM64 run then
+        reported that fifteen times while the recording plainly showed text
+        going into Notepad and the window title read "*測試 - Notepad" -- so
+        the check itself may be the thing that is wrong, not the keystroke. Not
+        being able to tell those apart is what this logging is for.
         """
         import pydirectinput
 
-        before = self.get_text().count("\n")
+        before_text = self.get_text()
+        before = before_text.count("\n")
         for attempt in range(attempts):
             self.set_foreground()
             pydirectinput.press('enter')
             time.sleep(0.4)
-            if self.get_text().count("\n") > before:
+            after_text = self.get_text()
+            if after_text.count("\n") > before:
                 return
             print(
-                f"[RETRY] Enter did not register (attempt {attempt + 1}/{attempts})",
+                f"[RETRY] Enter did not register (attempt {attempt + 1}/{attempts}); "
+                f"read before={before_text!r} after={after_text!r} "
+                f"foreground={_foreground_window_description()}",
                 flush=True,
             )
         # Deliberately not raising: the content verification later on reports the
