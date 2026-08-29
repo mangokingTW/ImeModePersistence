@@ -141,6 +141,20 @@ def promote_all_tray_icons():
     WM_SETTINGCHANGE = 0x001A
     user32.PostMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 0)
 
+def _line_break_count(text: str) -> int:
+    """Number of line breaks in text, whatever form they take.
+
+    Notepad hands back bare carriage returns, so counting "\\n" sees none: an
+    ARM64 run reported the Enter missing after every attempt while logging
+    `after='...persistence test\\r'`, then `\\r\\r`, then `\\r\\r\\r` -- each
+    keystroke had landed. splitlines() is no good either, since a trailing
+    break produces no extra element ('abc\\r' and 'abc' are both one line) and
+    a trailing break is exactly what pressing Enter at the end of a document
+    creates. Normalising first counts all three forms, including at the end.
+    """
+    return text.replace("\r\n", "\n").replace("\r", "\n").count("\n")
+
+
 def _foreground_window_description() -> str:
     """Class, title and owning pid of the foreground window, for diagnostics.
 
@@ -371,13 +385,13 @@ class NotepadWindow:
         import pydirectinput
 
         before_text = self.get_text()
-        before = before_text.count("\n")
+        before = _line_break_count(before_text)
         for attempt in range(attempts):
             self.set_foreground()
             pydirectinput.press('enter')
             time.sleep(0.4)
             after_text = self.get_text()
-            if after_text.count("\n") > before:
+            if _line_break_count(after_text) > before:
                 return
             print(
                 f"[RETRY] Enter did not register (attempt {attempt + 1}/{attempts}); "
