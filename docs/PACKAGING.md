@@ -13,13 +13,14 @@ does the rest.
 | winget | `mangokingTW.ImeModePersistence` | manifest in [`packaging/winget`](../packaging/winget), updated separately |
 | Scoop | `mango/ImeModePersistence` | manifest in [`packaging/scoop`](../packaging/scoop), updated separately |
 
-Release assets: unified installer (`-setup.exe`), portable
-`-x64.zip`, the Store `.msix`, `SHA256SUMS.txt`, and the SLSA provenance bundle
-(`multiple.intoto.jsonl`).
+Release assets: unified installer (`-setup.exe`), portable `-x64.zip` and
+`-arm64.zip`, the Store `.msixbundle`, `SHA256SUMS.txt`, and the SLSA provenance
+bundle (`multiple.intoto.jsonl`).
 
-Builds are **x64 only** — Windows 11 has no 32-bit edition and 32-bit Windows 10
-is end-of-life, so there is no x86 build; the installer refuses to run on a
-32-bit OS.
+Builds are **x64 and ARM64**. There is no x86 build — Windows 11 has no 32-bit
+edition and 32-bit Windows 10 is end-of-life, so the installer refuses to run on
+a 32-bit OS. ARM64 ships as the portable zip and inside the Store bundle; the
+`-setup.exe` installer is x64 only (it runs on ARM64 under emulation).
 
 ## Cutting a release
 
@@ -115,9 +116,18 @@ to announce, clear it by hand in Partner Center.
 
 MSIX identity: `Name="MangoYen.IMEModePersistence"`,
 `Publisher="CN=B64E145E-DB3F-473D-9BA6-BDF6CF2E8081"` — matches the Partner
-Center reservation. The Store re-signs the package on ingestion, so the `.msix`
+Center reservation. The Store re-signs the package on ingestion, so the package
 produced by CI is unsigned. The Store (MSIX) build **cannot elevate**, so for
 targets that need administrator rights it points the user to the desktop build.
+
+CI submits a **`.msixbundle` carrying both x64 and ARM64**. Both packages share
+one Identity and differ only in `ProcessorArchitecture`, so they belong to the
+same listing — the Store hands each device the matching architecture. A bundle
+(rather than two uploads) is required because a Partner Center submission takes
+one package set and `msstore publish` accepts a single path. `build.ps1` packs
+one architecture at a time and `bundle.ps1` combines them; the bundle version
+comes from `AppxManifest.xml`, so the single version bump below still governs
+what the Store sees.
 
 ### One-time setup
 
@@ -162,7 +172,7 @@ release. A 30-minute step timeout guards a known msstore commit hang.
 | `Ingestion API can only update, delete, and commit submissions that are created through the API` | A submission is pending that was created in the Partner Center **website**. Publish or discard it in the portal; the API can't supersede a portal-created submission. |
 | `Failed to read input in non-interactive mode` at `submission delete` | Needs `--no-confirm` (it prompts y/n otherwise). |
 | `Invalid Unicode escape sequence: \u` when parsing notes | `msstore submission get` prints JSON via AnsiConsole, which hard-wraps to ~80 cols and splits `\uXXXX` escapes. The workflow rejoins the physical lines (`-join ''`) before parsing — any listing with non-ASCII text hits this. |
-| Store rejects the package | The `.msix` version equals a version already submitted. Bump `AppxManifest.xml` `Version` (4th field stays `0`). |
+| Store rejects the package | The bundle version equals a version already submitted. Bump `AppxManifest.xml` `Version` (4th field stays `0`) — it is both the package and the bundle version. |
 | "What's new" didn't change | The tag had no `## vX.Y.Z` CHANGELOG section, so `storenotes*.md` weren't written and the notes fell back to the previous submission's. |
 
 Only one submission can be in flight per app at a time; a newer release

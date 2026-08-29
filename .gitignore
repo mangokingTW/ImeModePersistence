@@ -18,6 +18,8 @@ Release/
 
 # Release output
 /dist/
+# Per-architecture MSIX staging: only the bundle built from these ships
+/msix-packages/
 
 # Binaries
 *.exe
