@@ -106,66 +106,51 @@ runs:
         mkdir diag -Force | Out-Null
         .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-capture"
 
-    - name: Bring WSL up to date so its updater stops spawning windows
+    - name: Keep the WSL installer window off the desktop
       shell: pwsh
       run: |
-        # A Windows Terminal on `wsl.exe --update --confirm --prompt-before-exit`
-        # appears on an exact 30-second grid (:21/:51 of every minute), orphaned,
-        # and steals the foreground -- --prompt-before-exit waits for a keypress
-        # that never comes. The previous fix disabled scheduled tasks whose
-        # Execute mentioned wsl and found zero; the spawns continued regardless.
+        # Root cause, finally evidenced rather than guessed: this image has no
+        # WSL package at all -- `wsl --update` prints "The Windows Subsystem
+        # for Linux is not installed" and exits 1. What fires every 30 seconds
+        # is the runner's own provisioning daemon probing wsl (provjobd.exe <-
+        # hosted-compute-agent, per the event watcher's parent chains), and the
+        # system32 stub answers every probe by launching the interactive
+        # installer -- `wsl.exe --update --confirm --prompt-before-exit` --
+        # whose Terminal window waits for a keypress and steals the foreground.
         #
-        # The likelier mechanism: this image's WSL MSIX package is stale, and
-        # every wsl.exe invocation notices and launches the interactive updater
-        # before exiting -- which is why the parent is always already dead. So
-        # instead of hunting the 30-second caller, remove its reason to spawn:
-        # run the update to completion ourselves, headless, right here.
-        $p = Start-Process -FilePath wsl.exe -ArgumentList '--update' -NoNewWindow -PassThru
-        if (-not $p.WaitForExit(300000)) {
-          $p.Kill()
-          Write-Host 'wsl --update: timed out after 300s (killed); updater may keep spawning'
-        } else {
-          Write-Host "wsl --update: exit code $($p.ExitCode)"
-        }
-        & wsl.exe --version 2>&1 | Out-String | Write-Host
-        $global:LASTEXITCODE = 0
+        # Two levers, whose effects the spawn watcher can tell apart:
+        #
+        # 1. The AllowWSL=0 policy, which documented enterprise controls say
+        #    makes wsl.exe refuse to run. If it works here, the watcher shows
+        #    zero installer spawns. Cheap, but unverified on the inbox stub --
+        #    treated as an experiment, not the fix.
+        New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Force | Out-Null
+        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Name 'AllowWSL' -Value 0 -Type DWord -Force
+        Write-Host 'AllowWSL=0 policy set'
 
-        # The task sweep stays, corrected and demoted to evidence-gathering: the
-        # first version matched only Actions.Execute, so a task launching wsl
-        # via an interpreter (cmd /c wsl ...) would have been missed -- "found
-        # zero" was not yet a checkable claim. Now Arguments are matched too,
-        # and every task's action is dumped to the diagnostics artifact so
-        # absence is verifiable rather than asserted.
-        $found = 0
-        Get-ScheduledTask -ErrorAction SilentlyContinue | ForEach-Object {
-          $task = $_
-          $hits = @($task.Actions | Where-Object {
-            ($_.Execute -and $_.Execute -match 'wsl') -or ($_.Arguments -and $_.Arguments -match 'wsl')
-          })
-          if ($hits.Count -gt 0) {
-            $found++
-            Write-Host "disabling $($task.TaskPath)$($task.TaskName) -> $($hits | ForEach-Object { "$($_.Execute) $($_.Arguments)" })"
-            Disable-ScheduledTask -TaskPath $task.TaskPath -TaskName $task.TaskName -ErrorAction SilentlyContinue | Out-Null
-          }
+        # 2. A reaper that needs no theory: kill any wsl.exe within 200 ms of
+        #    it appearing. The installer's Terminal window closes when the
+        #    wsl.exe it hosts dies, so the foreground is stolen for at most a
+        #    fraction of a second twice a minute -- inside what press_enter's
+        #    verify-and-retry already tolerates. Deliberately NOT touching
+        #    WindowsTerminal.exe by name: killing terminals by class is the
+        #    mistake that once shut down the x64 runner, and on this image the
+        #    agent console is ConsoleWindowClass, but the caution stands.
+        $reaper = @'
+        while ($true) {
+          Get-Process wsl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+          Start-Sleep -Milliseconds 200
         }
-        Write-Host "scheduled tasks mentioning wsl (Execute or Arguments): $found"
-        Get-ScheduledTask -ErrorAction SilentlyContinue | ForEach-Object {
-          $t = $_
-          foreach ($a in $t.Actions) {
-            "{0}{1} :: {2} {3}" -f $t.TaskPath, $t.TaskName, $a.Execute, $a.Arguments
-          }
-        } | Out-File -Encoding utf8 diag/scheduled-tasks.txt
+        '@
+        $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($reaper))
+        Start-Process pwsh -ArgumentList '-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', $enc -WindowStyle Hidden
+        Write-Host 'wsl reaper started (200 ms)'
 
-        # Clear whatever is already up; the watcher records anything that returns.
+        # Clear whatever is already on screen; the watcher records any return.
         Get-Process wsl, wslhost, WindowsTerminal -ErrorAction SilentlyContinue | ForEach-Object {
           Write-Host "killing $($_.ProcessName) ($($_.Id))"
           Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
         }
-
-        # Still not fixable from here: the runner's provisioning daemon probes
-        # WSL on its own (`wsl -u root -e ls`, provjobd.exe <-
-        # hosted-compute-agent), so the window closing in
-        # capture_ime_recording.py stays as a backstop.
 
     - name: Start the wsl.exe spawn watcher
       shell: pwsh

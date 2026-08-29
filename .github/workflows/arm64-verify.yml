@@ -39,9 +39,9 @@ jobs:
     # a cancel request for five minutes, and uploaded no logs at all -- not
     # even for the checkout that had already succeeded. The runner appears to
     # take one job at a time, so that is six hours of no ARM verification for
-    # anyone. A full run, including a capture that then failed, takes about 25
-    # minutes.
-    timeout-minutes: 45
+    # anyone. A healthy run is 25-40 minutes; the spread is DISM, whose zh-TW
+    # install has taken anywhere from 4 to 26 minutes on this runner.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: ./.github/actions/arm64-verify
