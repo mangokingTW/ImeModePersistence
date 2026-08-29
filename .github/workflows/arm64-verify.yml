@@ -1,0 +1,22 @@
+name: ARM64 Verify (on-demand)
+
+# On-demand ARM64 verification, so a change to the capture script can be tested
+# on a windows-11-arm runner without cutting a release. release.yml runs the
+# same composite action, so what passes here is what runs there.
+#
+# Dispatch-only on purpose: windows-11-arm is a public-preview runner and
+# appears to allow only one job at a time, so running this on every pull
+# request would queue behind (or cancel) a release's own ARM job.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arm64-verify:
+    name: ARM64 Real-IME E2E & Recording
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: ./.github/actions/arm64-verify
