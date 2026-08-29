@@ -179,6 +179,7 @@ class NotepadWindow:
     def __init__(self, x: int, y: int, w: int, h: int):
 
         from pywinauto import Desktop
+        from pywinauto.application import Application
 
         # Connecting by PID (Application(...).connect(process=pid)) assumes
         # the process launched by Popen is the one that ends up owning the
@@ -186,11 +187,21 @@ class NotepadWindow:
         # runner, Windows 11 build 26100+) where notepad.exe launches the
         # modern tabbed Notepad -- the window is genuinely there (confirmed
         # visually in the recording, not obscured by anything), but pywinauto
-        # could never find it by that PID. Find it by title instead, which
-        # works regardless of which process ends up owning the window: launch,
-        # then poll for a new top-level "Notepad" window that wasn't already
-        # open before (so a second instance -- win_b -- doesn't just grab
-        # win_a's window).
+        # could never find it by that PID. Find its handle by title instead,
+        # which works regardless of which process ends up owning the window:
+        # launch, then poll for a new top-level "Notepad" window that wasn't
+        # already open before (so a second instance -- win_b -- doesn't just
+        # grab win_a's window).
+        #
+        # Desktop(...).windows() hands back already-resolved wrapper objects,
+        # not a self-re-resolving WindowSpecification -- holding one of those
+        # for the whole lifetime of this object (repeated set_focus/type_keys
+        # calls over several seconds, while other windows get focus in
+        # between) let it go stale silently: later calls stopped raising but
+        # also stopped doing anything, so text just never landed. Use the
+        # discovered handle to reconnect via Application(...).connect(handle=)
+        # instead, and keep app.window(handle=) (which re-resolves on every
+        # call) as self.dlg for everything from here on.
         try:
             existing_handles = {w.handle for w in Desktop(backend="uia").windows(title_re=".*Notepad.*")}
         except Exception:
@@ -199,21 +210,24 @@ class NotepadWindow:
         self.proc = subprocess.Popen(["notepad.exe"])
         deadline = time.monotonic() + 10.0
         last_error = None
-        self.dlg = None
+        found_handle = None
         while time.monotonic() < deadline:
             try:
                 for win in Desktop(backend="uia").windows(title_re=".*Notepad.*"):
                     if win.handle not in existing_handles:
-                        self.dlg = win
+                        found_handle = win.handle
                         break
-                if self.dlg is not None:
+                if found_handle is not None:
                     break
             except Exception as exc:
                 last_error = exc
             time.sleep(0.2)
-        if self.dlg is None:
+        if found_handle is None:
             raise RuntimeError(f"Notepad (pid {self.proc.pid}) never got a window") from last_error
-        self.hwnd = self.dlg.handle
+
+        self.hwnd = found_handle
+        self.app = Application(backend="uia").connect(handle=self.hwnd)
+        self.dlg = self.app.window(handle=self.hwnd)
 
         # Move and resize window
         user32.MoveWindow(self.hwnd, x, y, w, h, True)
