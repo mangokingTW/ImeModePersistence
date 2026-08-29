@@ -106,6 +106,43 @@ runs:
         mkdir diag -Force | Out-Null
         .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-capture"
 
+    - name: Stop the WSL auto-update task from stealing focus
+      shell: pwsh
+      run: |
+        # The spawn watcher caught what kept putting a Windows Terminal on
+        # C:\Windows\system32\wsl.exe in front of the test: a task firing
+        #
+        #   wsl.exe --update --confirm --prompt-before-exit
+        #
+        # every 30 seconds, orphaned -- no surviving parent. --prompt-before-exit
+        # is why it lingers: it waits for a keypress that never comes, so the
+        # window sits in the foreground until something closes it. Closing them
+        # was never going to win against a 30-second timer.
+        #
+        # Matched on the action rather than a task name, since the name is not
+        # documented anywhere worth relying on. What it disabled is printed, so
+        # a run that finds nothing says so instead of looking fixed.
+        $found = 0
+        Get-ScheduledTask -ErrorAction SilentlyContinue | ForEach-Object {
+          $task = $_
+          if (@($task.Actions | Where-Object { $_.Execute -and $_.Execute -match 'wsl' }).Count -gt 0) {
+            $found++
+            Write-Host "disabling $($task.TaskPath)$($task.TaskName) -> $($task.Actions.Execute -join ', ')"
+            Disable-ScheduledTask -TaskPath $task.TaskPath -TaskName $task.TaskName -ErrorAction SilentlyContinue | Out-Null
+          }
+        }
+        Write-Host "scheduled tasks running wsl: $found"
+
+        # Whatever is already up goes now; the watcher records any that return.
+        Get-Process wsl, wslhost, WindowsTerminal -ErrorAction SilentlyContinue | ForEach-Object {
+          Write-Host "killing $($_.ProcessName) ($($_.Id))"
+          Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
+        }
+
+        # Not fixable from here: the runner's own provisioning daemon also probes
+        # WSL (`wsl -u root -e ls`, from provjobd.exe <- hosted-compute-agent),
+        # which is why the window closing in capture_ime_recording.py stays.
+
     - name: Start the wsl.exe spawn watcher
       shell: pwsh
       run: |
