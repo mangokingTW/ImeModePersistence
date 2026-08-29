@@ -92,6 +92,16 @@ function page({ title, ogTitle, desc, url, bodyHtml, editUrl, lang }) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18414547014"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18414547014');
+</script>
+<!-- Store link clicks reported as an Ads conversion; shared with the landing page. -->
+<script src="../store-conversion.js" defer></script>
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="article">
@@ -200,6 +210,16 @@ function indexPage(pagesByTopic) {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18414547014"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18414547014');
+</script>
+<!-- Store link clicks reported as an Ads conversion; shared with the landing page. -->
+<script src="../store-conversion.js" defer></script>
 <title>Guides · 說明文件 — IME Mode Persistence</title>
 <meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="website">
