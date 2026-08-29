@@ -33,14 +33,46 @@ runs:
         # and at a random time: install WSL, sans distribution, as the first
         # step. A pending reboot for its VM features is fine -- WSL never has
         # to *run* here, it only has to stop being "not installed".
-        $p = Start-Process -FilePath wsl.exe -ArgumentList '--install', '--no-distribution' -NoNewWindow -PassThru
-        if (-not $p.WaitForExit(600000)) {
-          $p.Kill()
-          Write-Host 'wsl --install: timed out after 600s (killed)'
-        } else {
-          Write-Host "wsl --install: exit code $($p.ExitCode)"
+        # First, the stub's own path. Plain `--update` and `--install
+        # --no-distribution` both just print the not-installed banner and exit
+        # 1 -- the flag that makes the stub actually proceed is `--confirm`,
+        # which is exactly what its self-spawned installer runs with.
+        $p = Start-Process -FilePath wsl.exe -ArgumentList '--update', '--confirm' -NoNewWindow -PassThru
+        if (-not $p.WaitForExit(600000)) { $p.Kill(); Write-Host 'wsl --update --confirm: timed out after 600s' }
+        else { Write-Host "wsl --update --confirm: exit code $($p.ExitCode)" }
+
+        # wsl.exe speaks UTF-16LE; read it as such or every character comes
+        # back NUL-padded and 'not installed' can never match.
+        function Get-WslStatus {
+          $prev = [Console]::OutputEncoding
+          try {
+            [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
+            return ((& wsl.exe --status 2>&1 | Out-String) -replace "\0", '')
+          } finally { [Console]::OutputEncoding = $prev }
         }
-        & wsl.exe --status 2>&1 | Out-String | Write-Host
+        $status = Get-WslStatus
+        Write-Host $status
+        if ($status -match 'not installed') {
+          # The stub would not cooperate; install the official MSI directly.
+          # microsoft/WSL releases ship per-arch MSIs -- machine-wide, quiet,
+          # no stub involved at all.
+          Write-Host 'stub path failed; falling back to the official arm64 MSI'
+          $rel = Invoke-RestMethod 'https://api.github.com/repos/microsoft/WSL/releases/latest'
+          $asset = $rel.assets | Where-Object { $_.name -match 'arm64\.msi$' } | Select-Object -First 1
+          if (-not $asset) { throw "no arm64 msi asset in WSL release $($rel.tag_name)" }
+          Write-Host "downloading $($asset.name)"
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri $asset.browser_download_url -OutFile wsl-arm64.msi
+          $m = Start-Process msiexec -ArgumentList '/i', 'wsl-arm64.msi', '/qn', '/norestart' -Wait -PassThru
+          Write-Host "msiexec: exit code $($m.ExitCode)"
+          $status = Get-WslStatus
+          Write-Host $status
+        }
+        if ($status -match 'not installed') {
+          Write-Host '::warning::WSL still reports not installed; installer windows may spawn during capture'
+        } else {
+          Write-Host 'WSL is installed; the stub has no installer to offer'
+        }
         $global:LASTEXITCODE = 0
 
     - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
