@@ -441,15 +441,23 @@ def main() -> int:
     promote_all_tray_icons()
     time.sleep(0.5)
 
-    win_a = NotepadWindow(x=40, y=80, w=480, h=360)
-    win_b = NotepadWindow(x=550, y=80, w=480, h=360)
-    time.sleep(0.5)
+    win_a = None
+    win_b = None
+    match_a = None
+    match_b = None
+    expected_a = "測試\npersistence test"
+    expected_b = "測試\nhello world"
+    norm_a = ""
+    norm_b = ""
 
     recorder = ContinuousRecorder(fps=60)
+    print("Starting continuous real-time desktop recording (60 FPS)...")
+    recorder.start()
 
     try:
-        print("Starting continuous real-time desktop recording (60 FPS)...")
-        recorder.start()
+        win_a = NotepadWindow(x=40, y=80, w=480, h=360)
+        win_b = NotepadWindow(x=550, y=80, w=480, h=360)
+        time.sleep(0.5)
 
         # Step 1: Window A activated, set Chinese mode, type authentic bopomofo 測試
         win_a.set_foreground()
@@ -489,9 +497,6 @@ def main() -> int:
         print(f"--- Window B Content ---\n{text_b}", flush=True)
         print(f"=================================================================\n", flush=True)
 
-        expected_a = "測試\npersistence test"
-        expected_b = "測試\nhello world"
-
         norm_a = "\n".join([line.strip() for line in text_a.strip().splitlines() if line.strip()])
         norm_b = "\n".join([line.strip() for line in text_b.strip().splitlines() if line.strip()])
 
@@ -512,6 +517,13 @@ def main() -> int:
             if not match_b:
                 print(f"[VERIFY] Window B text mismatch! Expected '{expected_b}', got '{norm_b}'", flush=True)
 
+    finally:
+        # Stopping the recorder and saving the video happen here, in finally,
+        # so a crash at any point above (Notepad never getting a window, a
+        # UIA call blowing up, anything) still produces a video of exactly
+        # what was on screen -- the one artifact that actually explains what
+        # happened, instead of losing it to whatever exception is about to
+        # propagate.
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
 
@@ -569,17 +581,18 @@ def main() -> int:
             except Exception as exc:
                 print(f"FFmpeg encoding error: {exc}")
 
-        assert match_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
-        assert match_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
-
-    finally:
-        win_a.close()
-        win_b.close()
+        if win_a is not None:
+            win_a.close()
+        if win_b is not None:
+            win_b.close()
         engine.terminate()
         try:
             engine.wait(timeout=2)
         except Exception:
             engine.kill()
+
+    assert match_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
+    assert match_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
 
     return 0
 
