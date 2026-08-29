@@ -1,67 +1,83 @@
 # Records every wsl.exe / Windows Terminal process that appears, with the chain
-# of parents that started it.
+# of parents that started it -- event-driven, because the polling version could
+# not answer the question it was built for.
 #
-# Why: on the ARM64 runner a Windows Terminal window running
-# C:\Windows\system32\wsl.exe keeps coming back -- six distinct handles inside
-# one capture -- and closing them is whack-a-mole. The desktop snapshots taken
-# before and after the capture only say a window existed, never who launched
-# it. This polls while the capture runs and writes down the parent chain and
-# command line the moment a new process shows up.
+# The launcher of the stray updater windows lives for well under a second, so a
+# 1 Hz poll always found `parents=` already empty. This version subscribes to
+# Win32_ProcessStartTrace (ETW, fires at creation) and keeps a birth table of
+# EVERY process start it sees -- so when a wsl.exe arrives, its parent can be
+# named from the table even if the parent is already gone.
 #
 # Read-only: it looks at processes, never touches them, so it cannot itself be
-# the reason a window appears or disappears.
+# the reason a window appears or disappears. Requires elevation (the runner is).
 #
-#   pwsh -File tests\ui\watch_wsl_spawns.ps1 -OutFile diag\wsl-watch.log -DurationSeconds 600
+#   pwsh -File tests\ui\watch_wsl_spawns.ps1 -OutFile diag\wsl-watch.log -DurationSeconds 900
 param(
   [string]$OutFile = "diag/wsl-watch.log",
-  [int]$DurationSeconds = 900,
-  [double]$IntervalSeconds = 1.0
+  [int]$DurationSeconds = 900
 )
 $ErrorActionPreference = 'Continue'
 
 $dir = Split-Path -Parent $OutFile
 if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
 
-$watched = 'wsl', 'wslhost', 'WindowsTerminal', 'wt', 'conhost', 'OpenConsole'
-$seen = @{}
-$deadline = (Get-Date).AddSeconds($DurationSeconds)
-
 function Write-Line([string]$text) {
   $stamp = (Get-Date).ToString('HH:mm:ss.fff')
   Add-Content -Path $OutFile -Value "$stamp $text"
 }
 
-Write-Line "watching for: $($watched -join ', ')"
+$interesting = 'wsl.exe', 'wslhost.exe', 'WindowsTerminal.exe', 'wt.exe', 'OpenConsole.exe'
 
-# Parent ids come from Win32_Process; a pid can be reused, so the creation time
-# is recorded too rather than trusting the id alone.
+# Birth table: pid -> what we saw start there. Dead parents stay nameable.
+$known = @{}
+
+# Resolve a parent chain, preferring the birth table (has the dead), falling
+# back to a live query (has processes older than this watcher).
 function Get-Chain([int]$processId) {
   $chain = @()
-  $current = $processId
-  for ($depth = 0; $depth -lt 6 -and $current -gt 0; $depth++) {
-    $p = Get-CimInstance Win32_Process -Filter "ProcessId = $current" -ErrorAction SilentlyContinue
-    if (-not $p) { break }
-    $chain += "$($p.Name)($($p.ProcessId))"
-    $current = [int]$p.ParentProcessId
-    if ($current -eq 0) { break }
+  $cur = $processId
+  for ($depth = 0; $depth -lt 6 -and $cur -gt 0; $depth++) {
+    if ($known.ContainsKey($cur)) {
+      $e = $known[$cur]
+      $chain += "$($e.Name)($cur)$(if ($e.Cmd) { " [$($e.Cmd)]" })"
+      $cur = $e.PPid
+      continue
+    }
+    $p = Get-CimInstance Win32_Process -Filter "ProcessId = $cur" -ErrorAction SilentlyContinue
+    if (-not $p) { $chain += "<gone pid=$cur>"; break }
+    $chain += "$($p.Name)($cur)"
+    $cur = [int]$p.ParentProcessId
   }
   return ($chain -join ' <- ')
 }
 
-while ((Get-Date) -lt $deadline) {
-  $procs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-    Where-Object { $watched -contains ($_.Name -replace '\.exe$', '') }
+Write-Line "event watcher starting (Win32_ProcessStartTrace); interesting: $($interesting -join ', ')"
 
-  foreach ($p in $procs) {
-    $key = "$($p.ProcessId)/$($p.CreationDate)"
-    if ($seen.ContainsKey($key)) { continue }
-    $seen[$key] = $true
-    Write-Line "NEW  $($p.Name) pid=$($p.ProcessId) created=$($p.CreationDate)"
-    Write-Line "     cmd    = $($p.CommandLine)"
-    Write-Line "     parents= $(Get-Chain ([int]$p.ParentProcessId))"
+Register-CimIndicationEvent -Query "SELECT * FROM Win32_ProcessStartTrace" -SourceIdentifier WslTrace | Out-Null
+try {
+  $deadline = (Get-Date).AddSeconds($DurationSeconds)
+  while ((Get-Date) -lt $deadline) {
+    $ev = Wait-Event -SourceIdentifier WslTrace -Timeout 5
+    if (-not $ev) { continue }
+    Remove-Event -EventIdentifier $ev.EventIdentifier
+    $ti = $ev.SourceEventArgs.NewEvent
+    $procId = [int]$ti.ProcessID
+    $ppid = [int]$ti.ParentProcessID
+
+    # The trace event carries no command line; fetch it immediately while the
+    # process is most likely to still exist. Null for the very short-lived.
+    $cmd = (Get-CimInstance Win32_Process -Filter "ProcessId = $procId" -ErrorAction SilentlyContinue).CommandLine
+    $known[$procId] = @{ Name = $ti.ProcessName; PPid = $ppid; Cmd = $cmd }
+
+    if ($interesting -contains $ti.ProcessName) {
+      Write-Line "NEW  $($ti.ProcessName) pid=$procId ppid=$ppid"
+      Write-Line "     cmd    = $cmd"
+      Write-Line "     parents= $(Get-Chain $ppid)"
+    }
   }
-
-  Start-Sleep -Seconds $IntervalSeconds
+}
+finally {
+  Unregister-Event -SourceIdentifier WslTrace -ErrorAction SilentlyContinue
 }
 
-Write-Line "done (saw $($seen.Count) matching processes)"
+Write-Line "done (birth table: $($known.Count) process starts observed)"
