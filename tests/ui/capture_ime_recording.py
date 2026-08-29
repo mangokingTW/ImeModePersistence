@@ -144,9 +144,18 @@ def minimize_background_windows():
     keystroke was in flight. A minimized window can return; a closed one
     cannot.
 
-    Only Windows Terminal is closed. The GitHub agent's own console is a
-    ConsoleWindowClass window and stays minimized -- closing that would take
-    the job down with it.
+    Only a Windows Terminal whose title names wsl.exe is closed, and that
+    narrowness is not caution for its own sake. On windows-latest the Actions
+    runner *itself* is hosted in a Windows Terminal window, titled "Default";
+    closing it on class alone made the runner log "received a shutdown signal"
+    on the very next line and killed the job. Matching the title is what
+    separates the ARM64 image's stray `C:\\Windows\\system32\\wsl.exe` window
+    from the window this job is running inside.
+
+    If the offending window ever appears under some other title this will miss
+    it -- which is why press_enter re-sends the keystroke rather than relying
+    on the desktop being clean. Failing to close is recoverable; closing the
+    wrong window is not.
     """
     SW_MINIMIZE = 6
     WM_CLOSE = 0x0010
@@ -168,14 +177,14 @@ def minimize_background_windows():
             class_buf = ctypes.create_unicode_buffer(256)
             user32.GetClassNameW(hwnd, class_buf, 256)
             cls = class_buf.value
-            if cls == "CASCADIA_HOSTING_WINDOW_CLASS" and hwnd != console_hwnd:
+            if cls == "CASCADIA_HOSTING_WINDOW_CLASS" and "wsl" in title and hwnd != console_hwnd:
                 # Posted, not sent: a hung terminal must not block the test.
                 user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
                 if hwnd not in _closed_terminals:
                     _closed_terminals.add(hwnd)
                     print(f"[DESKTOP] closed stray terminal hwnd={hwnd} title={buf.value!r}", flush=True)
             elif any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
-                    cls == "ConsoleWindowClass":
+                    cls in ("ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS"):
                 user32.ShowWindow(hwnd, SW_MINIMIZE)
         return True
 
