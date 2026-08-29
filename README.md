@@ -45,7 +45,8 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 | 檔案 | 說明 |
 |---|---|
 | `...-setup.exe` | **推薦**：標準安裝檔（安裝時可選擇為目前使用者或全機安裝） |
-| `...-x64.zip` | 免安裝，解壓即用 |
+| `...-win-x64.zip` | 免安裝，解壓即用 |
+| `...-win-arm64.zip` | 免安裝，ARM64 原生版 |
 
 > **防毒軟體可能刪除安裝檔。** 未簽章的安裝檔常被啟發式誤判 —— 遇到時改用免安裝的 zip，功能完全相同。
 
@@ -178,7 +179,8 @@ Its **second** purpose is pinning a specific program to an input language, inclu
 | File | What it is |
 |---|---|
 | `...-setup.exe` | **Recommended**: standard installer (supports per-user or all-users installation) |
-| `...-x64.zip` | Portable; unzip and run |
+| `...-win-x64.zip` | Portable; unzip and run |
+| `...-win-arm64.zip` | Portable; native ARM64 |
 
 > **Antivirus may delete the installer.** Unsigned installers are frequently caught by heuristics — use the portable archive, which is functionally identical.
 

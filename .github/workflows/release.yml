@@ -174,10 +174,18 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          foreach ($arch in @('x64', 'arm64')) {
+          # Published as win-x64 / win-arm64 (the .NET RID spelling, as
+          # PowerShell's own releases use) rather than after the build
+          # directory: GitHub sorts release assets by filename with no way to
+          # override it, and bare "arm64" sorted above the installer. The build
+          # directories keep their own names.
+          foreach ($arch in @(
+            @{ Build = 'x64';   Asset = 'win-x64' },
+            @{ Build = 'arm64'; Asset = 'win-arm64' }
+          )) {
             Compress-Archive `
-              -Path "build-$arch/Release/ImeModePersistence.exe", 'README.md', 'LICENSE' `
-              -DestinationPath "dist/ImeModePersistence-$env:FILEVER-$arch.zip"
+              -Path "build-$($arch.Build)/Release/ImeModePersistence.exe", 'README.md', 'LICENSE' `
+              -DestinationPath "dist/ImeModePersistence-$env:FILEVER-$($arch.Asset).zip"
           }
 
       - name: Checksums
@@ -248,8 +256,8 @@ jobs:
           if ($env:RELEASE_EXISTS -ne 'true') {
             $expected = @(
               "ImeModePersistence-$env:FILEVER-setup.exe",
-              "ImeModePersistence-$env:FILEVER-x64.zip",
-              "ImeModePersistence-$env:FILEVER-arm64.zip",
+              "ImeModePersistence-$env:FILEVER-win-x64.zip",
+              "ImeModePersistence-$env:FILEVER-win-arm64.zip",
               "ImeModePersistence-$env:FILEVER.msixbundle",
               'SHA256SUMS.txt'
             )
