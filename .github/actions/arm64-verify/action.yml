@@ -106,6 +106,24 @@ runs:
         mkdir diag -Force | Out-Null
         .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-capture"
 
+    - name: Start the wsl.exe spawn watcher
+      shell: pwsh
+      run: |
+        # A Windows Terminal running C:\Windows\system32\wsl.exe keeps
+        # reappearing during the capture -- six distinct windows in one run --
+        # and closing them only makes room for the next. The before/after
+        # desktop snapshots say a window existed, never who started it.
+        #
+        # Detached so it keeps running through the capture step; the runner
+        # reaps it at job end. Read-only, so it cannot be the reason a window
+        # appears or disappears.
+        Start-Process pwsh -ArgumentList @(
+          '-NoProfile', '-File', 'tests\ui\watch_wsl_spawns.ps1',
+          '-OutFile', 'diag/wsl-watch.log', '-DurationSeconds', '900'
+        ) -WindowStyle Hidden
+        Start-Sleep -Seconds 2
+        Write-Host 'watcher started'
+
     - name: Capture continuous IME persistence recording
       shell: pwsh
       env:
