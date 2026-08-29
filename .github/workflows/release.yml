@@ -22,6 +22,144 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: ./.github/actions/ime-recording
 
+  # Same real-IME verification as `gate`, but on ARM64 and never blocking the
+  # release: windows-11-arm is a public-preview hosted runner, so this stays
+  # informational (continue-on-error, and deliberately absent from release's
+  # `needs`) until that runner is out of preview. It runs alongside the
+  # release for visibility, not as a gate.
+  arm64-verify:
+    name: ARM64 Real-IME E2E & Recording (non-blocking)
+    runs-on: windows-11-arm
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
+        shell: pwsh
+        run: |
+          # windows-11-arm's interactive session can show Windows' first-sign-in
+          # "Choose privacy settings for your device" screen (class
+          # Shell_OOBEProxy, rendered as embedded web content) which sits in the
+          # foreground and swallows input meant for real apps. Its "move on"
+          # button's accessible name is a full phrase ("Next, tab through all
+          # privacy settings to continue"), not "Next" -- exact-name matching
+          # never finds it, and neither does a top-down descendant search from
+          # the window (a UIA traversal quirk with this content); this script
+          # finds it via AutomationElement.FocusedElement instead.
+          .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 90
+
+      - name: Build ARM64
+        shell: pwsh
+        run: |
+          cmake -S . -B build-arm64 -A ARM64 -DBUILD_TESTING=OFF
+          cmake --build build-arm64 --config Release
+
+      - name: Confirm the binary is actually ARM64
+        shell: pwsh
+        run: |
+          $exe = "build-arm64/Release/ImeModePersistence.exe"
+          $bytes = [System.IO.File]::ReadAllBytes($exe)
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3C)
+          $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+          # 0x8664 = x64, 0xAA64 = ARM64
+          Write-Host ("Machine field: 0x{0:X4}" -f $machine)
+          if ($machine -ne 0xAA64) { throw "Not an ARM64 PE image (got 0x$($machine.ToString('X4')))" }
+
+      - name: Install Traditional Chinese (zh-TW) IME
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          Write-Host "Installing Traditional Chinese (zh-TW) IME via DISM..."
+          dism /online /add-capability /capabilityname:Language.Basic~~~zh-TW~0.0.1.0
+
+          $list = New-WinUserLanguageList "zh-TW"
+          Set-WinUserLanguageList $list -Force
+          $tips = (Get-WinUserLanguageList).InputMethodTips
+          Write-Host "Active zh-TW InputMethodTips: $tips"
+
+          New-Item -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\IME\15.0\IMETC" -Name "DefaultMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          New-Item -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer" -Name "EnableAutoTray" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+
+          New-Item -Path "HKCU:\Software\ImeModePersistence" -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "ShowCaretIndicator" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "PersistMode" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+          Set-ItemProperty -Path "HKCU:\Software\ImeModePersistence" -Name "UiLanguage" -Value 2 -Type DWord -Force -ErrorAction SilentlyContinue
+
+          $notifyPath = "HKCU:\Control Panel\NotifyIconSettings"
+          if (Test-Path $notifyPath) {
+            Get-ChildItem $notifyPath | ForEach-Object {
+              Set-ItemProperty -Path $_.PSPath -Name "IsPromoted" -Value 1 -Type DWord -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+      - name: Install a native ARM64 ffmpeg
+        shell: pwsh
+        run: |
+          # imageio-ffmpeg only bundles/resolves x64 and other common-platform
+          # binaries; on Windows ARM64 get_ffmpeg_exe() returns a path with
+          # nothing there, so the capture script's fallback to a plain "ffmpeg"
+          # on PATH needs a real one present. BtbN/FFmpeg-Builds publishes a
+          # winarm64 static build.
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-winarm64-gpl.zip" -OutFile ffmpeg-arm64.zip
+          Expand-Archive -Path ffmpeg-arm64.zip -DestinationPath ffmpeg-arm64 -Force
+          $binDir = Get-ChildItem -Path ffmpeg-arm64 -Filter bin -Recurse -Directory | Select-Object -First 1 -ExpandProperty FullName
+          Write-Host "ffmpeg bin dir: $binDir"
+          Add-Content -Path $env:GITHUB_PATH -Value $binDir
+          & "$binDir\ffmpeg.exe" -version
+
+      - name: Install Python test dependencies
+        shell: pwsh
+        run: |
+          python --version
+          pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
+
+      - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (safety net)
+        shell: pwsh
+        run: |
+          # A later page of the same onboarding flow (e.g. a Microsoft-account
+          # sign-in nag) can appear after the IME install and other steps touch
+          # the profile. Same script, short timeout since it should be a no-op
+          # if the earlier pass already cleared everything.
+          .\tests\ui\dismiss_onboarding_screens.ps1 -TimeoutSeconds 30
+
+      - name: 'Diagnose desktop state: right before capture'
+        shell: pwsh
+        run: |
+          mkdir diag -Force | Out-Null
+          .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-capture"
+
+      - name: Capture continuous IME persistence recording
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          python tests/ui/capture_ime_recording.py "build-arm64/Release/ImeModePersistence.exe" ime-recording-arm64
+
+      - name: Run real-IME E2E tests
+        shell: pwsh
+        env:
+          IME_PERSISTENCE_EXE: build-arm64/Release/ImeModePersistence.exe
+        run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+
+      - name: Upload recording artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: ime-recording-arm64
+          path: ime-recording-arm64/ime-recording.mp4
+          if-no-files-found: warn
+
+      - name: Upload desktop-state diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        with:
+          name: desktop-diagnostics-arm64
+          path: diag/
+          if-no-files-found: warn
+
   release:
     needs: [gate]
     runs-on: windows-latest
@@ -87,6 +225,12 @@ jobs:
           cmake -S . -B build-x64 -A x64 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_TESTING=OFF
           cmake --build build-x64 --config Release
 
+      - name: Build ARM64
+        if: env.RELEASE_EXISTS != 'true'
+        run: |
+          cmake -S . -B build-arm64 -A ARM64 "-DAPP_VERSION=$env:VERSION" -DCMAKE_COMPILE_WARNING_AS_ERROR=ON -DBUILD_TESTING=OFF
+          cmake --build build-arm64 --config Release
+
       - name: Check the stamped version
         if: env.RELEASE_EXISTS != 'true'
         shell: pwsh
@@ -95,7 +239,7 @@ jobs:
           # ships a binary reporting the wrong version is worse than a failed one,
           # and only an end-to-end check catches the ways the number can go astray
           # between the tag and the resource.
-          foreach ($arch in @('x64')) {
+          foreach ($arch in @('x64', 'arm64')) {
             $exe = "build-$arch/Release/ImeModePersistence.exe"
             $reported = (Get-Item $exe).VersionInfo.FileVersion
             Write-Output "$arch reports $reported"
@@ -131,7 +275,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          foreach ($arch in @('x64')) {
+          foreach ($arch in @('x64', 'arm64')) {
             Compress-Archive `
               -Path "build-$arch/Release/ImeModePersistence.exe", 'README.md', 'LICENSE' `
               -DestinationPath "dist/ImeModePersistence-$env:FILEVER-$arch.zip"
@@ -206,6 +350,7 @@ jobs:
             $expected = @(
               "ImeModePersistence-$env:FILEVER-setup.exe",
               "ImeModePersistence-$env:FILEVER-x64.zip",
+              "ImeModePersistence-$env:FILEVER-arm64.zip",
               "ImeModePersistence-$env:FILEVER.msix",
               'SHA256SUMS.txt'
             )

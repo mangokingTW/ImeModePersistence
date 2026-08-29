@@ -156,24 +156,89 @@ def minimize_background_windows():
     user32.EnumWindows(WNDENUMPROC(enum_proc), 0)
     time.sleep(0.5)
 
+
+def dismiss_stray_overlays():
+    """Closes the Start menu (or similar shell overlay) if one is open.
+
+    Observed on an ARM64 runner: the Start menu ended up open and sitting on
+    top of a freshly launched Notepad window, which is why pywinauto's
+    top_window() couldn't find it -- the window existed, it was just obscured
+    by a topmost shell surface, the same class of problem as the Shell_OOBEProxy
+    screen. Escape reliably closes the Start menu (and most other transient
+    shell overlays) without needing to identify the exact window involved.
+    """
+    VK_ESCAPE = 0x1B
+    KEYEVENTF_KEYUP = 0x0002
+    user32.keybd_event(VK_ESCAPE, 0, 0, 0)
+    user32.keybd_event(VK_ESCAPE, 0, KEYEVENTF_KEYUP, 0)
+    time.sleep(0.3)
+
 class NotepadWindow:
     """Manages a genuine Windows Notepad process with full Microsoft TSF IME candidate window support."""
 
     def __init__(self, x: int, y: int, w: int, h: int):
 
+        from pywinauto import Desktop
         from pywinauto.application import Application
 
+        # Connecting by PID (Application(...).connect(process=pid)) assumes
+        # the process launched by Popen is the one that ends up owning the
+        # window. That broke on a newer Windows build (observed on an ARM64
+        # runner, Windows 11 build 26100+) where notepad.exe launches the
+        # modern tabbed Notepad -- the window is genuinely there (confirmed
+        # visually in the recording, not obscured by anything), but pywinauto
+        # could never find it by that PID. Find its handle by title instead,
+        # which works regardless of which process ends up owning the window:
+        # launch, then poll for a new top-level "Notepad" window that wasn't
+        # already open before (so a second instance -- win_b -- doesn't just
+        # grab win_a's window).
+        #
+        # Desktop(...).windows() hands back already-resolved wrapper objects,
+        # not a self-re-resolving WindowSpecification -- holding one of those
+        # for the whole lifetime of this object (repeated set_focus/type_keys
+        # calls over several seconds, while other windows get focus in
+        # between) let it go stale silently: later calls stopped raising but
+        # also stopped doing anything, so text just never landed. Use the
+        # discovered handle to reconnect via Application(...).connect(handle=)
+        # instead, and keep app.window(handle=) (which re-resolves on every
+        # call) as self.dlg for everything from here on.
+        try:
+            existing_handles = {w.handle for w in Desktop(backend="uia").windows(title_re=".*Notepad.*")}
+        except Exception:
+            existing_handles = set()
+
         self.proc = subprocess.Popen(["notepad.exe"])
-        time.sleep(1.0)
-        self.app = Application(backend="uia").connect(process=self.proc.pid)
-        self.dlg = self.app.top_window()
-        self.hwnd = self.dlg.handle
+        deadline = time.monotonic() + 10.0
+        last_error = None
+        found_handle = None
+        while time.monotonic() < deadline:
+            try:
+                for win in Desktop(backend="uia").windows(title_re=".*Notepad.*"):
+                    if win.handle not in existing_handles:
+                        found_handle = win.handle
+                        break
+                if found_handle is not None:
+                    break
+            except Exception as exc:
+                last_error = exc
+            time.sleep(0.2)
+        if found_handle is None:
+            raise RuntimeError(f"Notepad (pid {self.proc.pid}) never got a window") from last_error
+
+        self.hwnd = found_handle
+        self.app = Application(backend="uia").connect(handle=self.hwnd)
+        self.dlg = self.app.window(handle=self.hwnd)
 
         # Move and resize window
         user32.MoveWindow(self.hwnd, x, y, w, h, True)
         self.set_foreground()
 
     def set_foreground(self):
+        # A stray window (observed on an ARM64 runner: a WSL console) can pop
+        # up mid-sequence and steal focus, not just at startup -- re-minimize
+        # background console/terminal windows before every focus change, not
+        # only once before the recording begins.
+        minimize_background_windows()
         user32.keybd_event(0, 0, 0, 0)
         self.dlg.set_focus()
         time.sleep(0.2)
@@ -181,12 +246,27 @@ class NotepadWindow:
             edit = self.dlg.child_window(control_type="Edit")
             edit.click_input()
         except Exception:
-            pass
+            try:
+                doc = self.dlg.child_window(control_type="Document")
+                doc.click_input()
+            except Exception:
+                pass
         time.sleep(0.3)
 
     def type_text(self, text: str, delay_per_char: float = 0.04):
         self.set_foreground()
-        self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
+        if text == "\n":
+            # pywinauto's type_keys("\n", with_newlines=True) sends a WM_CHAR
+            # carriage return, which the modern tabbed Notepad's document
+            # control doesn't turn into a visible line break the way the
+            # classic Edit control did -- confirmed on an ARM64 runner: the
+            # two typed segments landed correctly but with no separator
+            # between them. A raw hardware-level Enter (the same mechanism
+            # type_bopomofo already relies on successfully) does.
+            import pydirectinput
+            pydirectinput.press('enter')
+        else:
+            self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
         time.sleep(0.3)
 
     def type_bopomofo(self, key_sequence: str):
@@ -275,7 +355,9 @@ class NotepadWindow:
         time.sleep(0.3)
 
     def get_text(self) -> str:
-        """Reads text from Notepad control."""
+        """Reads text from Notepad control. Tries the classic Edit control
+        first, then Document (the modern tabbed Notepad's text area reports
+        as a Document control type under UIA)."""
         try:
             edit = self.dlg.child_window(control_type="Edit")
             val = edit.get_value()
@@ -287,9 +369,29 @@ class NotepadWindow:
             edit = self.dlg.child_window(class_name="Edit")
             return edit.window_text()
         except Exception:
+            pass
+        try:
+            doc = self.dlg.child_window(control_type="Document")
+            val = doc.get_value()
+            if val:
+                return val
+        except Exception:
+            pass
+        try:
+            doc = self.dlg.child_window(control_type="Document")
+            return doc.window_text()
+        except Exception:
             return ""
 
     def close(self):
+        # Close the actual window first -- with the modern tabbed Notepad the
+        # process launched by Popen may not be the one that ends up owning
+        # it, so terminating self.proc alone can leave the real window (and
+        # its owning process) running.
+        try:
+            self.dlg.close()
+        except Exception:
+            pass
         try:
             self.proc.terminate()
             self.proc.wait(timeout=2)
@@ -422,21 +524,31 @@ def main() -> int:
 
     # Minimize all host / terminal / console windows before launching recording
     minimize_background_windows()
+    dismiss_stray_overlays()
 
     engine = subprocess.Popen([EXE])
     time.sleep(1.0)
     promote_all_tray_icons()
     time.sleep(0.5)
+    dismiss_stray_overlays()
 
-    win_a = NotepadWindow(x=40, y=80, w=480, h=360)
-    win_b = NotepadWindow(x=550, y=80, w=480, h=360)
-    time.sleep(0.5)
+    win_a = None
+    win_b = None
+    match_a = None
+    match_b = None
+    expected_a = "測試\npersistence test"
+    expected_b = "測試\nhello world"
+    norm_a = ""
+    norm_b = ""
 
     recorder = ContinuousRecorder(fps=60)
+    print("Starting continuous real-time desktop recording (60 FPS)...")
+    recorder.start()
 
     try:
-        print("Starting continuous real-time desktop recording (60 FPS)...")
-        recorder.start()
+        win_a = NotepadWindow(x=40, y=80, w=480, h=360)
+        win_b = NotepadWindow(x=550, y=80, w=480, h=360)
+        time.sleep(0.5)
 
         # Step 1: Window A activated, set Chinese mode, type authentic bopomofo 測試
         win_a.set_foreground()
@@ -476,19 +588,33 @@ def main() -> int:
         print(f"--- Window B Content ---\n{text_b}", flush=True)
         print(f"=================================================================\n", flush=True)
 
-        expected_a = "測試\npersistence test"
-        expected_b = "測試\nhello world"
-
         norm_a = "\n".join([line.strip() for line in text_a.strip().splitlines() if line.strip()])
         norm_b = "\n".join([line.strip() for line in text_b.strip().splitlines() if line.strip()])
 
         print(f"[VERIFY] Window A exact content matching:\nExpected:\n{expected_a}\nActual:\n{norm_a}\n", flush=True)
         print(f"[VERIFY] Window B exact content matching:\nExpected:\n{expected_b}\nActual:\n{norm_b}\n", flush=True)
 
-        assert norm_a == expected_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
-        assert norm_b == expected_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
-        print("[VERIFY] All window text contents strictly and perfectly matched without trailing spaces!", flush=True)
+        # Content is checked here but not asserted yet -- the recording below must
+        # be saved regardless of the outcome, or a mismatch destroys the one
+        # artifact that would explain why. The mismatch (if any) still fails the
+        # run; it is just deferred past the save so the video always comes out.
+        match_a = norm_a == expected_a
+        match_b = norm_b == expected_b
+        if match_a and match_b:
+            print("[VERIFY] All window text contents strictly and perfectly matched without trailing spaces!", flush=True)
+        else:
+            if not match_a:
+                print(f"[VERIFY] Window A text mismatch! Expected '{expected_a}', got '{norm_a}'", flush=True)
+            if not match_b:
+                print(f"[VERIFY] Window B text mismatch! Expected '{expected_b}', got '{norm_b}'", flush=True)
 
+    finally:
+        # Stopping the recorder and saving the video happen here, in finally,
+        # so a crash at any point above (Notepad never getting a window, a
+        # UIA call blowing up, anything) still produces a video of exactly
+        # what was on screen -- the one artifact that actually explains what
+        # happened, instead of losing it to whatever exception is about to
+        # propagate.
         all_frames = recorder.stop()
         print(f"Recording finished! Total frames captured: {len(all_frames)}")
 
@@ -499,9 +625,17 @@ def main() -> int:
             w = all_frames[0].width - (all_frames[0].width % 2)
             h = all_frames[0].height - (all_frames[0].height % 2)
 
+            # imageio_ffmpeg bundles a prebuilt binary for common platforms, but
+            # on one it doesn't cover (observed on Windows ARM64) get_ffmpeg_exe()
+            # returns a path with nothing there instead of raising -- so the
+            # except below never fires and Popen dies with a raw WinError 2.
+            # Checking the path actually exists catches that case too, falling
+            # back to a system "ffmpeg" on PATH.
             try:
                 import imageio_ffmpeg
                 ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
+                if not os.path.isfile(ffmpeg_bin):
+                    raise FileNotFoundError(ffmpeg_bin)
             except Exception:
                 ffmpeg_bin = "ffmpeg"
 
@@ -538,14 +672,18 @@ def main() -> int:
             except Exception as exc:
                 print(f"FFmpeg encoding error: {exc}")
 
-    finally:
-        win_a.close()
-        win_b.close()
+        if win_a is not None:
+            win_a.close()
+        if win_b is not None:
+            win_b.close()
         engine.terminate()
         try:
             engine.wait(timeout=2)
         except Exception:
             engine.kill()
+
+    assert match_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
+    assert match_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
 
     return 0
 
