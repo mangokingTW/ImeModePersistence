@@ -9,28 +9,39 @@ description: >-
 runs:
   using: composite
   steps:
-    - name: Block the WSL installer (policy needs time to bite)
+    - name: Install WSL so its installer stops spawning windows
       shell: pwsh
       run: |
         # This image ships only the system32 wsl.exe stub -- no WSL package --
         # and the runner's provisioning daemon probes wsl every 30 seconds
         # (provjobd.exe <- hosted-compute-agent, per event-watcher parent
-        # chains). The stub answers every probe by launching the interactive
-        # installer, `wsl.exe --update --confirm --prompt-before-exit`, whose
-        # Terminal window waits for a keypress and steals the foreground from
-        # whatever the test is typing into.
+        # chains). While WSL is "not installed", the stub answers every probe
+        # by launching the interactive installer, whose Terminal window waits
+        # for a keypress and steals the foreground from whatever the test is
+        # typing into.
         #
-        # AllowWSL=0 (documented enterprise policy) makes wsl.exe refuse to
-        # run, which stops the stub before its installer branch. Measured
-        # carefully, though: when the policy was written seconds before the
-        # capture, the first ~2 minutes of probes still spawned installers (3
-        # of 24), and every probe after that spawned none -- the policy works
-        # but takes a couple of minutes to bite. So it is written here, first,
-        # with the build and the DISM language install (minutes, sometimes
-        # tens of minutes) between it and anything focus-sensitive.
-        New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Force | Out-Null
-        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Name 'AllowWSL' -Value 0 -Type DWord -Force
-        Write-Host 'AllowWSL=0 policy set'
+        # Three watch-log timelines settled how to fix that. With no
+        # intervention, the installer spawns every 30 seconds for a few
+        # minutes and then stops on its own -- one of those `--confirm`
+        # installers completes a real install, and the stub's not-installed
+        # branch disappears. With the AllowWSL=0 policy in place from the
+        # start, the spawns never stop: the policy blocks the install from
+        # completing and thereby keeps the machine in the state that spawns
+        # installers. The policy was the opposite of a fix, so it is gone.
+        #
+        # Instead, do deliberately what the image otherwise does by accident
+        # and at a random time: install WSL, sans distribution, as the first
+        # step. A pending reboot for its VM features is fine -- WSL never has
+        # to *run* here, it only has to stop being "not installed".
+        $p = Start-Process -FilePath wsl.exe -ArgumentList '--install', '--no-distribution' -NoNewWindow -PassThru
+        if (-not $p.WaitForExit(600000)) {
+          $p.Kill()
+          Write-Host 'wsl --install: timed out after 600s (killed)'
+        } else {
+          Write-Host "wsl --install: exit code $($p.ExitCode)"
+        }
+        & wsl.exe --status 2>&1 | Out-String | Write-Host
+        $global:LASTEXITCODE = 0
 
     - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
       shell: pwsh
@@ -132,10 +143,10 @@ runs:
     - name: Clear any WSL installer window already on screen
       shell: pwsh
       run: |
-        # The AllowWSL policy (set as this action's first step) stops new
-        # installer windows; anything that appeared before it took effect is
-        # swept once here, right before the capture. The spawn watcher records
-        # any that return.
+        # With WSL installed (first step), no new installer windows should
+        # spawn; anything that appeared before that install completed is swept
+        # once here, right before the capture. The spawn watcher records any
+        # that return.
         Get-Process wsl, wslhost, WindowsTerminal -ErrorAction SilentlyContinue | ForEach-Object {
           Write-Host "killing $($_.ProcessName) ($($_.Id))"
           Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
