@@ -156,6 +156,23 @@ def minimize_background_windows():
     user32.EnumWindows(WNDENUMPROC(enum_proc), 0)
     time.sleep(0.5)
 
+
+def dismiss_stray_overlays():
+    """Closes the Start menu (or similar shell overlay) if one is open.
+
+    Observed on an ARM64 runner: the Start menu ended up open and sitting on
+    top of a freshly launched Notepad window, which is why pywinauto's
+    top_window() couldn't find it -- the window existed, it was just obscured
+    by a topmost shell surface, the same class of problem as the Shell_OOBEProxy
+    screen. Escape reliably closes the Start menu (and most other transient
+    shell overlays) without needing to identify the exact window involved.
+    """
+    VK_ESCAPE = 0x1B
+    KEYEVENTF_KEYUP = 0x0002
+    user32.keybd_event(VK_ESCAPE, 0, 0, 0)
+    user32.keybd_event(VK_ESCAPE, 0, KEYEVENTF_KEYUP, 0)
+    time.sleep(0.3)
+
 class NotepadWindow:
     """Manages a genuine Windows Notepad process with full Microsoft TSF IME candidate window support."""
 
@@ -435,11 +452,13 @@ def main() -> int:
 
     # Minimize all host / terminal / console windows before launching recording
     minimize_background_windows()
+    dismiss_stray_overlays()
 
     engine = subprocess.Popen([EXE])
     time.sleep(1.0)
     promote_all_tray_icons()
     time.sleep(0.5)
+    dismiss_stray_overlays()
 
     win_a = None
     win_b = None
