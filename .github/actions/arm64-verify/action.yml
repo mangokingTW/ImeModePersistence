@@ -118,33 +118,17 @@ runs:
         # installer -- `wsl.exe --update --confirm --prompt-before-exit` --
         # whose Terminal window waits for a keypress and steals the foreground.
         #
-        # Two levers, whose effects the spawn watcher can tell apart:
-        #
-        # 1. The AllowWSL=0 policy, which documented enterprise controls say
-        #    makes wsl.exe refuse to run. If it works here, the watcher shows
-        #    zero installer spawns. Cheap, but unverified on the inbox stub --
-        #    treated as an experiment, not the fix.
+        # The fix is the AllowWSL=0 policy: documented enterprise control
+        # that makes wsl.exe refuse to run, so the stub never reaches its
+        # "not installed -> launch the installer" behaviour. With the policy
+        # set (round 4, alongside a since-removed reaper) the watcher counted
+        # 21 probes and zero installer spawns, zero focus-loss retries, and
+        # the content checks passed; this revision removes the reaper so the
+        # policy stands alone and the watcher can confirm it is sufficient.
         New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Force | Out-Null
         Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Name 'AllowWSL' -Value 0 -Type DWord -Force
         Write-Host 'AllowWSL=0 policy set'
 
-        # 2. A reaper that needs no theory: kill any wsl.exe within 200 ms of
-        #    it appearing. The installer's Terminal window closes when the
-        #    wsl.exe it hosts dies, so the foreground is stolen for at most a
-        #    fraction of a second twice a minute -- inside what press_enter's
-        #    verify-and-retry already tolerates. Deliberately NOT touching
-        #    WindowsTerminal.exe by name: killing terminals by class is the
-        #    mistake that once shut down the x64 runner, and on this image the
-        #    agent console is ConsoleWindowClass, but the caution stands.
-        $reaper = @'
-        while ($true) {
-          Get-Process wsl -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-          Start-Sleep -Milliseconds 200
-        }
-        '@
-        $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($reaper))
-        Start-Process pwsh -ArgumentList '-NoProfile', '-WindowStyle', 'Hidden', '-EncodedCommand', $enc -WindowStyle Hidden
-        Write-Host 'wsl reaper started (200 ms)'
 
         # Clear whatever is already on screen; the watcher records any return.
         Get-Process wsl, wslhost, WindowsTerminal -ErrorAction SilentlyContinue | ForEach-Object {
