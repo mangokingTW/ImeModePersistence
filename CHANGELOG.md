@@ -7,6 +7,18 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.5.7
+
+Native ARM64 support:
+
+- Native ARM64 build: Snapdragon and other Windows-on-ARM devices now run a native build instead of the emulated x64 one. Available as the portable `-arm64.zip` and, for Microsoft Store installs, inside the package the Store now serves — the Store hands each device the matching architecture automatically, so nothing changes for existing x64 users.
+- ARM64 verification in CI: Each release additionally runs the full real-IME end-to-end suite and screen recording on an ARM64 runner.
+
+繁體中文:原生 ARM64 支援：
+
+- 原生 ARM64 版本：Snapdragon 等 Windows on ARM 裝置改以原生版本執行，不再透過 x64 模擬。提供免安裝的 `-arm64.zip`；微軟商店安裝亦已納入，商店會自動依裝置架構配送對應版本,現有 x64 使用者不受影響。
+- ARM64 自動驗證：每次發布會額外在 ARM64 環境完整執行真實輸入法端對端測試與畫面錄影驗證。
+
 ## v1.5.6
 
 Microsoft Store visual assets and project maintenance:

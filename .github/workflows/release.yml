@@ -467,27 +467,21 @@ jobs:
         if: env.HAVE_STORE == 'true'
         uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
         with:
-          # Pin the CLI: unpinned installs the latest, and msstore-cli v0.4.0
-          # (2026-08-18) regressed package upload -- it hangs at "Uploading
-          # Bundle to Azure blob: 67%" then fails with "Error while uploading
-          # the application package". v0.3.9 is the last good release (the one
-          # v1.2.0 shipped on).
+          # Pin the CLI rather than tracking 'latest': v0.4.0 (2026-08-18)
+          # regressed package upload -- it died mid-transfer with "Error while
+          # uploading the application package", which is how an unpinned release
+          # workflow inherits someone else's bad afternoon.
           #
-          # That upload bug is fixed in v0.4.1 (microsoft/msstore-cli#154: the
-          # progress callback read a fileStream that Progress<T>'s thread-pool
-          # dispatch could touch after disposal, throwing outside the caller's
-          # catch). Still holding at v0.3.9 anyway: this release is the first to
-          # submit a .msixbundle, that path cannot be rehearsed without a real
-          # Store submission, and moving both at once would make a failure
-          # ambiguous. Bump to v0.4.1 on its own once a bundle has shipped --
-          # nothing in v0.4.x is needed here (--uploadTimeout is for large
-          # packages; ours is well under a megabyte).
+          # v0.4.1 fixes it (microsoft/msstore-cli#154: the upload progress
+          # callback read a fileStream that Progress<T>'s thread-pool dispatch
+          # could touch after disposal, throwing on a pool thread outside the
+          # caller's catch and killing the process).
           #
           # Two upstream bugs this workflow works around are still open, so the
-          # workarounds below must stay whichever version is pinned:
-          # #150 (submission get word-wraps JSON) and #161 (success logs to
-          # stderr).
-          version: v0.3.9
+          # workarounds in the submit step must stay whichever version is
+          # pinned: #150 (`submission get` word-wraps JSON to the console width,
+          # emitting invalid JSON) and #161 (success logs go to stderr).
+          version: v0.4.1
 
       - name: Submit MSIX bundle to the Microsoft Store
         if: env.HAVE_STORE == 'true'
