@@ -671,6 +671,7 @@ def main() -> int:
     win_b = None
     match_a = None
     match_b = None
+    video_error = None
     expected_a = "測試\npersistence test"
     expected_b = "測試\nhello world"
     norm_a = ""
@@ -788,24 +789,53 @@ def main() -> int:
                 "-crf", "18",
                 mp4_path,
             ]
+            # Fed to ffmpeg one frame at a time. Joining them into a single
+            # bytes object first needs the whole raw video resident at once --
+            # at 1024x768 rgb24 that is 2.4 MB per frame, so a run long enough
+            # to capture 10,000 frames wanted 24 GB and died of MemoryError.
+            # (MemoryError stringifies to nothing, which is why the old message
+            # read "FFmpeg encoding error: " with the cause missing.) Streaming
+            # holds one frame at a time and has no length ceiling.
+            #
+            # stderr goes to a file, not a pipe: writing frames while nothing
+            # drains a stderr pipe deadlocks as soon as ffmpeg fills it, which
+            # communicate() used to prevent by doing both at once.
+            log_path = os.path.join(OUT, "ffmpeg.log")
             try:
-                proc = subprocess.Popen(
-                    ffmpeg_cmd,
-                    stdin=subprocess.PIPE,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.PIPE,
-                )
-                raw_bytes = b"".join(
-                    (f.resize((w, h), Image.Resampling.BILINEAR) if f.size != (w, h) else f).tobytes()
-                    for f in all_frames
-                )
-                _, stderr_data = proc.communicate(input=raw_bytes, timeout=60)
-                if proc.returncode != 0:
-                    print(f"FFmpeg returned error code {proc.returncode}: {stderr_data.decode('utf-8', errors='ignore')}")
+                with open(log_path, "wb") as errlog:
+                    proc = subprocess.Popen(
+                        ffmpeg_cmd,
+                        stdin=subprocess.PIPE,
+                        stdout=subprocess.DEVNULL,
+                        stderr=errlog,
+                    )
+                    try:
+                        for f in all_frames:
+                            frame = f.resize((w, h), Image.Resampling.BILINEAR) if f.size != (w, h) else f
+                            proc.stdin.write(frame.tobytes())
+                    except BrokenPipeError:
+                        pass          # ffmpeg died early; its log says why
+                    finally:
+                        try:
+                            proc.stdin.close()
+                        except Exception:
+                            pass
+                    returncode = proc.wait(timeout=600)
+                if returncode != 0:
+                    with open(log_path, "r", encoding="utf-8", errors="ignore") as fh:
+                        tail = fh.read()[-2000:]
+                    video_error = f"ffmpeg exited {returncode}: {tail}"
+                    print(f"FFmpeg returned error code {returncode}: {tail}")
                 else:
                     print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
             except Exception as exc:
-                print(f"FFmpeg encoding error: {exc}")
+                # Type included: the cause of the failure this replaced printed
+                # an empty message, and the type alone would have named it.
+                video_error = f"{type(exc).__name__}: {exc}"
+                print(f"FFmpeg encoding error: {video_error}")
+        else:
+            video_error = "no frames were captured"
+            print(f"FFmpeg encoding error: {video_error}")
 
         if win_a is not None:
             win_a.close()
@@ -819,6 +849,11 @@ def main() -> int:
 
     assert match_a, f"Window A text mismatch! Expected '{expected_a}', got '{norm_a}'"
     assert match_b, f"Window B text mismatch! Expected '{expected_b}', got '{norm_b}'"
+    # Asserted last, and only after the content checks, because a mismatch says
+    # more about what went wrong than a missing file does. But it is asserted:
+    # this job exists to produce a recording, and it spent three ARM64 runs
+    # reporting success while writing no video at all.
+    assert video_error is None, f"recording was not produced -- {video_error}"
 
     return 0
 
