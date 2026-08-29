@@ -467,21 +467,32 @@ jobs:
         if: env.HAVE_STORE == 'true'
         uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
         with:
-          # Pin the CLI rather than tracking 'latest': v0.4.0 (2026-08-18)
-          # regressed package upload -- it died mid-transfer with "Error while
-          # uploading the application package", which is how an unpinned release
-          # workflow inherits someone else's bad afternoon.
+          # Pin the CLI rather than tracking 'latest'. v0.3.9 is the last
+          # release whose blob upload works from this workflow.
           #
-          # v0.4.1 fixes it (microsoft/msstore-cli#154: the upload progress
-          # callback read a fileStream that Progress<T>'s thread-pool dispatch
-          # could touch after disposal, throwing on a pool thread outside the
-          # caller's catch and killing the process).
+          # v0.4.0 (2026-08-18) broke `publish` outright, crashing mid-upload
+          # (microsoft/msstore-cli#154: the progress callback read a fileStream
+          # that Progress<T>'s thread-pool dispatch could touch after disposal,
+          # throwing on a pool thread outside the caller's catch). v0.4.1 fixed
+          # that crash -- but the upload still fails, now quietly: v1.5.7 got
+          # "Uploading Bundle to Azure blob: 33%" then "Error while uploading
+          # the application package", with no stack trace and a clean exit 1.
+          #
+          # Everything either side of the upload works on v0.4.1 (auth,
+          # submission create, zip prepare), and the upload is the one step that
+          # goes through the Azure SDK rather than the CLI's own HttpClient.
+          # v0.4.0 is also where the CLI switched to NativeAOT + PublishTrimmed
+          # + SelfContained on .NET 10 and moved Azure.Storage.Blobs 12.25.0 ->
+          # 12.29.1, which is the kind of change that breaks an SDK's reflection
+          # paths at runtime and nowhere else. Not proven -- the CLI only prints
+          # the real exception under --verbose, and --verbose also logs the
+          # submission's SAS upload URL, which must not reach a public CI log.
           #
           # Two upstream bugs this workflow works around are still open, so the
           # workarounds in the submit step must stay whichever version is
           # pinned: #150 (`submission get` word-wraps JSON to the console width,
           # emitting invalid JSON) and #161 (success logs go to stderr).
-          version: v0.4.1
+          version: v0.3.9
 
       - name: Submit MSIX bundle to the Microsoft Store
         if: env.HAVE_STORE == 'true'
