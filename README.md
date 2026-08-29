@@ -54,9 +54,6 @@ Windows 把輸入法狀態綁在**每個執行緒**上。切到另一個視窗�
 | 工具 | 指令 |
 |---|---|
 | **winget** | `winget install mangokingTW.ImeModePersistence` |
-| **Scoop** | `scoop bucket add mango https://github.com/mangokingTW/scoop-bucket`<br>`scoop install mango/ImeModePersistence` |
-
-> winget 與 Scoop 皆已可用。
 
 安裝時有兩個勾選項。「開機時自動啟動」：**一律以一般權限**在登入時啟動（寫 HKCU 登錄項目，不建立提權排程工作）。要控制**提權的程式（多數反作弊遊戲）**時，用托盤選單的**以管理員身分重新啟動**當場提權（每次開機後、開玩前按一次，過一次 UAC）。「綁定 Helldivers 2 為英文輸入」：預設不勾，勾了會在第一次啟動時自動加上 `class:stingray_window` → 英文的規則（若你已有自己的規則就不覆蓋，日後刪掉也不會復活）。
 
@@ -132,7 +129,7 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 
 安裝檔需要 [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3+，圖示重新產生需要 [ImageMagick](https://imagemagick.org) 7（`./tools/make_icon.sh`）。
 
-`CMakeLists.txt` 的 `project(... VERSION ...)` 是版本的唯一來源，會寫進 `VERSIONINFO`。發版時把它 bump 到新版、推一個相符的 `vMAJOR.MINOR.PATCH` tag（CI 只擋版號倒退，平常的 PR 不必 bump）。測試版推 `vMAJOR.MINOR.PATCH-beta.N`（或 `-rc.N`）—— 會發成 GitHub pre-release、不會變成 Latest；`scoop install mango/ImeModePersistence-beta` 可追測試版。
+`CMakeLists.txt` 的 `project(... VERSION ...)` 是版本的唯一來源，會寫進 `VERSIONINFO`。發版時把它 bump 到新版、推一個相符的 `vMAJOR.MINOR.PATCH` tag（CI 只擋版號倒退，平常的 PR 不必 bump）。測試版推 `vMAJOR.MINOR.PATCH-beta.N`（或 `-rc.N`）—— 會發成 GitHub pre-release、不會變成 Latest。
 
 ## 授權
 
@@ -190,9 +187,6 @@ Its **second** purpose is pinning a specific program to an input language, inclu
 | Tool | Command |
 |---|---|
 | **winget** | `winget install mangokingTW.ImeModePersistence` |
-| **Scoop** | `scoop bucket add mango https://github.com/mangokingTW/scoop-bucket`<br>`scoop install mango/ImeModePersistence` |
-
-> winget and Scoop are both available now.
 
 Setup has two options. *Start automatically at logon*: **autostart always runs unelevated** at logon (an HKCU registry entry; no elevated scheduled task). To control an **elevated program (most anti-cheat games)**, use **Restart as administrator** in the tray menu to elevate on the spot — once per session, before playing, accepting one UAC prompt. *Bind Helldivers 2 to English input* (off by default): on first run it adds a `class:stingray_window` → English rule for you — it never overwrites a rule you already have, and does not come back if you later remove it.
 
@@ -268,7 +262,7 @@ iscc /DAppVersion=0.0.0 /DUserInstall installer\ImeModePersistence.iss
 
 The installers need [Inno Setup](https://jrsoftware.org/isinfo.php) 6.3 or newer; regenerating the icon needs [ImageMagick](https://imagemagick.org) 7 (`./tools/make_icon.sh`).
 
-`project(... VERSION ...)` in `CMakeLists.txt` is the single source of truth, stamped into `VERSIONINFO`. Bump it when releasing and push a matching `vMAJOR.MINOR.PATCH` tag (CI only rejects a version that moves backward; ordinary PRs need no bump). For a test build push `vMAJOR.MINOR.PATCH-beta.N` (or `-rc.N`): it publishes as a GitHub pre-release, never becomes "Latest", and `scoop install mango/ImeModePersistence-beta` tracks it. The full release, packaging, and Microsoft Store publishing flow is documented in **[docs/PACKAGING.md](docs/PACKAGING.md)**.
+`project(... VERSION ...)` in `CMakeLists.txt` is the single source of truth, stamped into `VERSIONINFO`. Bump it when releasing and push a matching `vMAJOR.MINOR.PATCH` tag (CI only rejects a version that moves backward; ordinary PRs need no bump). For a test build push `vMAJOR.MINOR.PATCH-beta.N` (or `-rc.N`): it publishes as a GitHub pre-release and never becomes "Latest". The full release, packaging, and Microsoft Store publishing flow is documented in **[docs/PACKAGING.md](docs/PACKAGING.md)**.
 
 ## License
 
