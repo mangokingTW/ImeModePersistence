@@ -36,6 +36,9 @@ jobs:
     name: ARM64 Real-IME E2E & Recording (non-blocking)
     runs-on: windows-11-arm
     continue-on-error: true
+    # Bounded so a wedged preview runner cannot sit inside a release run for
+    # the 360-minute default; a healthy run is about 21 minutes.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: ./.github/actions/arm64-verify

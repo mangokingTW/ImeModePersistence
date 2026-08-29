@@ -17,6 +17,13 @@ jobs:
   arm64-verify:
     name: ARM64 Real-IME E2E & Recording
     runs-on: windows-11-arm
+    # A wedged windows-11-arm runner would otherwise hold this slot for the
+    # 360-minute default. One did: it stopped reporting 4s in, ignored a cancel
+    # for five minutes, and uploaded no logs at all -- not even for the steps
+    # that had already succeeded. The runner appears to take one job at a time,
+    # so that is six hours of no ARM verification for anyone. A healthy run is
+    # about 21 minutes.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
       - uses: ./.github/actions/arm64-verify
