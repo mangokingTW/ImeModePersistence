@@ -164,9 +164,22 @@ class NotepadWindow:
         from pywinauto.application import Application
 
         self.proc = subprocess.Popen(["notepad.exe"])
-        time.sleep(1.0)
-        self.app = Application(backend="uia").connect(process=self.proc.pid)
-        self.dlg = self.app.top_window()
+        # A fixed 1 s sleep before connecting raced against Notepad's own
+        # window creation on a slower machine (observed on an ARM64 runner:
+        # the window wasn't up until ~2 s) -- poll instead of guessing a
+        # sleep duration that happens to be enough everywhere.
+        deadline = time.monotonic() + 10.0
+        last_error = None
+        while time.monotonic() < deadline:
+            try:
+                self.app = Application(backend="uia").connect(process=self.proc.pid)
+                self.dlg = self.app.top_window()
+                break
+            except Exception as exc:
+                last_error = exc
+                time.sleep(0.2)
+        else:
+            raise RuntimeError(f"Notepad (pid {self.proc.pid}) never got a window") from last_error
         self.hwnd = self.dlg.handle
 
         # Move and resize window
