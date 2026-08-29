@@ -126,9 +126,30 @@ def promote_all_tray_icons():
     WM_SETTINGCHANGE = 0x001A
     user32.PostMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 0)
 
+_closed_terminals = set()
+
+
 def minimize_background_windows():
-    """Minimizes terminal and host console windows so the desktop background is clean."""
+    """Clears the desktop of windows that could take focus away from the test.
+
+    Console windows are minimized. Windows Terminal windows are *closed*
+    instead, because minimizing them has been shown not to be enough: the
+    ARM64 runner's interactive session sometimes has a Windows Terminal open
+    on `C:\\Windows\\system32\\wsl.exe`, and the one release run where the
+    typed line break went missing is the one run where that window was
+    present -- every other visible window was identical between the two runs.
+    Terminal was already being minimized there, so the likeliest explanation
+    is that it came back to the foreground on its own (wsl.exe has no distro
+    to run on this image, so it errors and exits) at the moment a hardware
+    keystroke was in flight. A minimized window can return; a closed one
+    cannot.
+
+    Only Windows Terminal is closed. The GitHub agent's own console is a
+    ConsoleWindowClass window and stays minimized -- closing that would take
+    the job down with it.
+    """
     SW_MINIMIZE = 6
+    WM_CLOSE = 0x0010
     kernel32 = ctypes.windll.kernel32
     user32 = ctypes.windll.user32
 
@@ -147,8 +168,14 @@ def minimize_background_windows():
             class_buf = ctypes.create_unicode_buffer(256)
             user32.GetClassNameW(hwnd, class_buf, 256)
             cls = class_buf.value
-            if any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
-               cls in ["ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS"]:
+            if cls == "CASCADIA_HOSTING_WINDOW_CLASS" and hwnd != console_hwnd:
+                # Posted, not sent: a hung terminal must not block the test.
+                user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+                if hwnd not in _closed_terminals:
+                    _closed_terminals.add(hwnd)
+                    print(f"[DESKTOP] closed stray terminal hwnd={hwnd} title={buf.value!r}", flush=True)
+            elif any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
+                    cls == "ConsoleWindowClass":
                 user32.ShowWindow(hwnd, SW_MINIMIZE)
         return True
 
