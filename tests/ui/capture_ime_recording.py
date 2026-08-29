@@ -256,18 +256,49 @@ class NotepadWindow:
     def type_text(self, text: str, delay_per_char: float = 0.04):
         self.set_foreground()
         if text == "\n":
-            # pywinauto's type_keys("\n", with_newlines=True) sends a WM_CHAR
-            # carriage return, which the modern tabbed Notepad's document
-            # control doesn't turn into a visible line break the way the
-            # classic Edit control did -- confirmed on an ARM64 runner: the
-            # two typed segments landed correctly but with no separator
-            # between them. A raw hardware-level Enter (the same mechanism
-            # type_bopomofo already relies on successfully) does.
-            import pydirectinput
-            pydirectinput.press('enter')
+            self.press_enter()
         else:
             self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
         time.sleep(0.3)
+
+    def press_enter(self, attempts: int = 5):
+        """Adds a line break, confirming it actually landed.
+
+        pywinauto's type_keys("\\n", with_newlines=True) sends a WM_CHAR
+        carriage return, which the modern tabbed Notepad's document control
+        doesn't turn into a visible line break the way the classic Edit control
+        did -- the two typed segments land correctly but with no separator
+        between them. A raw hardware-level Enter (the same mechanism
+        type_bopomofo relies on) does work.
+
+        But a hardware keystroke goes wherever the focus is, not to a window we
+        name, so it is only as reliable as the focus was at that instant. On the
+        ARM64 runner that has been observed to miss: in one run window A's
+        newline landed and window B's did not, from identical code moments
+        apart. So rather than sending it and hoping, read the text back and
+        send it again if the line count did not move.
+
+        Retrying is safe: a duplicate Enter only adds a blank line, and the
+        content check strips empty lines before comparing, so over-sending
+        cannot turn a passing run into a failing one.
+        """
+        import pydirectinput
+
+        before = self.get_text().count("\n")
+        for attempt in range(attempts):
+            self.set_foreground()
+            pydirectinput.press('enter')
+            time.sleep(0.4)
+            if self.get_text().count("\n") > before:
+                return
+            print(
+                f"[RETRY] Enter did not register (attempt {attempt + 1}/{attempts})",
+                flush=True,
+            )
+        # Deliberately not raising: the content verification later on reports the
+        # exact expected/actual text, which says far more than an exception here,
+        # and the recording still has to be saved either way.
+        print("[RETRY] giving up on the line break; content verification will report it", flush=True)
 
     def type_bopomofo(self, key_sequence: str):
         """Types authentic bopomofo keys via pydirectinput DirectX hardware scan codes."""
