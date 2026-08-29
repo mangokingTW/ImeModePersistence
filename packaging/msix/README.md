@@ -40,6 +40,24 @@ powershell -ExecutionPolicy Bypass -File packaging\msix\build.ps1
 cannot find it, install the Windows SDK or run the commands from **Developer
 PowerShell for VS**. Produces `dist/ImeModePersistence.msix`.
 
+### Both architectures (what CI submits)
+
+`build.ps1` packs one architecture per run, rewriting the staged manifest's
+`ProcessorArchitecture`; `bundle.ps1` combines the results into the single
+`.msixbundle` a Store submission takes. Both packages keep the same Identity, so
+they are one listing and the Store serves each device its own architecture.
+
+```powershell
+cmake -S . -B build-arm64 -A ARM64
+cmake --build build-arm64 --config Release
+powershell -ExecutionPolicy Bypass -File packaging\msix\build.ps1 -Architecture x64 -ExePath build-x64/Release/ImeModePersistence.exe -OutDir msix-packages -OutName ImeModePersistence-x64.msix
+powershell -ExecutionPolicy Bypass -File packaging\msix\build.ps1 -Architecture arm64 -ExePath build-arm64/Release/ImeModePersistence.exe -OutDir msix-packages -OutName ImeModePersistence-arm64.msix
+powershell -ExecutionPolicy Bypass -File packaging\msix\bundle.ps1 -Packages msix-packages/ImeModePersistence-x64.msix, msix-packages/ImeModePersistence-arm64.msix -OutFile dist/ImeModePersistence.msixbundle
+```
+
+The bundle version defaults to `AppxManifest.xml`'s `Version`, which is the one
+Partner Center compares against previous submissions.
+
 ## Test locally (sideload)
 
 The Store signs on upload, but to run the package on your own machine first,
@@ -48,9 +66,10 @@ sign it with a self-signed cert whose subject exactly equals the manifest's
 
 ## Submit
 
-Upload the unsigned `.msix` in Partner Center (it re-signs with the Store
+Upload the unsigned `.msixbundle` in Partner Center (it re-signs with the Store
 certificate), fill in the listing (description, screenshots, the elevation
-limitation note), and submit for certification.
+limitation note), and submit for certification. `release.yml` does this
+automatically for stable tags.
 
 Privacy policy URL for the listing (required for a full-trust app):
 `https://github.com/mangokingTW/ImeModePersistence/blob/main/PRIVACY.md`

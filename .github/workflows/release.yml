@@ -248,7 +248,7 @@ jobs:
             }
           }
 
-      - name: Build Store MSIX (unsigned)
+      - name: Build Store MSIX bundle (unsigned)
         if: env.RELEASE_EXISTS != 'true'
         shell: pwsh
         run: |
@@ -256,9 +256,25 @@ jobs:
           # on ingestion, so no code-signing cert is needed here. build.ps1 locates
           # makeappx in the Windows SDK on the runner. Named with the version so
           # the maintainer grabs it straight from the release for submission.
-          & packaging\msix\build.ps1
-          if ($LASTEXITCODE -ne 0) { throw "MSIX packaging failed" }
-          Move-Item dist/ImeModePersistence.msix "dist/ImeModePersistence-$env:FILEVER.msix" -Force
+          #
+          # One package per architecture, combined into a single .msixbundle: the
+          # Store takes one package set per submission, and serves each device the
+          # matching architecture from the same listing. The per-architecture .msix
+          # files stage outside dist/ so only the bundle ships as a release asset.
+          & packaging\msix\build.ps1 -Architecture x64 `
+            -ExePath build-x64/Release/ImeModePersistence.exe `
+            -OutDir msix-packages -OutName ImeModePersistence-x64.msix
+          if ($LASTEXITCODE -ne 0) { throw "x64 MSIX packaging failed" }
+
+          & packaging\msix\build.ps1 -Architecture arm64 `
+            -ExePath build-arm64/Release/ImeModePersistence.exe `
+            -OutDir msix-packages -OutName ImeModePersistence-arm64.msix
+          if ($LASTEXITCODE -ne 0) { throw "ARM64 MSIX packaging failed" }
+
+          & packaging\msix\bundle.ps1 `
+            -Packages msix-packages/ImeModePersistence-x64.msix, msix-packages/ImeModePersistence-arm64.msix `
+            -OutFile "dist/ImeModePersistence-$env:FILEVER.msixbundle"
+          if ($LASTEXITCODE -ne 0) { throw "MSIX bundling failed" }
 
       - name: Build installer
         if: env.RELEASE_EXISTS != 'true'
@@ -285,7 +301,7 @@ jobs:
         if: env.RELEASE_EXISTS != 'true'
         shell: pwsh
         run: |
-          $lines = Get-FileHash dist/*.zip, dist/*.exe, dist/*.msix -Algorithm SHA256 |
+          $lines = Get-FileHash dist/*.zip, dist/*.exe, dist/*.msixbundle -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" }
 
           # Written with LF, not the CRLF that Set-Content would produce: coreutils
@@ -310,7 +326,7 @@ jobs:
           subject-path: |
             dist/*.exe
             dist/*.zip
-            dist/*.msix
+            dist/*.msixbundle
             dist/SHA256SUMS.txt
 
       - name: Attach provenance to the release
@@ -323,17 +339,17 @@ jobs:
           # SLSA tooling expects lets those verify the release without the API.
           Copy-Item "${{ steps.attest.outputs.bundle-path }}" dist/multiple.intoto.jsonl
 
-      - name: Download MSIX from the existing release
+      - name: Download MSIX bundle from the existing release
         if: env.RELEASE_EXISTS == 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           # Re-dispatch retry: the build was skipped, so pull the already-published
-          # MSIX for the Store step to resubmit.
+          # bundle for the Store step to resubmit.
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          gh release download $env:TAG --pattern '*.msix' --dir dist
-          if ($LASTEXITCODE) { throw 'failed to download the release MSIX' }
+          gh release download $env:TAG --pattern '*.msixbundle' --dir dist
+          if ($LASTEXITCODE) { throw 'failed to download the release MSIX bundle' }
 
       - name: Create release
         shell: pwsh
@@ -351,7 +367,7 @@ jobs:
               "ImeModePersistence-$env:FILEVER-setup.exe",
               "ImeModePersistence-$env:FILEVER-x64.zip",
               "ImeModePersistence-$env:FILEVER-arm64.zip",
-              "ImeModePersistence-$env:FILEVER.msix",
+              "ImeModePersistence-$env:FILEVER.msixbundle",
               'SHA256SUMS.txt'
             )
             $missing = $expected | Where-Object { -not (Test-Path "dist/$_") }
@@ -451,14 +467,23 @@ jobs:
         if: env.HAVE_STORE == 'true'
         uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
         with:
-          # Pin the CLI: unpinned installs the latest, and msstore-cli v0.4.0
-          # (2026-08-18) regressed package upload -- it hangs at "Uploading
-          # Bundle to Azure blob: 67%" then fails with "Error while uploading
-          # the application package". v0.3.9 is the last good release (the one
-          # v1.2.0 shipped on). Revisit when a fixed v0.4.x lands.
-          version: v0.3.9
+          # Pin the CLI rather than tracking 'latest': v0.4.0 (2026-08-18)
+          # regressed package upload -- it died mid-transfer with "Error while
+          # uploading the application package", which is how an unpinned release
+          # workflow inherits someone else's bad afternoon.
+          #
+          # v0.4.1 fixes it (microsoft/msstore-cli#154: the upload progress
+          # callback read a fileStream that Progress<T>'s thread-pool dispatch
+          # could touch after disposal, throwing on a pool thread outside the
+          # caller's catch and killing the process).
+          #
+          # Two upstream bugs this workflow works around are still open, so the
+          # workarounds in the submit step must stay whichever version is
+          # pinned: #150 (`submission get` word-wraps JSON to the console width,
+          # emitting invalid JSON) and #161 (success logs go to stderr).
+          version: v0.4.1
 
-      - name: Submit MSIX to the Microsoft Store
+      - name: Submit MSIX bundle to the Microsoft Store
         if: env.HAVE_STORE == 'true'
         shell: pwsh
         # msstore's commit has been seen to hang at "CommitStarted"
@@ -472,7 +497,10 @@ jobs:
           CLIENTSECRET: ${{ secrets.PARTNER_CENTER_CLIENT_SECRET }}
         run: |
           $storeId = '9P05QQZ2P5XC'
-          $msix = "dist/ImeModePersistence-$env:FILEVER.msix"
+          # A .msixbundle carrying both x64 and ARM64. msstore-cli's `publish`
+          # takes exactly one package path but accepts .msixbundle, so this is
+          # how both architectures reach the one listing.
+          $msix = "dist/ImeModePersistence-$env:FILEVER.msixbundle"
           # The Store re-signs the package on ingestion.
           msstore reconfigure --tenantId $env:TENANT --sellerId $env:SELLERID --clientId $env:CLIENTID --clientSecret $env:CLIENTSECRET
           if ($LASTEXITCODE) { throw 'msstore reconfigure failed' }
