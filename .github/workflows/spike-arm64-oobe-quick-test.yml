@@ -2,11 +2,11 @@ name: "Spike: ARM64 OOBE dismissal quick test"
 
 # Fast-iteration companion to spike-arm64-ime-recording.yml: skips the build,
 # the ~20 minute zh-TW IME install, the ffmpeg download, and the actual
-# capture/E2E run -- only exercises the desktop-state diagnostic and the
-# Shell_OOBEProxy dismissal logic, so that specific problem can be iterated on
-# in a couple of minutes instead of ~20-25 per attempt. Delete once the real
-# fix is confirmed and folded back into the real spike (or the ARM64 spike is
-# closed out entirely).
+# capture/E2E run -- only exercises the desktop-state diagnostic, the
+# Shell_OOBEProxy dismissal logic, and (currently) the notepad.exe launch
+# question, so problems here can be iterated on in a couple of minutes instead
+# of ~20-25 per attempt. Delete once the real fix is confirmed and folded back
+# into the real spike (or the ARM64 spike is closed out entirely).
 
 on:
   workflow_dispatch:
@@ -16,6 +16,7 @@ on:
       - "tests/ui/dismiss_onboarding_screens.ps1"
       - "tests/ui/diag_desktop_state.ps1"
       - "tests/ui/dump_full_uia_tree.ps1"
+      - "tests/ui/diag_notepad_launch.ps1"
 
 permissions:
   contents: read
@@ -42,6 +43,12 @@ jobs:
         run: |
           mkdir diag -Force | Out-Null
           .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/after"
+
+      - name: Does notepad.exe actually produce a window?
+        shell: pwsh
+        run: |
+          mkdir diag -Force | Out-Null
+          .\tests\ui\diag_notepad_launch.ps1
 
       - name: Upload desktop-state diagnostics
         if: always()
