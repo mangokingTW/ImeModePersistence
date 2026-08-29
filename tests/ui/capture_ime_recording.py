@@ -234,6 +234,11 @@ class NotepadWindow:
         self.set_foreground()
 
     def set_foreground(self):
+        # A stray window (observed on an ARM64 runner: a WSL console) can pop
+        # up mid-sequence and steal focus, not just at startup -- re-minimize
+        # background console/terminal windows before every focus change, not
+        # only once before the recording begins.
+        minimize_background_windows()
         user32.keybd_event(0, 0, 0, 0)
         self.dlg.set_focus()
         time.sleep(0.2)
@@ -250,7 +255,18 @@ class NotepadWindow:
 
     def type_text(self, text: str, delay_per_char: float = 0.04):
         self.set_foreground()
-        self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
+        if text == "\n":
+            # pywinauto's type_keys("\n", with_newlines=True) sends a WM_CHAR
+            # carriage return, which the modern tabbed Notepad's document
+            # control doesn't turn into a visible line break the way the
+            # classic Edit control did -- confirmed on an ARM64 runner: the
+            # two typed segments landed correctly but with no separator
+            # between them. A raw hardware-level Enter (the same mechanism
+            # type_bopomofo already relies on successfully) does.
+            import pydirectinput
+            pydirectinput.press('enter')
+        else:
+            self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
         time.sleep(0.3)
 
     def type_bopomofo(self, key_sequence: str):
