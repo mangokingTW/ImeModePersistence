@@ -26,7 +26,7 @@ A small tray utility that controls how input methods behave across programs. It 
 
 **Elevation.** Reading or changing the windows of an elevated program requires equal privileges. When a target needs administrator rights, the app prompts you, and **Restart as administrator** in the tray menu elevates it on the spot. An optional diagnostic log records every context switch, whether a rule matched, and which mechanism was used, for troubleshooting.
 
-**About this Store build.** The Microsoft Store (MSIX) build **can't elevate**, so it can't control programs run as administrator or anti-cheat games. For those targets, use the **desktop build** (installer / Scoop / winget) run as administrator. **Start at logon is available** in this Store build.
+**About this Store build.** The Microsoft Store (MSIX) build **can't elevate**, so it can't control programs run as administrator or anti-cheat games. For those targets, use the **desktop build** (installer / winget) run as administrator. **Start at logon is available** in this Store build.
 
 Nothing is injected, hooked, or synthesized — no key simulation. Switching posts Windows' standard input-language-change notification (which a window is free to ignore) and falls back to TSF's public API; it's best-effort and verified by reading the state back. The interface follows your Windows display language — English, Traditional Chinese, Simplified Chinese, Japanese, or Korean.
 

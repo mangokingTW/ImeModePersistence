@@ -10,7 +10,7 @@ antivirus the way the unsigned installer can.
 anti-cheat-protected targets** (e.g. Helldivers 2). The Store build is for the
 ordinary use cases — mode persistence across windows, binding non-elevated
 applications, and the caret indicator. Users who need to bind protected games
-should install the direct-download / Scoop / winget / Chocolatey build instead.
+should install the direct-download / winget build instead.
 The listing and description must say this clearly.
 
 ## Product identity (reserved)

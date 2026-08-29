@@ -11,7 +11,6 @@ does the rest.
 | GitHub Releases | `mangokingTW/ImeModePersistence` | `release.yml` on tag push |
 | Microsoft Store | Store ID `9P05QQZ2P5XC` | `release.yml` (stable tags only) |
 | winget | `mangokingTW.ImeModePersistence` | manifest in [`packaging/winget`](../packaging/winget), updated separately |
-| Scoop | `mango/ImeModePersistence` | manifest in [`packaging/scoop`](../packaging/scoop), updated separately |
 
 Release assets: unified installer (`-setup.exe`), portable `-x64.zip` and
 `-arm64.zip`, the Store `.msixbundle`, `SHA256SUMS.txt`, and the SLSA provenance
@@ -41,8 +40,7 @@ a 32-bit OS. ARM64 ships as the portable zip and inside the Store bundle; the
    That triggers `release.yml`.
 
 For a **test build**, push `vX.Y.Z-beta.N` (or `-rc.N`): it publishes as a GitHub
-pre-release, never becomes "Latest", the Store step is skipped, and `scoop
-install mango/ImeModePersistence-beta` tracks it.
+pre-release, never becomes "Latest", and the Store step is skipped.
 
 > The `version bump` check only rejects a version that moves *backward*; ordinary
 > PRs need no bump. The tag must be `MAJOR.MINOR.PATCH`, optionally with a
@@ -85,7 +83,7 @@ Overview of what changed / what the app does…
 The section drives two different outputs:
 
 - **GitHub release note** = the highlights **+** a constant install/verify footer
-  (scoop/winget/choco commands, `gh attestation verify`). The footer is
+  (winget command, `gh attestation verify`). The footer is
   GitHub-only — it must never reach the Store listing.
 - **Store "What's new"** = the highlights **only**, and **split by language**: the
   workflow cuts the section at the `繁體中文:` marker into `storenotes.en.md` /
