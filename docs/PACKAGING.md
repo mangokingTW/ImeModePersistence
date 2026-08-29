@@ -12,9 +12,15 @@ does the rest.
 | Microsoft Store | Store ID `9P05QQZ2P5XC` | `release.yml` (stable tags only) |
 | winget | `mangokingTW.ImeModePersistence` | manifest in [`packaging/winget`](../packaging/winget), updated separately |
 
-Release assets: unified installer (`-setup.exe`), portable `-x64.zip` and
-`-arm64.zip`, the Store `.msixbundle`, `SHA256SUMS.txt`, and the SLSA provenance
-bundle (`multiple.intoto.jsonl`).
+Release assets: unified installer (`-setup.exe`), portable `-win-x64.zip` and
+`-win-arm64.zip`, the Store `.msixbundle`, `SHA256SUMS.txt`, and the SLSA
+provenance bundle (`multiple.intoto.jsonl`).
+
+The portable archives use the .NET RID spelling (`win-x64`, `win-arm64`) rather
+than a bare architecture. GitHub sorts release assets by filename and offers no
+way to override it, so `-arm64.zip` sorted above the installer; `win-` puts both
+archives after it. Renaming was only possible once Scoop was dropped -- its
+manifest was the one consumer pinned to the old name.
 
 Builds are **x64 and ARM64**. There is no x86 build — Windows 11 has no 32-bit
 edition and 32-bit Windows 10 is end-of-life, so the installer refuses to run on
