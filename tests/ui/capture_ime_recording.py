@@ -178,24 +178,40 @@ class NotepadWindow:
 
     def __init__(self, x: int, y: int, w: int, h: int):
 
-        from pywinauto.application import Application
+        from pywinauto import Desktop
+
+        # Connecting by PID (Application(...).connect(process=pid)) assumes
+        # the process launched by Popen is the one that ends up owning the
+        # window. That broke on a newer Windows build (observed on an ARM64
+        # runner, Windows 11 build 26100+) where notepad.exe launches the
+        # modern tabbed Notepad -- the window is genuinely there (confirmed
+        # visually in the recording, not obscured by anything), but pywinauto
+        # could never find it by that PID. Find it by title instead, which
+        # works regardless of which process ends up owning the window: launch,
+        # then poll for a new top-level "Notepad" window that wasn't already
+        # open before (so a second instance -- win_b -- doesn't just grab
+        # win_a's window).
+        try:
+            existing_handles = {w.handle for w in Desktop(backend="uia").windows(title_re=".*Notepad.*")}
+        except Exception:
+            existing_handles = set()
 
         self.proc = subprocess.Popen(["notepad.exe"])
-        # A fixed 1 s sleep before connecting raced against Notepad's own
-        # window creation on a slower machine (observed on an ARM64 runner:
-        # the window wasn't up until ~2 s) -- poll instead of guessing a
-        # sleep duration that happens to be enough everywhere.
         deadline = time.monotonic() + 10.0
         last_error = None
+        self.dlg = None
         while time.monotonic() < deadline:
             try:
-                self.app = Application(backend="uia").connect(process=self.proc.pid)
-                self.dlg = self.app.top_window()
-                break
+                for win in Desktop(backend="uia").windows(title_re=".*Notepad.*"):
+                    if win.handle not in existing_handles:
+                        self.dlg = win
+                        break
+                if self.dlg is not None:
+                    break
             except Exception as exc:
                 last_error = exc
-                time.sleep(0.2)
-        else:
+            time.sleep(0.2)
+        if self.dlg is None:
             raise RuntimeError(f"Notepad (pid {self.proc.pid}) never got a window") from last_error
         self.hwnd = self.dlg.handle
 
@@ -211,7 +227,11 @@ class NotepadWindow:
             edit = self.dlg.child_window(control_type="Edit")
             edit.click_input()
         except Exception:
-            pass
+            try:
+                doc = self.dlg.child_window(control_type="Document")
+                doc.click_input()
+            except Exception:
+                pass
         time.sleep(0.3)
 
     def type_text(self, text: str, delay_per_char: float = 0.04):
@@ -305,7 +325,9 @@ class NotepadWindow:
         time.sleep(0.3)
 
     def get_text(self) -> str:
-        """Reads text from Notepad control."""
+        """Reads text from Notepad control. Tries the classic Edit control
+        first, then Document (the modern tabbed Notepad's text area reports
+        as a Document control type under UIA)."""
         try:
             edit = self.dlg.child_window(control_type="Edit")
             val = edit.get_value()
@@ -317,9 +339,29 @@ class NotepadWindow:
             edit = self.dlg.child_window(class_name="Edit")
             return edit.window_text()
         except Exception:
+            pass
+        try:
+            doc = self.dlg.child_window(control_type="Document")
+            val = doc.get_value()
+            if val:
+                return val
+        except Exception:
+            pass
+        try:
+            doc = self.dlg.child_window(control_type="Document")
+            return doc.window_text()
+        except Exception:
             return ""
 
     def close(self):
+        # Close the actual window first -- with the modern tabbed Notepad the
+        # process launched by Popen may not be the one that ends up owning
+        # it, so terminating self.proc alone can leave the real window (and
+        # its owning process) running.
+        try:
+            self.dlg.close()
+        except Exception:
+            pass
         try:
             self.proc.terminate()
             self.proc.wait(timeout=2)
