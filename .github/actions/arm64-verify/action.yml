@@ -9,6 +9,29 @@ description: >-
 runs:
   using: composite
   steps:
+    - name: Block the WSL installer (policy needs time to bite)
+      shell: pwsh
+      run: |
+        # This image ships only the system32 wsl.exe stub -- no WSL package --
+        # and the runner's provisioning daemon probes wsl every 30 seconds
+        # (provjobd.exe <- hosted-compute-agent, per event-watcher parent
+        # chains). The stub answers every probe by launching the interactive
+        # installer, `wsl.exe --update --confirm --prompt-before-exit`, whose
+        # Terminal window waits for a keypress and steals the foreground from
+        # whatever the test is typing into.
+        #
+        # AllowWSL=0 (documented enterprise policy) makes wsl.exe refuse to
+        # run, which stops the stub before its installer branch. Measured
+        # carefully, though: when the policy was written seconds before the
+        # capture, the first ~2 minutes of probes still spawned installers (3
+        # of 24), and every probe after that spawned none -- the policy works
+        # but takes a couple of minutes to bite. So it is written here, first,
+        # with the build and the DISM language install (minutes, sometimes
+        # tens of minutes) between it and anything focus-sensitive.
+        New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Force | Out-Null
+        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Name 'AllowWSL' -Value 0 -Type DWord -Force
+        Write-Host 'AllowWSL=0 policy set'
+
     - name: Dismiss the Shell_OOBEProxy onboarding screen(s)
       shell: pwsh
       run: |
@@ -106,31 +129,13 @@ runs:
         mkdir diag -Force | Out-Null
         .\tests\ui\diag_desktop_state.ps1 -OutPrefix "diag/before-capture"
 
-    - name: Keep the WSL installer window off the desktop
+    - name: Clear any WSL installer window already on screen
       shell: pwsh
       run: |
-        # Root cause, finally evidenced rather than guessed: this image has no
-        # WSL package at all -- `wsl --update` prints "The Windows Subsystem
-        # for Linux is not installed" and exits 1. What fires every 30 seconds
-        # is the runner's own provisioning daemon probing wsl (provjobd.exe <-
-        # hosted-compute-agent, per the event watcher's parent chains), and the
-        # system32 stub answers every probe by launching the interactive
-        # installer -- `wsl.exe --update --confirm --prompt-before-exit` --
-        # whose Terminal window waits for a keypress and steals the foreground.
-        #
-        # The fix is the AllowWSL=0 policy: documented enterprise control
-        # that makes wsl.exe refuse to run, so the stub never reaches its
-        # "not installed -> launch the installer" behaviour. With the policy
-        # set (round 4, alongside a since-removed reaper) the watcher counted
-        # 21 probes and zero installer spawns, zero focus-loss retries, and
-        # the content checks passed; this revision removes the reaper so the
-        # policy stands alone and the watcher can confirm it is sufficient.
-        New-Item -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Force | Out-Null
-        Set-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WSL' -Name 'AllowWSL' -Value 0 -Type DWord -Force
-        Write-Host 'AllowWSL=0 policy set'
-
-
-        # Clear whatever is already on screen; the watcher records any return.
+        # The AllowWSL policy (set as this action's first step) stops new
+        # installer windows; anything that appeared before it took effect is
+        # swept once here, right before the capture. The spawn watcher records
+        # any that return.
         Get-Process wsl, wslhost, WindowsTerminal -ErrorAction SilentlyContinue | ForEach-Object {
           Write-Host "killing $($_.ProcessName) ($($_.Id))"
           Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue
