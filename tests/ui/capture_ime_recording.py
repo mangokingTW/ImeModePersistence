@@ -126,9 +126,39 @@ def promote_all_tray_icons():
     WM_SETTINGCHANGE = 0x001A
     user32.PostMessageW(HWND_BROADCAST, WM_SETTINGCHANGE, 0, 0)
 
+_closed_terminals = set()
+
+
 def minimize_background_windows():
-    """Minimizes terminal and host console windows so the desktop background is clean."""
+    """Clears the desktop of windows that could take focus away from the test.
+
+    Console windows are minimized. Windows Terminal windows are *closed*
+    instead, because minimizing them has been shown not to be enough: the
+    ARM64 runner's interactive session sometimes has a Windows Terminal open
+    on `C:\\Windows\\system32\\wsl.exe`, and the one release run where the
+    typed line break went missing is the one run where that window was
+    present -- every other visible window was identical between the two runs.
+    Terminal was already being minimized there, so the likeliest explanation
+    is that it came back to the foreground on its own (wsl.exe has no distro
+    to run on this image, so it errors and exits) at the moment a hardware
+    keystroke was in flight. A minimized window can return; a closed one
+    cannot.
+
+    Only a Windows Terminal whose title names wsl.exe is closed, and that
+    narrowness is not caution for its own sake. On windows-latest the Actions
+    runner *itself* is hosted in a Windows Terminal window, titled "Default";
+    closing it on class alone made the runner log "received a shutdown signal"
+    on the very next line and killed the job. Matching the title is what
+    separates the ARM64 image's stray `C:\\Windows\\system32\\wsl.exe` window
+    from the window this job is running inside.
+
+    If the offending window ever appears under some other title this will miss
+    it -- which is why press_enter re-sends the keystroke rather than relying
+    on the desktop being clean. Failing to close is recoverable; closing the
+    wrong window is not.
+    """
     SW_MINIMIZE = 6
+    WM_CLOSE = 0x0010
     kernel32 = ctypes.windll.kernel32
     user32 = ctypes.windll.user32
 
@@ -147,8 +177,14 @@ def minimize_background_windows():
             class_buf = ctypes.create_unicode_buffer(256)
             user32.GetClassNameW(hwnd, class_buf, 256)
             cls = class_buf.value
-            if any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
-               cls in ["ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS"]:
+            if cls == "CASCADIA_HOSTING_WINDOW_CLASS" and "wsl" in title and hwnd != console_hwnd:
+                # Posted, not sent: a hung terminal must not block the test.
+                user32.PostMessageW(hwnd, WM_CLOSE, 0, 0)
+                if hwnd not in _closed_terminals:
+                    _closed_terminals.add(hwnd)
+                    print(f"[DESKTOP] closed stray terminal hwnd={hwnd} title={buf.value!r}", flush=True)
+            elif any(k in title for k in ["cmd", "powershell", "host", "terminal", "github"]) or \
+                    cls in ("ConsoleWindowClass", "CASCADIA_HOSTING_WINDOW_CLASS"):
                 user32.ShowWindow(hwnd, SW_MINIMIZE)
         return True
 
@@ -256,18 +292,49 @@ class NotepadWindow:
     def type_text(self, text: str, delay_per_char: float = 0.04):
         self.set_foreground()
         if text == "\n":
-            # pywinauto's type_keys("\n", with_newlines=True) sends a WM_CHAR
-            # carriage return, which the modern tabbed Notepad's document
-            # control doesn't turn into a visible line break the way the
-            # classic Edit control did -- confirmed on an ARM64 runner: the
-            # two typed segments landed correctly but with no separator
-            # between them. A raw hardware-level Enter (the same mechanism
-            # type_bopomofo already relies on successfully) does.
-            import pydirectinput
-            pydirectinput.press('enter')
+            self.press_enter()
         else:
             self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
         time.sleep(0.3)
+
+    def press_enter(self, attempts: int = 5):
+        """Adds a line break, confirming it actually landed.
+
+        pywinauto's type_keys("\\n", with_newlines=True) sends a WM_CHAR
+        carriage return, which the modern tabbed Notepad's document control
+        doesn't turn into a visible line break the way the classic Edit control
+        did -- the two typed segments land correctly but with no separator
+        between them. A raw hardware-level Enter (the same mechanism
+        type_bopomofo relies on) does work.
+
+        But a hardware keystroke goes wherever the focus is, not to a window we
+        name, so it is only as reliable as the focus was at that instant. On the
+        ARM64 runner that has been observed to miss: in one run window A's
+        newline landed and window B's did not, from identical code moments
+        apart. So rather than sending it and hoping, read the text back and
+        send it again if the line count did not move.
+
+        Retrying is safe: a duplicate Enter only adds a blank line, and the
+        content check strips empty lines before comparing, so over-sending
+        cannot turn a passing run into a failing one.
+        """
+        import pydirectinput
+
+        before = self.get_text().count("\n")
+        for attempt in range(attempts):
+            self.set_foreground()
+            pydirectinput.press('enter')
+            time.sleep(0.4)
+            if self.get_text().count("\n") > before:
+                return
+            print(
+                f"[RETRY] Enter did not register (attempt {attempt + 1}/{attempts})",
+                flush=True,
+            )
+        # Deliberately not raising: the content verification later on reports the
+        # exact expected/actual text, which says far more than an exception here,
+        # and the recording still has to be saved either way.
+        print("[RETRY] giving up on the line break; content verification will report it", flush=True)
 
     def type_bopomofo(self, key_sequence: str):
         """Types authentic bopomofo keys via pydirectinput DirectX hardware scan codes."""
