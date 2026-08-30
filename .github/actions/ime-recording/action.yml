@@ -40,7 +40,7 @@ runs:
 
     - name: Install dependencies
       shell: pwsh
-      run: pip install pytest==8.3.4 wintegrate==0.1.0 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
+      run: pip install pytest==8.3.4 wintegrate==0.1.1 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
 
     - name: Capture continuous IME persistence recording
       shell: pwsh
