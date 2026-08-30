@@ -78,22 +78,22 @@ def grab(hwnd, out_path):
 def largest_visible_window(pid):
     """Handle of the process's largest visible top-level window (the dialog),
     skipping the hidden zero-size message window."""
-    from pywinauto import Application
-    app = Application(backend="uia").connect(process=pid, timeout=30)
+    from wintegrate import WindowCensus
+
     for _ in range(20):  # up to ~10s to appear and paint
         best, best_area = None, 0
-        for win in app.windows():
-            try:
-                if not win.is_visible():
-                    continue
-                r = win.rectangle()
-                area = r.width() * r.height()
-                if area > best_area:
-                    best, best_area = win, area
-            except Exception:
+        for snap in WindowCensus.capture():
+            if snap.pid != pid or not snap.is_visible:
                 continue
+            # visible_bounds is what the crop itself uses, so ranking by it
+            # picks the window that will actually fill the screenshot rather
+            # than one padded by Windows 11's invisible resize border.
+            left, top, right, bottom = visible_bounds(snap.hwnd)
+            area = max(0, right - left) * max(0, bottom - top)
+            if area > best_area:
+                best, best_area = snap.hwnd, area
         if best is not None and best_area > 0:
-            return best.handle
+            return best
         time.sleep(0.5)
     raise RuntimeError("no visible window found for the process")
 

@@ -27,7 +27,7 @@ jobs:
           cmake --build build-x64 --config Release
 
       - name: Install screenshot dependencies
-        run: pip install pywinauto==0.6.9 pillow==10.4.0
+        run: pip install wintegrate==0.1.1 pillow==10.4.0
 
       - name: Capture screenshots
         run: python tests/ui/capture_store_screenshots.py "build-x64/Release/ImeModePersistence.exe" store-shots
