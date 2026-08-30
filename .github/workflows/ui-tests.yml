@@ -26,7 +26,7 @@ jobs:
           cmake --build build-x64 --config Release
 
       - name: Install UI-test dependencies
-        run: pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0
+        run: pip install pytest==8.3.4 wintegrate==0.1.0 pywinauto==0.6.9 pillow==10.4.0
 
 
       - name: Run UI and E2E tests

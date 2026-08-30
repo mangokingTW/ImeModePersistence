@@ -8,7 +8,12 @@ Validates:
 
 import time
 import pytest
-from pywinauto import Desktop
+from wintegrate import Window
+
+# UIA control type ids. wintegrate takes these as raw ints and exports no
+# constants for them, so name them once here rather than scattering magic
+# numbers through the assertions.
+CT_BUTTON = 50000
 
 STATUS_TITLES = {
     1: r".*Current status.*",
@@ -20,18 +25,26 @@ STATUS_TITLES = {
 
 def find_status_dialog(proc, timeout=15):
     """Locates the Status TaskDialog window for the given process."""
-    from pywinauto import Application, Desktop
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            app = Application(backend="uia").connect(process=proc.pid, timeout=1.0)
-            for win in app.windows():
-                if win.is_visible() and win.class_name() == "#32770":
-                    return app.window(handle=win.handle)
-        except Exception:
-            pass
-        time.sleep(0.3)
-    return Desktop(backend="uia").window(title_re=r".*(Persistence|延續|延续|維持|유지|status|狀態|状态|状態|상태).*")
+    # Scoped to the process under test and to the dialog window class. Both
+    # criteria are required: #32770 alone would match any dialog open on the
+    # runner, and this process owns a tray window too. Window.find combines
+    # criteria with AND, so this cannot drift onto someone else's dialog --
+    # which also means no localized-title fallback is needed.
+    return Window.find(class_name="#32770", pid=proc.pid, timeout=timeout)
+
+def dismiss(dlg):
+    """Closes the TaskDialog via its OK button, falling back to Enter."""
+    root = dlg.re_resolve_element()
+    # IDOK is automation id "1"; required=False turns the old .exists() probe
+    # into a plain None check instead of a raise/except pair.
+    ok_btn = root.find_descendant(automation_id="1", control_type_id=CT_BUTTON, timeout=2.0, required=False)
+    if ok_btn is None:
+        ok_btn = root.find_descendant(name_exact="OK", control_type_id=CT_BUTTON, timeout=2.0, required=False)
+    if ok_btn is not None:
+        ok_btn.invoke()
+    else:
+        root.send_keys("{ENTER}")
+    time.sleep(0.3)
 
 def test_status_dialog_content_and_dismiss(app_runner, registry_sandbox):
     """Verifies that the status TaskDialog opens, contains diagnostic text, and closes cleanly."""
@@ -39,17 +52,9 @@ def test_status_dialog_content_and_dismiss(app_runner, registry_sandbox):
     proc = app_runner(["--show-status"])
 
     dlg = find_status_dialog(proc, timeout=15)
-    assert dlg.is_visible(), "Status dialog must appear"
+    assert dlg.is_visible, "Status dialog must appear"
 
-    # Close the TaskDialog
-    ok_btn = dlg.child_window(auto_id="1", control_type="Button")
-    if not ok_btn.exists(timeout=2):
-        ok_btn = dlg.child_window(title="OK", control_type="Button")
-    if ok_btn.exists():
-        ok_btn.click()
-    else:
-        dlg.type_keys("{ENTER}")
-    time.sleep(0.3)
+    dismiss(dlg)
 
 @pytest.mark.parametrize("lang_id,lang_code", [
     (1, "en"),
@@ -64,14 +69,10 @@ def test_status_dialog_multilingual(lang_id, lang_code, app_runner, registry_san
     proc = app_runner(["--show-status"])
 
     dlg = find_status_dialog(proc, timeout=15)
-    assert dlg.is_visible(), f"Status dialog failed to appear in {lang_code}"
+    assert dlg.is_visible, f"Status dialog failed to appear in {lang_code}"
+    assert dlg.title, f"Status dialog caption must not be empty in {lang_code}"
 
-    ok_btn = dlg.child_window(auto_id="1", control_type="Button")
-    if not ok_btn.exists(timeout=2):
-        ok_btn = dlg.child_window(title="OK", control_type="Button")
-    if ok_btn.exists():
-        ok_btn.click()
-    time.sleep(0.3)
+    dismiss(dlg)
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

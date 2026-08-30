@@ -175,18 +175,21 @@ def pytest_runtest_makereport(item, call):
         except Exception:
             pass
 
-        # 2. Dump control tree
+        # 2. Dump the desktop window census
         try:
-            from pywinauto import Desktop
+            from wintegrate import WindowCensus
+
             with open(log_path, "w", encoding="utf-8") as f:
-                f.write(f"=== Failure Control Tree for {test_name} ===\n\n")
-                windows = Desktop(backend="uia").windows()
-                for w in windows:
-                    try:
-                        if w.is_visible():
-                            f.write(f"Window: {w.window_text()!r} ({w.element_info.class_name})\n")
-                    except Exception:
-                        pass
+                f.write(f"=== Failure Window Census for {test_name} ===\n\n")
+                # Snapshots carry the owning pid, which the old pywinauto dump
+                # did not -- when a dialog fails to appear, the question is
+                # almost always "whose window is that", and this answers it.
+                for snap in WindowCensus.capture():
+                    if snap.is_visible:
+                        f.write(
+                            f"hwnd={snap.hwnd} pid={snap.pid} "
+                            f"class={snap.class_name!r} title={snap.title!r}\n"
+                        )
             print(f"[FAILURE] Saved debug log -> {log_path}")
         except Exception as exc:
             print(f"[FAILURE] Log dump failed: {exc}")

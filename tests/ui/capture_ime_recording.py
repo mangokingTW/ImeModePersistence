@@ -250,8 +250,8 @@ def dismiss_stray_overlays():
     """Closes the Start menu (or similar shell overlay) if one is open.
 
     Observed on an ARM64 runner: the Start menu ended up open and sitting on
-    top of a freshly launched Notepad window, which is why pywinauto's
-    top_window() couldn't find it -- the window existed, it was just obscured
+    top of a freshly launched Notepad window, which is why connecting to it
+    by process id couldn't find it -- the window existed, it was just obscured
     by a topmost shell surface, the same class of problem as the Shell_OOBEProxy
     screen. Escape reliably closes the Start menu (and most other transient
     shell overlays) without needing to identify the exact window involved.
@@ -267,56 +267,34 @@ class NotepadWindow:
 
     def __init__(self, x: int, y: int, w: int, h: int):
 
-        from pywinauto import Desktop
-        from pywinauto.application import Application
+        from wintegrate import Window
 
-        # Connecting by PID (Application(...).connect(process=pid)) assumes
-        # the process launched by Popen is the one that ends up owning the
-        # window. That broke on a newer Windows build (observed on an ARM64
-        # runner, Windows 11 build 26100+) where notepad.exe launches the
-        # modern tabbed Notepad -- the window is genuinely there (confirmed
-        # visually in the recording, not obscured by anything), but pywinauto
-        # could never find it by that PID. Find its handle by title instead,
-        # which works regardless of which process ends up owning the window:
-        # launch, then poll for a new top-level "Notepad" window that wasn't
-        # already open before (so a second instance -- win_b -- doesn't just
-        # grab win_a's window).
+        # Launch and window discovery are one call. It diffs a window census
+        # taken before and after the launch, which is what makes it correct
+        # here: notepad.exe on Windows 11 build 26100+ starts the modern
+        # tabbed Notepad, so the process Popen returns is not the one that
+        # ends up owning the visible window and connecting by PID finds
+        # nothing while the window is plainly on screen. The same diff is what
+        # stops the second instance (win_b) latching onto win_a's window,
+        # since win_a's is already present in the "before" snapshot.
         #
-        # Desktop(...).windows() hands back already-resolved wrapper objects,
-        # not a self-re-resolving WindowSpecification -- holding one of those
-        # for the whole lifetime of this object (repeated set_focus/type_keys
-        # calls over several seconds, while other windows get focus in
-        # between) let it go stale silently: later calls stopped raising but
-        # also stopped doing anything, so text just never landed. Use the
-        # discovered handle to reconnect via Application(...).connect(handle=)
-        # instead, and keep app.window(handle=) (which re-resolves on every
-        # call) as self.dlg for everything from here on.
-        try:
-            existing_handles = {w.handle for w in Desktop(backend="uia").windows(title_re=".*Notepad.*")}
-        except Exception:
-            existing_handles = set()
-
-        self.proc = subprocess.Popen(["notepad.exe"])
-        deadline = time.monotonic() + 10.0
-        last_error = None
-        found_handle = None
-        while time.monotonic() < deadline:
-            try:
-                for win in Desktop(backend="uia").windows(title_re=".*Notepad.*"):
-                    if win.handle not in existing_handles:
-                        found_handle = win.handle
-                        break
-                if found_handle is not None:
-                    break
-            except Exception as exc:
-                last_error = exc
-            time.sleep(0.2)
-        if found_handle is None:
-            raise RuntimeError(f"Notepad (pid {self.proc.pid}) never got a window") from last_error
-
-        self.hwnd = found_handle
-        self.app = Application(backend="uia").connect(handle=self.hwnd)
-        self.dlg = self.app.window(handle=self.hwnd)
+        # Three criteria, any of which is enough, ordered by how little they
+        # depend on the machine's language:
+        #   window_classes  the modern tabbed Notepad still reports class
+        #                   "Notepad" (confirmed in this repo's own ARM64
+        #                   desktop census: class=Notepad title="*測試 - Notepad")
+        #   process_names   locale-independent too, but returns "" whenever
+        #                   OpenProcess is refused, which packaged apps can do
+        #   title_pattern   last resort, and the only one that has to know
+        #                   what Notepad is called in the runner's language
+        self.proc, self.win = Window.launch_and_discover(
+            ["notepad.exe"],
+            timeout=15.0,
+            window_classes=("Notepad",),
+            process_names=("notepad.exe",),
+            title_pattern=r"Notepad|記事本|메모장|メモ帳",
+        )
+        self.hwnd = self.win.hwnd
 
         # Move and resize window
         user32.MoveWindow(self.hwnd, x, y, w, h, True)
@@ -329,32 +307,45 @@ class NotepadWindow:
         # only once before the recording begins.
         minimize_background_windows()
         user32.keybd_event(0, 0, 0, 0)
-        self.dlg.set_focus()
+        # set_foreground verifies the window actually reached the foreground
+        # rather than assuming SetForegroundWindow succeeded; the click that
+        # follows puts the caret in the text area so the IME has somewhere to
+        # compose into.
+        self.win.set_foreground()
         time.sleep(0.2)
         try:
-            edit = self.dlg.child_window(control_type="Edit")
-            edit.click_input()
+            self.text_input().click()
         except Exception:
-            try:
-                doc = self.dlg.child_window(control_type="Document")
-                doc.click_input()
-            except Exception:
-                pass
+            pass
         time.sleep(0.3)
+
+    def text_input(self):
+        """The Notepad text area, resolved fresh each time.
+
+        find_text_input walks a locale-independent ladder of window classes and
+        UIA control types, which replaces the hand-rolled Edit-then-Document
+        fallback: the modern tabbed Notepad exposes a Document where the
+        classic one exposed an Edit, and neither name is stable across
+        Windows builds.
+        """
+        return self.win.find_text_input(timeout=10.0)
 
     def type_text(self, text: str, delay_per_char: float = 0.04):
         self.set_foreground()
         if text == "\n":
             self.press_enter()
         else:
-            self.dlg.type_keys(text, with_spaces=True, with_newlines=True, pause=delay_per_char)
+            # Only reached for non-IME text; the bopomofo path goes through
+            # type_bopomofo, which must stay on physical scan codes.
+            self.text_input().type_verified(text, verify_contains=text, delay_per_char=delay_per_char)
         time.sleep(0.3)
 
     def press_enter(self, attempts: int = 3):
         """Adds a line break, confirming it actually landed.
 
-        pywinauto's type_keys("\\n", with_newlines=True) sends a WM_CHAR
-        carriage return, which the modern tabbed Notepad's document control
+        A WM_CHAR carriage return (what most "type this string" helpers send
+        for a newline) is not turned into a visible line break by the modern
+        tabbed Notepad's document control, the way the classic Edit control
         doesn't turn into a visible line break the way the classic Edit control
         did -- the two typed segments land correctly but with no separator
         between them. A raw hardware-level Enter (the same mechanism
@@ -490,31 +481,15 @@ class NotepadWindow:
         time.sleep(0.3)
 
     def get_text(self) -> str:
-        """Reads text from Notepad control. Tries the classic Edit control
-        first, then Document (the modern tabbed Notepad's text area reports
-        as a Document control type under UIA)."""
+        """Reads the text out of the Notepad document.
+
+        get_value() chains TextPattern, ValuePattern and WM_GETTEXT
+        internally, which replaces the four-branch Edit/Document ladder this
+        used to carry -- the modern tabbed Notepad answers on a different one
+        of those than the classic control did.
+        """
         try:
-            edit = self.dlg.child_window(control_type="Edit")
-            val = edit.get_value()
-            if val:
-                return val
-        except Exception:
-            pass
-        try:
-            edit = self.dlg.child_window(class_name="Edit")
-            return edit.window_text()
-        except Exception:
-            pass
-        try:
-            doc = self.dlg.child_window(control_type="Document")
-            val = doc.get_value()
-            if val:
-                return val
-        except Exception:
-            pass
-        try:
-            doc = self.dlg.child_window(control_type="Document")
-            return doc.window_text()
+            return self.text_input().get_value() or ""
         except Exception:
             return ""
 
@@ -524,7 +499,7 @@ class NotepadWindow:
         # it, so terminating self.proc alone can leave the real window (and
         # its owning process) running.
         try:
-            self.dlg.close()
+            self.win.close()
         except Exception:
             pass
         try:
