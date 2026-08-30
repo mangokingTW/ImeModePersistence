@@ -393,10 +393,24 @@ class NotepadWindow:
         """
         self.set_foreground()
         time.sleep(0.3)
-        self.text_input().send_physical_keys(key_sequence, delay_per_key=0.1)
-        time.sleep(0.3)
+
+        # Sampled mid-sequence, not after it. In bopomofo the tone digit
+        # commits the syllable, so "hk4g4" is two completed characters by the
+        # time the last key lands and the composition string is legitimately
+        # empty -- an earlier version of this probe read it at the end, got ""
+        # on a run whose content check passed, and proved nothing either way.
+        # Sending the phonetic keys first and reading before the tone catches
+        # the IME actually holding a composition.
+        field = self.text_input()
+        head, tail = key_sequence[:2], key_sequence[2:]
+        field.send_physical_keys(head, delay_per_key=0.1)
+        time.sleep(0.2)
         composing = self.win.get_composition_string()
-        print(f"[IME] composition after {key_sequence!r}: {composing!r}", flush=True)
+        print(f"[IME] composing after {head!r}: {composing!r}"
+              f" (empty means the keys did not reach the IME)", flush=True)
+        if tail:
+            field.send_physical_keys(tail, delay_per_key=0.1)
+        time.sleep(0.3)
         self.text_input().send_keys("{ENTER}")
         time.sleep(0.4)
 
