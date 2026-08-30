@@ -31,21 +31,6 @@ try:
 except Exception:
     pass
 
-try:
-    # pydirectinput aborts if the pointer reaches a screen corner, so a human
-    # can stop a script that has taken over their mouse. There is no human on a
-    # CI runner, and the abort is not harmless: once tripped, every later
-    # keystroke raises, so a single mislanded click kills the whole capture --
-    # which is exactly how an ARM64 run died, in type_english, long after the
-    # click that moved the pointer. Losing a keystroke is recoverable; losing
-    # the run is not. The corner position is logged instead, since a pointer in
-    # a corner still means a click went somewhere it should not have.
-    import pydirectinput as _pydirectinput
-
-    _pydirectinput.FAILSAFE = False
-except Exception:
-    pass
-
 EXE = sys.argv[1] if len(sys.argv) > 1 else r"build-x64\Release\ImeModePersistence.exe"
 
 OUT = sys.argv[2] if len(sys.argv) > 2 else "ime-recording"
@@ -360,11 +345,11 @@ class NotepadWindow:
 
         Retrying is safe for the content check: a duplicate Enter only adds a
         blank line, and empty lines are stripped before comparing. It is not
-        free otherwise -- each attempt re-runs set_foreground(), which clicks,
-        and on the ARM64 runner enough of those walked the pointer into a
-        screen corner and tripped pydirectinput's fail-safe, which then makes
-        every later keystroke raise. Hence few attempts, and the fail-safe
-        turned off in this script (see the top of the file).
+        free otherwise -- each attempt re-runs set_foreground(), which clicks
+        -- so the attempt count stays small. (An earlier version of this loop
+        drove the pointer into a screen corner often enough to trip
+        pydirectinput's fail-safe, which killed the whole capture; that
+        library is gone now, but the reason to keep the loop short is not.)
 
         Each failed attempt prints what was actually read back. The first
         version of this only printed "did not register", and an ARM64 run then
@@ -373,13 +358,11 @@ class NotepadWindow:
         the check itself may be the thing that is wrong, not the keystroke. Not
         being able to tell those apart is what this logging is for.
         """
-        import pydirectinput
-
         before_text = self.get_text()
         before = _line_break_count(before_text)
         for attempt in range(attempts):
             self.set_foreground()
-            pydirectinput.press('enter')
+            self.text_input().send_keys("{ENTER}")
             time.sleep(0.4)
             after_text = self.get_text()
             if _line_break_count(after_text) > before:
@@ -396,22 +379,37 @@ class NotepadWindow:
         print("[RETRY] giving up on the line break; content verification will report it", flush=True)
 
     def type_bopomofo(self, key_sequence: str):
-        """Types authentic bopomofo keys via pydirectinput DirectX hardware scan codes."""
-        import pydirectinput
+        """Types bopomofo keys as physical scan codes, so the IME composes them.
 
+        This has to be scan codes. Unicode injection (type_verified /
+        send_char_input) hands the codepoint straight to the control, so
+        composition never starts and the IME -- the thing under test -- is
+        bypassed entirely.
+
+        The composition string is read back and logged: it is the only direct
+        evidence that the keys reached the IME rather than landing in the
+        document as raw letters, which is exactly how this has failed before
+        (an ARM64 run typed "hk4g4" where 測試 was expected).
+        """
         self.set_foreground()
         time.sleep(0.3)
-        pydirectinput.write(key_sequence, interval=0.1)
+        self.text_input().send_physical_keys(key_sequence, delay_per_key=0.1)
         time.sleep(0.3)
-        pydirectinput.press('enter')
+        composing = self.win.get_composition_string()
+        print(f"[IME] composition after {key_sequence!r}: {composing!r}", flush=True)
+        self.text_input().send_keys("{ENTER}")
         time.sleep(0.4)
 
     def type_english(self, text: str, interval: float = 0.08):
-        """Types raw English keys via pydirectinput to demonstrate direct alphanumeric input."""
-        import pydirectinput
+        """Types raw English keys as scan codes, to demonstrate direct alphanumeric input.
+
+        Scan codes rather than Unicode injection for the same reason as
+        type_bopomofo: this is meant to exercise the real keyboard path, with
+        the IME in alphanumeric mode, not to shortcut around it.
+        """
         self.set_foreground()
         time.sleep(0.3)
-        pydirectinput.write(text, interval=interval)
+        self.text_input().send_physical_keys(text, delay_per_key=interval)
         time.sleep(0.3)
 
     def set_chinese(self):
