@@ -23,26 +23,11 @@ import time
 import winreg
 import subprocess
 from ctypes import wintypes
-from PIL import Image
+from wintegrate import ContinuousRecorder
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
-except Exception:
-    pass
-
-try:
-    # pydirectinput aborts if the pointer reaches a screen corner, so a human
-    # can stop a script that has taken over their mouse. There is no human on a
-    # CI runner, and the abort is not harmless: once tripped, every later
-    # keystroke raises, so a single mislanded click kills the whole capture --
-    # which is exactly how an ARM64 run died, in type_english, long after the
-    # click that moved the pointer. Losing a keystroke is recoverable; losing
-    # the run is not. The corner position is logged instead, since a pointer in
-    # a corner still means a click went somewhere it should not have.
-    import pydirectinput as _pydirectinput
-
-    _pydirectinput.FAILSAFE = False
 except Exception:
     pass
 
@@ -340,6 +325,21 @@ class NotepadWindow:
             self.text_input().type_verified(text, verify_contains=text, delay_per_char=delay_per_char)
         time.sleep(0.3)
 
+    def _enter(self):
+        """Presses Enter as a scan-code keystroke.
+
+        send_keys("{ENTER}") sends VK_RETURN with no scan code, and the retry
+        loop below reported three failed attempts per window with it -- the
+        content only still matched because the commit keystroke had already
+        left a line break. send_char_input maps "\\n" to VK_RETURN *with*
+        scan code 0x1C, which is what the previous pydirectinput call did.
+        """
+        from wintegrate import send_char_input
+
+        self.text_input().set_focus(verify=False)
+        time.sleep(0.05)
+        send_char_input("\n")
+
     def press_enter(self, attempts: int = 3):
         """Adds a line break, confirming it actually landed.
 
@@ -360,11 +360,11 @@ class NotepadWindow:
 
         Retrying is safe for the content check: a duplicate Enter only adds a
         blank line, and empty lines are stripped before comparing. It is not
-        free otherwise -- each attempt re-runs set_foreground(), which clicks,
-        and on the ARM64 runner enough of those walked the pointer into a
-        screen corner and tripped pydirectinput's fail-safe, which then makes
-        every later keystroke raise. Hence few attempts, and the fail-safe
-        turned off in this script (see the top of the file).
+        free otherwise -- each attempt re-runs set_foreground(), which clicks
+        -- so the attempt count stays small. (An earlier version of this loop
+        drove the pointer into a screen corner often enough to trip
+        pydirectinput's fail-safe, which killed the whole capture; that
+        library is gone now, but the reason to keep the loop short is not.)
 
         Each failed attempt prints what was actually read back. The first
         version of this only printed "did not register", and an ARM64 run then
@@ -373,13 +373,11 @@ class NotepadWindow:
         the check itself may be the thing that is wrong, not the keystroke. Not
         being able to tell those apart is what this logging is for.
         """
-        import pydirectinput
-
         before_text = self.get_text()
         before = _line_break_count(before_text)
         for attempt in range(attempts):
             self.set_foreground()
-            pydirectinput.press('enter')
+            self._enter()
             time.sleep(0.4)
             after_text = self.get_text()
             if _line_break_count(after_text) > before:
@@ -396,22 +394,48 @@ class NotepadWindow:
         print("[RETRY] giving up on the line break; content verification will report it", flush=True)
 
     def type_bopomofo(self, key_sequence: str):
-        """Types authentic bopomofo keys via pydirectinput DirectX hardware scan codes."""
-        import pydirectinput
+        """Types bopomofo keys as physical scan codes, so the IME composes them.
 
+        This has to be scan codes. Unicode injection (type_verified /
+        send_char_input) hands the codepoint straight to the control, so
+        composition never starts and the IME -- the thing under test -- is
+        bypassed entirely.
+
+        The composition string is read back and logged: it is the only direct
+        evidence that the keys reached the IME rather than landing in the
+        document as raw letters, which is exactly how this has failed before
+        (an ARM64 run typed "hk4g4" where 測試 was expected).
+        """
         self.set_foreground()
         time.sleep(0.3)
-        pydirectinput.write(key_sequence, interval=0.1)
+
+        # Sent as one uninterrupted sequence. An earlier version split it to
+        # sample the composition string mid-way, and that broke composition on
+        # ARM64: window B produced "ˋ是" -- a stray tone mark plus the wrong
+        # character -- because the leading phonetic keys were lost across the
+        # pause. The probe could not have worked anyway; the modern tabbed
+        # Notepad is a XAML control on TSF, so IMM32 reports no context at all
+        # and ImmGetCompositionString has nothing to return whenever it is
+        # asked.
+        #
+        # The content assertion is the evidence for this path, and it is a good
+        # one: 測試 means the keys were composed, hk4g4 means they arrived as
+        # raw letters, and it has caught exactly that failure before.
+        self.text_input().send_physical_keys(key_sequence, delay_per_key=0.1)
         time.sleep(0.3)
-        pydirectinput.press('enter')
+        self._enter()
         time.sleep(0.4)
 
     def type_english(self, text: str, interval: float = 0.08):
-        """Types raw English keys via pydirectinput to demonstrate direct alphanumeric input."""
-        import pydirectinput
+        """Types raw English keys as scan codes, to demonstrate direct alphanumeric input.
+
+        Scan codes rather than Unicode injection for the same reason as
+        type_bopomofo: this is meant to exercise the real keyboard path, with
+        the IME in alphanumeric mode, not to shortcut around it.
+        """
         self.set_foreground()
         time.sleep(0.3)
-        pydirectinput.write(text, interval=interval)
+        self.text_input().send_physical_keys(text, delay_per_key=interval)
         time.sleep(0.3)
 
     def set_chinese(self):
@@ -511,71 +535,6 @@ class NotepadWindow:
             except Exception:
                 pass
 
-def grab_real_screen() -> Image.Image:
-    w = user32.GetSystemMetrics(0)
-    h = user32.GetSystemMetrics(1)
-    hdc_screen = user32.GetDC(0)
-    hdc_mem = gdi32.CreateCompatibleDC(hdc_screen)
-    hbmp = gdi32.CreateCompatibleBitmap(hdc_screen, w, h)
-    gdi32.SelectObject(hdc_mem, hbmp)
-    gdi32.BitBlt(hdc_mem, 0, 0, w, h, hdc_screen, 0, 0, 0x00CC0020)
-
-    class BITMAPINFOHEADER(ctypes.Structure):
-        _fields_ = [
-            ("biSize", wintypes.DWORD), ("biWidth", ctypes.c_long),
-            ("biHeight", ctypes.c_long), ("biPlanes", wintypes.WORD),
-            ("biBitCount", wintypes.WORD), ("biCompression", wintypes.DWORD),
-            ("biSizeImage", wintypes.DWORD), ("biXPelsPerMeter", ctypes.c_long),
-            ("biYPelsPerMeter", ctypes.c_long), ("biClrUsed", wintypes.DWORD),
-            ("biClrImportant", wintypes.DWORD),
-        ]
-
-    bmi = BITMAPINFOHEADER()
-    bmi.biSize = ctypes.sizeof(BITMAPINFOHEADER)
-    bmi.biWidth = w
-    bmi.biHeight = -h
-    bmi.biPlanes = 1
-    bmi.biBitCount = 32
-    bmi.biCompression = 0
-    buf = ctypes.create_string_buffer(w * h * 4)
-    gdi32.GetDIBits(hdc_mem, hbmp, 0, h, buf, ctypes.byref(bmi), 0)
-
-    gdi32.DeleteDC(hdc_mem)
-    user32.ReleaseDC(0, hdc_screen)
-    gdi32.DeleteObject(hbmp)
-
-    return Image.frombuffer("RGBA", (w, h), buf, "raw", "BGRA", 0, 1).convert("RGB")
-
-class ContinuousRecorder:
-    def __init__(self, fps: int = 60):
-        self.interval = 1.0 / fps
-        self.frames: list[Image.Image] = []
-        self.stop_event = threading.Event()
-        self.thread: threading.Thread | None = None
-
-    def start(self):
-        self.frames.clear()
-        self.stop_event.clear()
-        self.thread = threading.Thread(target=self._record_loop, daemon=True)
-        self.thread.start()
-
-    def _record_loop(self):
-        while not self.stop_event.is_set():
-            t0 = time.monotonic()
-            try:
-                self.frames.append(grab_real_screen())
-            except Exception:
-                pass
-            elapsed = time.monotonic() - t0
-            sleep_time = max(0.001, self.interval - elapsed)
-            time.sleep(sleep_time)
-
-    def stop(self) -> list[Image.Image]:
-        self.stop_event.set()
-        if self.thread:
-            self.thread.join(timeout=3)
-        return self.frames
-
 def main() -> int:
     os.makedirs(OUT, exist_ok=True)
 
@@ -652,7 +611,8 @@ def main() -> int:
     norm_a = ""
     norm_b = ""
 
-    recorder = ContinuousRecorder(fps=60)
+    mp4_path = os.path.join(OUT, "ime-recording.mp4")
+    recorder = ContinuousRecorder(mp4_path, fps=60)
     print("Starting continuous real-time desktop recording (60 FPS)...")
     recorder.start()
 
@@ -726,91 +686,20 @@ def main() -> int:
         # what was on screen -- the one artifact that actually explains what
         # happened, instead of losing it to whatever exception is about to
         # propagate.
-        all_frames = recorder.stop()
-        print(f"Recording finished! Total frames captured: {len(all_frames)}")
-
-        # Save pristine 60 FPS H.264 MP4 video only (no screenshots)
-        if len(all_frames) > 0:
-            mp4_path = os.path.join(OUT, "ime-recording.mp4")
-            # H.264 requires even width and height
-            w = all_frames[0].width - (all_frames[0].width % 2)
-            h = all_frames[0].height - (all_frames[0].height % 2)
-
-            # imageio_ffmpeg bundles a prebuilt binary for common platforms, but
-            # on one it doesn't cover (observed on Windows ARM64) get_ffmpeg_exe()
-            # returns a path with nothing there instead of raising -- so the
-            # except below never fires and Popen dies with a raw WinError 2.
-            # Checking the path actually exists catches that case too, falling
-            # back to a system "ffmpeg" on PATH.
-            try:
-                import imageio_ffmpeg
-                ffmpeg_bin = imageio_ffmpeg.get_ffmpeg_exe()
-                if not os.path.isfile(ffmpeg_bin):
-                    raise FileNotFoundError(ffmpeg_bin)
-            except Exception:
-                ffmpeg_bin = "ffmpeg"
-
-            ffmpeg_cmd = [
-                ffmpeg_bin, "-y",
-                "-f", "rawvideo",
-                "-vcodec", "rawvideo",
-                "-s", f"{w}x{h}",
-                "-pix_fmt", "rgb24",
-                "-r", "60",
-                "-i", "-",
-                "-c:v", "libx264",
-                "-pix_fmt", "yuv420p",
-                "-preset", "fast",
-                "-crf", "18",
-                mp4_path,
-            ]
-            # Fed to ffmpeg one frame at a time. Joining them into a single
-            # bytes object first needs the whole raw video resident at once --
-            # at 1024x768 rgb24 that is 2.4 MB per frame, so a run long enough
-            # to capture 10,000 frames wanted 24 GB and died of MemoryError.
-            # (MemoryError stringifies to nothing, which is why the old message
-            # read "FFmpeg encoding error: " with the cause missing.) Streaming
-            # holds one frame at a time and has no length ceiling.
-            #
-            # stderr goes to a file, not a pipe: writing frames while nothing
-            # drains a stderr pipe deadlocks as soon as ffmpeg fills it, which
-            # communicate() used to prevent by doing both at once.
-            log_path = os.path.join(OUT, "ffmpeg.log")
-            try:
-                with open(log_path, "wb") as errlog:
-                    proc = subprocess.Popen(
-                        ffmpeg_cmd,
-                        stdin=subprocess.PIPE,
-                        stdout=subprocess.DEVNULL,
-                        stderr=errlog,
-                    )
-                    try:
-                        for f in all_frames:
-                            frame = f.resize((w, h), Image.Resampling.BILINEAR) if f.size != (w, h) else f
-                            proc.stdin.write(frame.tobytes())
-                    except BrokenPipeError:
-                        pass          # ffmpeg died early; its log says why
-                    finally:
-                        try:
-                            proc.stdin.close()
-                        except Exception:
-                            pass
-                    returncode = proc.wait(timeout=600)
-                if returncode != 0:
-                    with open(log_path, "r", encoding="utf-8", errors="ignore") as fh:
-                        tail = fh.read()[-2000:]
-                    video_error = f"ffmpeg exited {returncode}: {tail}"
-                    print(f"FFmpeg returned error code {returncode}: {tail}")
-                else:
-                    print(f"Saved pristine 60 FPS MP4 video ({len(all_frames)} frames): {mp4_path}")
-            except Exception as exc:
-                # Type included: the cause of the failure this replaced printed
-                # an empty message, and the type alone would have named it.
-                video_error = f"{type(exc).__name__}: {exc}"
-                print(f"FFmpeg encoding error: {video_error}")
+        # backend is a property, and it reports None once stop() has closed the
+        # encoder -- so it has to be read first, or it always says None.
+        backend = recorder.backend
+        frames = recorder.stop()
+        # stop() writes the file itself, so there is no in-memory frame list to
+        # encode here any more -- and no way to run out of memory doing it,
+        # which is what used to break long ARM64 captures.
+        size = os.path.getsize(mp4_path) if os.path.exists(mp4_path) else 0
+        if size > 0:
+            print(f"Saved 60 FPS MP4 video via {backend}: {mp4_path} "
+                  f"({size} bytes, {frames} frames)", flush=True)
         else:
-            video_error = "no frames were captured"
-            print(f"FFmpeg encoding error: {video_error}")
+            video_error = f"no video written to {mp4_path} (backend={backend})"
+            print(f"Recording error: {video_error}", flush=True)
 
         if win_a is not None:
             win_a.close()

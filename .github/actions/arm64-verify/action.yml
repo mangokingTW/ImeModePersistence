@@ -135,27 +135,11 @@ runs:
           }
         }
 
-    - name: Install a native ARM64 ffmpeg
-      shell: pwsh
-      run: |
-        # imageio-ffmpeg only bundles/resolves x64 and other common-platform
-        # binaries; on Windows ARM64 get_ffmpeg_exe() returns a path with
-        # nothing there, so the capture script's fallback to a plain "ffmpeg"
-        # on PATH needs a real one present. BtbN/FFmpeg-Builds publishes a
-        # winarm64 static build.
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-winarm64-gpl.zip" -OutFile ffmpeg-arm64.zip
-        Expand-Archive -Path ffmpeg-arm64.zip -DestinationPath ffmpeg-arm64 -Force
-        $binDir = Get-ChildItem -Path ffmpeg-arm64 -Filter bin -Recurse -Directory | Select-Object -First 1 -ExpandProperty FullName
-        Write-Host "ffmpeg bin dir: $binDir"
-        Add-Content -Path $env:GITHUB_PATH -Value $binDir
-        & "$binDir\ffmpeg.exe" -version
-
     - name: Install Python test dependencies
       shell: pwsh
       run: |
         python --version
-        pip install pytest==8.3.4 wintegrate==0.1.1 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
+        pip install pytest==8.3.4 "wintegrate[video]==0.1.1"
 
     - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (safety net)
       shell: pwsh
