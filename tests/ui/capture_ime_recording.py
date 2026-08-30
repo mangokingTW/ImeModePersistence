@@ -394,20 +394,33 @@ class NotepadWindow:
         self.set_foreground()
         time.sleep(0.3)
 
-        # Sampled mid-sequence, not after it. In bopomofo the tone digit
-        # commits the syllable, so "hk4g4" is two completed characters by the
-        # time the last key lands and the composition string is legitimately
-        # empty -- an earlier version of this probe read it at the end, got ""
-        # on a run whose content check passed, and proved nothing either way.
-        # Sending the phonetic keys first and reading before the tone catches
-        # the IME actually holding a composition.
+        # Probing the IME here is best-effort, and the log says which case it
+        # is rather than implying the keys failed.
+        #
+        # Two rounds of this probe came back empty on runs whose content was
+        # correct. The first read after the whole sequence, which is genuinely
+        # empty -- the bopomofo tone digit commits the syllable. The second
+        # read mid-sequence and was still empty, and has_context explains why:
+        # the modern tabbed Notepad is a XAML control routing text through TSF,
+        # not IMM32, so ImmGetCompositionString has nothing to report no matter
+        # when it is called. Empty there means "ask TSF", not "the IME is off".
+        #
+        # So the composition string is not the evidence it was meant to be for
+        # this app. What distinguishes a working IME path from a broken one
+        # here is the content assertion: 測試 means the keys were composed,
+        # hk4g4 means they arrived as raw letters. That check already exists
+        # and has caught exactly that failure before.
         field = self.text_input()
         head, tail = key_sequence[:2], key_sequence[2:]
         field.send_physical_keys(head, delay_per_key=0.1)
         time.sleep(0.2)
-        composing = self.win.get_composition_string()
-        print(f"[IME] composing after {head!r}: {composing!r}"
-              f" (empty means the keys did not reach the IME)", flush=True)
+        status = self.win.get_ime_status()
+        if status.get("has_context"):
+            composing = self.win.get_composition_string()
+            print(f"[IME] IMM32 composition after {head!r}: {composing!r}", flush=True)
+        else:
+            print(f"[IME] no IMM32 context (TSF control); composition not readable. "
+                  f"status={status}", flush=True)
         if tail:
             field.send_physical_keys(tail, delay_per_key=0.1)
         time.sleep(0.3)
@@ -674,14 +687,17 @@ def main() -> int:
         # what was on screen -- the one artifact that actually explains what
         # happened, instead of losing it to whatever exception is about to
         # propagate.
-        recorder.stop()
-        backend = recorder.backend()
+        # backend is a property, and it reports None once stop() has closed the
+        # encoder -- so it has to be read first, or it always says None.
+        backend = recorder.backend
+        frames = recorder.stop()
         # stop() writes the file itself, so there is no in-memory frame list to
         # encode here any more -- and no way to run out of memory doing it,
         # which is what used to break long ARM64 captures.
         size = os.path.getsize(mp4_path) if os.path.exists(mp4_path) else 0
         if size > 0:
-            print(f"Saved 60 FPS MP4 video via {backend}: {mp4_path} ({size} bytes)", flush=True)
+            print(f"Saved 60 FPS MP4 video via {backend}: {mp4_path} "
+                  f"({size} bytes, {frames} frames)", flush=True)
         else:
             video_error = f"no video written to {mp4_path} (backend={backend})"
             print(f"Recording error: {video_error}", flush=True)
