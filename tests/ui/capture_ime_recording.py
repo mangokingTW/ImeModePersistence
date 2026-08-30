@@ -40,9 +40,33 @@ try:
     # click that moved the pointer. Losing a keystroke is recoverable; losing
     # the run is not. The corner position is logged instead, since a pointer in
     # a corner still means a click went somewhere it should not have.
+    import ctypes as _ctypes
+
     import pydirectinput as _pydirectinput
 
     _pydirectinput.FAILSAFE = False
+
+    # Re-bind pydirectinput's two cached user32 functions to a private handle.
+    #
+    # ctypes.windll.user32 is a process-wide cached object whose function
+    # pointers are themselves cached, so argtypes set on one are seen by every
+    # other caller. wintegrate's interop module pins SendInput.argtypes to a
+    # pointer to *its* INPUT struct at import time; pydirectinput then calls
+    # that same function object with a pointer to *its* identically-shaped
+    # struct, and ctypes rejects it on type identity rather than layout:
+    #
+    #   ctypes.ArgumentError: argument 2: TypeError:
+    #     expected LP_INPUT instance instead of LP_Input
+    #
+    # Neither library is wrong; they just cannot share one binding. A separate
+    # WinDLL instance has its own function-pointer cache, so each keeps its
+    # own argtypes. pydirectinput binds exactly these two at module import
+    # (`SendInput = ctypes.windll.user32.SendInput`, and MapVirtualKey), and
+    # makes no other user32 call that is passed a struct pointer -- the rest
+    # take plain ints, which convert regardless of what argtypes are pinned.
+    _own_user32 = _ctypes.WinDLL("user32", use_last_error=True)
+    _pydirectinput.SendInput = _own_user32.SendInput
+    _pydirectinput.MapVirtualKey = _own_user32.MapVirtualKeyW
 except Exception:
     pass
 
