@@ -7,6 +7,18 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.5.8
+
+Store availability for the native ARM64 build:
+
+- Microsoft Store now carries the native ARM64 build. The ARM64 version shipped with v1.5.7 on GitHub, but that release never completed Store certification, so Store users were still receiving v1.5.6 and the emulated x64 build. Installing or updating from the Store now gets the native build on Snapdragon and other Windows-on-ARM devices.
+- Portable archive names: the download files are now `-win-x64.zip` and `-win-arm64.zip` (previously `-x64.zip` and `-arm64.zip`).
+
+繁體中文:原生 ARM64 版本上架微軟商店:
+
+- 微軟商店已提供原生 ARM64 版本。ARM64 版本雖在 v1.5.7 隨 GitHub 發布,但該版未完成商店認證,因此商店使用者仍停留在 v1.5.6 的 x64 模擬版。現在從商店安裝或更新,Snapdragon 等 Windows on ARM 裝置即可取得原生版本。
+- 免安裝壓縮檔更名:下載檔名改為 `-win-x64.zip` 與 `-win-arm64.zip`（原為 `-x64.zip` 與 `-arm64.zip`）。
+
 ## v1.5.7
 
 Native ARM64 support:
