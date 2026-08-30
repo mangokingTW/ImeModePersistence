@@ -155,7 +155,7 @@ runs:
       shell: pwsh
       run: |
         python --version
-        pip install pytest==8.3.4 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
+        pip install pytest==8.3.4 wintegrate==0.1.1 pywinauto==0.6.9 pillow==10.4.0 imageio-ffmpeg==0.5.1 pydirectinput==1.0.4
 
     - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (safety net)
       shell: pwsh
