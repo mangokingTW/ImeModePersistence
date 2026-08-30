@@ -325,6 +325,21 @@ class NotepadWindow:
             self.text_input().type_verified(text, verify_contains=text, delay_per_char=delay_per_char)
         time.sleep(0.3)
 
+    def _enter(self):
+        """Presses Enter as a scan-code keystroke.
+
+        send_keys("{ENTER}") sends VK_RETURN with no scan code, and the retry
+        loop below reported three failed attempts per window with it -- the
+        content only still matched because the commit keystroke had already
+        left a line break. send_char_input maps "\\n" to VK_RETURN *with*
+        scan code 0x1C, which is what the previous pydirectinput call did.
+        """
+        from wintegrate import send_char_input
+
+        self.text_input().set_focus(verify=False)
+        time.sleep(0.05)
+        send_char_input("\n")
+
     def press_enter(self, attempts: int = 3):
         """Adds a line break, confirming it actually landed.
 
@@ -362,7 +377,7 @@ class NotepadWindow:
         before = _line_break_count(before_text)
         for attempt in range(attempts):
             self.set_foreground()
-            self.text_input().send_keys("{ENTER}")
+            self._enter()
             time.sleep(0.4)
             after_text = self.get_text()
             if _line_break_count(after_text) > before:
@@ -394,37 +409,21 @@ class NotepadWindow:
         self.set_foreground()
         time.sleep(0.3)
 
-        # Probing the IME here is best-effort, and the log says which case it
-        # is rather than implying the keys failed.
+        # Sent as one uninterrupted sequence. An earlier version split it to
+        # sample the composition string mid-way, and that broke composition on
+        # ARM64: window B produced "ˋ是" -- a stray tone mark plus the wrong
+        # character -- because the leading phonetic keys were lost across the
+        # pause. The probe could not have worked anyway; the modern tabbed
+        # Notepad is a XAML control on TSF, so IMM32 reports no context at all
+        # and ImmGetCompositionString has nothing to return whenever it is
+        # asked.
         #
-        # Two rounds of this probe came back empty on runs whose content was
-        # correct. The first read after the whole sequence, which is genuinely
-        # empty -- the bopomofo tone digit commits the syllable. The second
-        # read mid-sequence and was still empty, and has_context explains why:
-        # the modern tabbed Notepad is a XAML control routing text through TSF,
-        # not IMM32, so ImmGetCompositionString has nothing to report no matter
-        # when it is called. Empty there means "ask TSF", not "the IME is off".
-        #
-        # So the composition string is not the evidence it was meant to be for
-        # this app. What distinguishes a working IME path from a broken one
-        # here is the content assertion: 測試 means the keys were composed,
-        # hk4g4 means they arrived as raw letters. That check already exists
-        # and has caught exactly that failure before.
-        field = self.text_input()
-        head, tail = key_sequence[:2], key_sequence[2:]
-        field.send_physical_keys(head, delay_per_key=0.1)
-        time.sleep(0.2)
-        status = self.win.get_ime_status()
-        if status.get("has_context"):
-            composing = self.win.get_composition_string()
-            print(f"[IME] IMM32 composition after {head!r}: {composing!r}", flush=True)
-        else:
-            print(f"[IME] no IMM32 context (TSF control); composition not readable. "
-                  f"status={status}", flush=True)
-        if tail:
-            field.send_physical_keys(tail, delay_per_key=0.1)
+        # The content assertion is the evidence for this path, and it is a good
+        # one: 測試 means the keys were composed, hk4g4 means they arrived as
+        # raw letters, and it has caught exactly that failure before.
+        self.text_input().send_physical_keys(key_sequence, delay_per_key=0.1)
         time.sleep(0.3)
-        self.text_input().send_keys("{ENTER}")
+        self._enter()
         time.sleep(0.4)
 
     def type_english(self, text: str, interval: float = 0.08):
