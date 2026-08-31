@@ -1,10 +1,35 @@
-name: IME Recording (Release Gate)
+name: IME Recording (x64)
 
-# Release Gate & On-demand verification: builds the app, installs official zh-TW IME,
-# and captures 60 FPS real-time desktop video verifying live typing, caret indicator, and taskbar transitions.
+# Builds the app, installs the official zh-TW IME, and captures a 60 FPS
+# recording verifying live typing, the caret indicator and taskbar transitions.
+#
+# Triggered on the same pull requests as arm64-verify, and on the same paths,
+# so a capture-script change is exercised on both architectures before it
+# merges rather than on one of them. The two runners fail differently often
+# enough that this is worth the minutes: x64 has caught the input paths going
+# wrong while ARM64 was green, and ARM64 has caught focus and timing problems
+# x64 never sees.
+#
+# Unlike arm64-verify this is not path-limited by runner scarcity -- there is
+# no single windows-latest slot to queue behind -- but it uses the same paths
+# anyway, because a change that cannot affect the capture does not need either
+# architecture to prove it.
+#
+# release.yml does not call this workflow; it uses the same composite action
+# directly. The unused workflow_call trigger is gone with this change.
 on:
   workflow_dispatch:
-  workflow_call:
+  pull_request:
+    paths:
+      - "tests/ui/**"
+      - ".github/actions/ime-recording/**"
+      - ".github/workflows/ime-recording.yml"
+
+# Per ref, matching arm64-verify: a shared group would let a pull request
+# cancel a release's own gate, which is the run that actually matters.
+concurrency:
+  group: ime-recording-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
