@@ -358,31 +358,16 @@ jobs:
         if: env.HAVE_STORE == 'true'
         uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
         with:
-          # Pin the CLI rather than tracking 'latest'. v0.3.9 is the last
-          # release whose blob upload works: v0.4.0 added --uploadTimeout with a
-          # CustomParser but no DefaultValueFactory, and System.CommandLine only
-          # runs a CustomParser when the option is actually on the command line.
-          # Omit it and the value falls back to default(long) -- 0 -- which
-          # becomes Retry.NetworkTimeout = TimeSpan.FromSeconds(0), cancelling
-          # every request the instant it starts (microsoft/msstore-cli#162,
-          # affects v0.4.0 and v0.4.1; v0.3.9 predates the option).
+          # Pinned: v0.4.0 and v0.4.1 both fail every blob upload.
+          # --uploadTimeout was added with a CustomParser but no
+          # DefaultValueFactory, so omitting it yields 0 and every request is
+          # cancelled the instant it starts (microsoft/msstore-cli#162). Fixed
+          # in #163 but unreleased. Move off v0.3.9 only once a release later
+          # than v0.4.1 exists.
           #
-          # It presents as a bare "Error while uploading the application
-          # package." after a consistent ~25s, with no stack trace -- the real
-          # exception only appears under --verbose, which also logs the
-          # submission's SAS upload URL and so must never run in a public CI log.
-          # v1.5.7 burned a release run on this.
-          #
-          # Fixed by microsoft/msstore-cli#163, merged 2026-08-25, but no release
-          # carries it yet (v0.4.1 predates the merge). Move off v0.3.9 only once
-          # a release later than v0.4.1 exists; there is nothing else in v0.4.x
-          # this workflow needs, and passing --uploadTimeout explicitly to work
-          # around #162 would just be carrying someone else's bug by hand.
-          #
-          # Two upstream bugs this workflow works around are still open, so the
-          # workarounds in the submit step must stay whichever version is
-          # pinned: #150 (`submission get` word-wraps JSON to the console width,
-          # emitting invalid JSON) and #161 (success logs go to stderr).
+          # Two upstream bugs the submit step works around are still open, so
+          # those workarounds stay whichever version is pinned: #150 (JSON
+          # word-wrapped to the console width) and #161 (success logs to stderr).
           version: v0.3.9
 
       - name: Submit MSIX bundle to the Microsoft Store
