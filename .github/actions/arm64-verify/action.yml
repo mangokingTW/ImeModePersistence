@@ -12,27 +12,15 @@ runs:
     - name: Install WSL so its installer stops spawning windows
       shell: pwsh
       run: |
-        # This image ships only the system32 wsl.exe stub -- no WSL package --
-        # and the runner's provisioning daemon probes wsl every 30 seconds
-        # (provjobd.exe <- hosted-compute-agent, per event-watcher parent
-        # chains). While WSL is "not installed", the stub answers every probe
-        # by launching the interactive installer, whose Terminal window waits
-        # for a keypress and steals the foreground from whatever the test is
-        # typing into.
+        # This image ships no WSL package, only the system32 stub, and the
+        # runner's provisioning daemon probes wsl every 30 seconds. While WSL
+        # is "not installed" the stub answers each probe by launching the
+        # interactive installer, whose Terminal window waits for a keypress and
+        # steals the foreground from whatever the test is typing into.
         #
-        # Three watch-log timelines settled how to fix that. With no
-        # intervention, the installer spawns every 30 seconds for a few
-        # minutes and then stops on its own -- one of those `--confirm`
-        # installers completes a real install, and the stub's not-installed
-        # branch disappears. With the AllowWSL=0 policy in place from the
-        # start, the spawns never stop: the policy blocks the install from
-        # completing and thereby keeps the machine in the state that spawns
-        # installers. The policy was the opposite of a fix, so it is gone.
-        #
-        # Instead, do deliberately what the image otherwise does by accident
-        # and at a random time: install WSL, sans distribution, as the first
-        # step. A pending reboot for its VM features is fine -- WSL never has
-        # to *run* here, it only has to stop being "not installed".
+        # Installing WSL removes the stub's reason to spawn it. AllowWSL=0 was
+        # tried and made it permanent -- the policy blocks the very install
+        # that ends the spawning.
         # First, the stub's own path. Plain `--update` and `--install
         # --no-distribution` both just print the not-installed banner and exit
         # 1 -- the flag that makes the stub actually proceed is `--confirm`,

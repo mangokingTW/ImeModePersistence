@@ -60,6 +60,12 @@ def set_theme(light):
     winreg.CloseKey(key)
     time.sleep(1.0)  # let the setting settle / broadcast
 
+def window_rect(hwnd):
+    """The window's full bounds, which is the frame PrintWindow renders into."""
+    rect = wintypes.RECT()
+    _user32.GetWindowRect(wintypes.HWND(hwnd), ctypes.byref(rect))
+    return (rect.left, rect.top, rect.right, rect.bottom)
+
 def visible_bounds(hwnd):
     """The true visible rectangle: DWM extended frame bounds, falling back to
     GetWindowRect (used for menus, which have no DWM frame)."""
@@ -72,8 +78,23 @@ def visible_bounds(hwnd):
     return (rect.left, rect.top, rect.right, rect.bottom)
 
 def grab(hwnd, out_path):
-    from PIL import ImageGrab
-    ImageGrab.grab(bbox=visible_bounds(hwnd), all_screens=True).save(out_path)
+    """Saves a screenshot of one window, asking the window to render itself.
+
+    PrintWindow instead of cropping the desktop: a crop captures whatever is on
+    top, and on CI that is regularly the popup that broke the run, so the
+    listing image would show the intruder. It renders into the GetWindowRect
+    frame though, which on Windows 11 includes the invisible resize border --
+    so the result is trimmed to the DWM visible bounds afterwards.
+    """
+    from wintegrate import capture_window_image
+
+    img = capture_window_image(hwnd)
+    wl, wt, _, _ = window_rect(hwnd)
+    vl, vt, vr, vb = visible_bounds(hwnd)
+    left, top, right, bottom = vl - wl, vt - wt, vr - wl, vb - wt
+    if right > left and bottom > top:
+        img = img.crop((left, top, right, bottom))
+    img.save(out_path)
 
 def largest_visible_window(pid):
     """Handle of the process's largest visible top-level window (the dialog),

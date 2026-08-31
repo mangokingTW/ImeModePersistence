@@ -129,13 +129,9 @@ def promote_all_tray_icons():
 def _line_break_count(text: str) -> int:
     """Number of line breaks in text, whatever form they take.
 
-    Notepad hands back bare carriage returns, so counting "\\n" sees none: an
-    ARM64 run reported the Enter missing after every attempt while logging
-    `after='...persistence test\\r'`, then `\\r\\r`, then `\\r\\r\\r` -- each
-    keystroke had landed. splitlines() is no good either, since a trailing
-    break produces no extra element ('abc\\r' and 'abc' are both one line) and
-    a trailing break is exactly what pressing Enter at the end of a document
-    creates. Normalising first counts all three forms, including at the end.
+    Notepad returns bare carriage returns, so counting "\\n" finds none.
+    splitlines() is wrong too: a trailing break adds no element, and a
+    trailing break is what Enter at the end of a document produces.
     """
     return text.replace("\r\n", "\n").replace("\r", "\n").count("\n")
 
@@ -168,32 +164,16 @@ _closed_terminals = set()
 
 
 def minimize_background_windows():
-    """Clears the desktop of windows that could take focus away from the test.
+    """Clears the desktop of windows that could take focus from the test.
 
-    Console windows are minimized. Windows Terminal windows are *closed*
-    instead, because minimizing them has been shown not to be enough: the
-    ARM64 runner's interactive session sometimes has a Windows Terminal open
-    on `C:\\Windows\\system32\\wsl.exe`, and the one release run where the
-    typed line break went missing is the one run where that window was
-    present -- every other visible window was identical between the two runs.
-    Terminal was already being minimized there, so the likeliest explanation
-    is that it came back to the foreground on its own (wsl.exe has no distro
-    to run on this image, so it errors and exits) at the moment a hardware
-    keystroke was in flight. A minimized window can return; a closed one
-    cannot.
+    Console windows are minimized. A Windows Terminal running wsl.exe is
+    closed instead: minimizing loses to a window that reopens itself, and on
+    the ARM64 runner that one does.
 
-    Only a Windows Terminal whose title names wsl.exe is closed, and that
-    narrowness is not caution for its own sake. On windows-latest the Actions
-    runner *itself* is hosted in a Windows Terminal window, titled "Default";
-    closing it on class alone made the runner log "received a shutdown signal"
-    on the very next line and killed the job. Matching the title is what
-    separates the ARM64 image's stray `C:\\Windows\\system32\\wsl.exe` window
-    from the window this job is running inside.
-
-    If the offending window ever appears under some other title this will miss
-    it -- which is why press_enter re-sends the keystroke rather than relying
-    on the desktop being clean. Failing to close is recoverable; closing the
-    wrong window is not.
+    Matched on the title, never the class alone -- on windows-latest the
+    Actions runner is itself hosted in a Windows Terminal, and closing that
+    kills the job. Missing a stray window is recoverable; closing the runner's
+    is not.
     """
     SW_MINIMIZE = 6
     WM_CLOSE = 0x0010
@@ -328,11 +308,8 @@ class NotepadWindow:
     def _enter(self):
         """Presses Enter as a scan-code keystroke.
 
-        send_keys("{ENTER}") sends VK_RETURN with no scan code, and the retry
-        loop below reported three failed attempts per window with it -- the
-        content only still matched because the commit keystroke had already
-        left a line break. send_char_input maps "\\n" to VK_RETURN *with*
-        scan code 0x1C, which is what the previous pydirectinput call did.
+        send_keys("{ENTER}") sends VK_RETURN without a scan code and inserts
+        no line break here. send_char_input sends it with scan code 0x1C.
         """
         from wintegrate import send_char_input
 
@@ -343,35 +320,15 @@ class NotepadWindow:
     def press_enter(self, attempts: int = 3):
         """Adds a line break, confirming it actually landed.
 
-        A WM_CHAR carriage return (what most "type this string" helpers send
-        for a newline) is not turned into a visible line break by the modern
-        tabbed Notepad's document control, the way the classic Edit control
-        doesn't turn into a visible line break the way the classic Edit control
-        did -- the two typed segments land correctly but with no separator
-        between them. A raw hardware-level Enter (the same mechanism
-        type_bopomofo relies on) does work.
-
-        But a hardware keystroke goes wherever the focus is, not to a window we
-        name, so it is only as reliable as the focus was at that instant. On the
-        ARM64 runner that has been observed to miss: in one run window A's
-        newline landed and window B's did not, from identical code moments
-        apart. So rather than sending it and hoping, read the text back and
+        A hardware keystroke goes wherever the focus is, not to a window we
+        name, so on ARM64 it sometimes misses. Send it, read the text back,
         send it again if the line count did not move.
 
-        Retrying is safe for the content check: a duplicate Enter only adds a
-        blank line, and empty lines are stripped before comparing. It is not
-        free otherwise -- each attempt re-runs set_foreground(), which clicks
-        -- so the attempt count stays small. (An earlier version of this loop
-        drove the pointer into a screen corner often enough to trip
-        pydirectinput's fail-safe, which killed the whole capture; that
-        library is gone now, but the reason to keep the loop short is not.)
-
-        Each failed attempt prints what was actually read back. The first
-        version of this only printed "did not register", and an ARM64 run then
-        reported that fifteen times while the recording plainly showed text
-        going into Notepad and the window title read "*測試 - Notepad" -- so
-        the check itself may be the thing that is wrong, not the keystroke. Not
-        being able to tell those apart is what this logging is for.
+        Retrying is safe: a duplicate Enter adds a blank line and empty lines
+        are stripped before comparing. It is not free -- each attempt clicks
+        again -- so the count stays small. Failed attempts log what was read,
+        because "the keystroke was lost" and "the check cannot see it" look
+        identical otherwise.
         """
         before_text = self.get_text()
         before = _line_break_count(before_text)
@@ -396,31 +353,18 @@ class NotepadWindow:
     def type_bopomofo(self, key_sequence: str):
         """Types bopomofo keys as physical scan codes, so the IME composes them.
 
-        This has to be scan codes. Unicode injection (type_verified /
-        send_char_input) hands the codepoint straight to the control, so
-        composition never starts and the IME -- the thing under test -- is
-        bypassed entirely.
-
-        The composition string is read back and logged: it is the only direct
-        evidence that the keys reached the IME rather than landing in the
-        document as raw letters, which is exactly how this has failed before
-        (an ARM64 run typed "hk4g4" where 測試 was expected).
+        Scan codes are required: Unicode injection hands the codepoint
+        straight to the control, so composition never starts and the IME --
+        the thing under test -- is bypassed.
         """
         self.set_foreground()
         time.sleep(0.3)
 
-        # Sent as one uninterrupted sequence. An earlier version split it to
-        # sample the composition string mid-way, and that broke composition on
-        # ARM64: window B produced "ˋ是" -- a stray tone mark plus the wrong
-        # character -- because the leading phonetic keys were lost across the
-        # pause. The probe could not have worked anyway; the modern tabbed
-        # Notepad is a XAML control on TSF, so IMM32 reports no context at all
-        # and ImmGetCompositionString has nothing to return whenever it is
-        # asked.
-        #
-        # The content assertion is the evidence for this path, and it is a good
-        # one: 測試 means the keys were composed, hk4g4 means they arrived as
-        # raw letters, and it has caught exactly that failure before.
+        # One uninterrupted sequence: pausing mid-way to read IME state broke
+        # composition, and could not have read it anyway (this Notepad is a
+        # XAML control on TSF, so IMM32 reports no context). The content
+        # assertion is the evidence here -- 測試 means composed, hk4g4 means
+        # raw letters.
         self.text_input().send_physical_keys(key_sequence, delay_per_key=0.1)
         time.sleep(0.3)
         self._enter()
