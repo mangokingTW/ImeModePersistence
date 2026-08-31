@@ -167,13 +167,14 @@ def pytest_runtest_makereport(item, call):
 
         # 1. Capture screen
         try:
-            from PIL import ImageGrab
-            img = ImageGrab.grab()
-            if img:
-                img.save(shot_path)
-                print(f"\n[FAILURE] Saved screenshot -> {shot_path}")
-        except Exception:
-            pass
+            from wintegrate import capture_screen_image
+
+            # all_monitors: a primary-only shot of a failure that happened on
+            # another display looks like evidence and is not.
+            capture_screen_image(all_monitors=True).save(shot_path)
+            print(f"\n[FAILURE] Saved screenshot -> {shot_path}")
+        except Exception as exc:
+            print(f"[FAILURE] Screenshot failed: {type(exc).__name__}: {exc}")
 
         # 2. Dump the desktop window census
         try:
