@@ -48,7 +48,7 @@ jobs:
 
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         with:
           languages: c-cpp
           # Manual, because C/C++ has to be built under CodeQL's tracer; the
@@ -62,7 +62,7 @@ jobs:
           cmake --build build --config Debug --target ImeModePersistence --parallel
 
       - name: Analyze
-        uses: github/codeql-action/analyze@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v4
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4
         with:
           category: "/language:c-cpp"
           threads: 0
