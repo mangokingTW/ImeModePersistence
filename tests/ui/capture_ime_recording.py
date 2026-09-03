@@ -4,10 +4,10 @@ Uses independent thread test windows (matching real multi-app scenarios) so that
 Windows provides isolated per-thread IME contexts, allowing ImeModePersistence
 to actively demonstrate cross-window Chinese/Alphanumeric persistence.
 
-Outputs:
-  - ime-recording.webp: Native 60 FPS video recording.
-  - ime-recording.gif: Smooth 30 FPS GIF animation.
-  - ime-frame-*.png: Key step static screenshots.
+Output:
+  - ime-recording.mp4: 60 FPS recording, with the keyboard HUD, the pointer and
+    click markers drawn in. docs/demo.webp and packaging/store/store-preview.mp4
+    are derived from this file; it is the only thing the script writes.
 
 Usage:
     python tests/ui/capture_ime_recording.py [exe] [out-dir]
@@ -556,7 +556,18 @@ def main() -> int:
     norm_b = ""
 
     mp4_path = os.path.join(OUT, "ime-recording.mp4")
-    recorder = ContinuousRecorder(mp4_path, fps=60)
+    # The overlays are stated rather than left to wintegrate's defaults, because
+    # this recording is the product demo: the keyboard HUD is what makes the
+    # bopomofo keystrokes visible, so a future default change must not silently
+    # take it away. All three are composited after the screen grab, so nothing on
+    # the desktop can cover them and no cursor has to exist in the capture.
+    recorder = ContinuousRecorder(
+        mp4_path,
+        fps=60,
+        draw_cursor=True,
+        click_markers=True,
+        key_hud=True,
+    )
     print("Starting continuous real-time desktop recording (60 FPS)...")
     recorder.start()
 

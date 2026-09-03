@@ -127,7 +127,7 @@ runs:
       shell: pwsh
       run: |
         python --version
-        pip install pytest==8.3.4 "wintegrate[video]==0.1.4"
+        pip install pytest==8.3.4 "wintegrate[video]==0.5.7"
 
     - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (safety net)
       shell: pwsh
