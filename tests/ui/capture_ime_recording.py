@@ -271,17 +271,29 @@ class NotepadWindow:
         # background console/terminal windows before every focus change, not
         # only once before the recording begins.
         minimize_background_windows()
-        user32.keybd_event(0, 0, 0, 0)
-        # set_foreground verifies the window actually reached the foreground
-        # rather than assuming SetForegroundWindow succeeded; the click that
-        # follows puts the caret in the text area so the IME has somewhere to
-        # compose into.
-        self.win.set_foreground()
+        # No keybd_event(0, 0, 0, 0) here. That trick makes the calling thread
+        # eligible to set the foreground window, and wintegrate's set_foreground
+        # already does the AttachThreadInput dance it stands in for -- and then
+        # verifies the window actually got there, rather than assuming
+        # SetForegroundWindow succeeded.
+        if not self.win.set_foreground():
+            print("[FOCUS] window did not reach the foreground", flush=True)
+
         time.sleep(0.2)
-        try:
-            self.text_input().click()
-        except Exception:
-            pass
+
+        # Focus without a click. The caret has to be in the text area for the IME
+        # to have somewhere to compose, but a click is a real click: the recorder
+        # draws a marker for it, and one per focus change buried the demo in
+        # rings over an empty editor. This is a keyboard demo -- the only mouse
+        # interaction worth showing is none.
+        text = self.text_input()
+        if not text.set_focus(click=False):
+            # The click stays as a fallback rather than a habit: UIA SetFocus is
+            # ignored by some controls, and losing the caret loses composition,
+            # which is the thing being demonstrated.
+            print("[FOCUS] UIA SetFocus did not take; falling back to a click", flush=True)
+            text.set_focus(click=True)
+
         time.sleep(0.3)
 
     def text_input(self):
