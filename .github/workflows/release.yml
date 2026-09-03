@@ -358,17 +358,21 @@ jobs:
         if: env.HAVE_STORE == 'true'
         uses: microsoft/microsoft-store-apppublisher@cc9910a8d59f2eb55cbb83df0a3800cf3b5300e0 # v1.4
         with:
-          # Pinned: v0.4.0 and v0.4.1 both fail every blob upload.
-          # --uploadTimeout was added with a CustomParser but no
-          # DefaultValueFactory, so omitting it yields 0 and every request is
-          # cancelled the instant it starts (microsoft/msstore-cli#162). Fixed
-          # in #163 but unreleased. Move off v0.3.9 only once a release later
-          # than v0.4.1 exists.
+          # Pinned rather than tracking 'latest', so the CLI cannot change under
+          # this workflow without a commit here.
           #
-          # Two upstream bugs the submit step works around are still open, so
-          # those workarounds stay whichever version is pinned: #150 (JSON
-          # word-wrapped to the console width) and #161 (success logs to stderr).
-          version: v0.3.9
+          # v0.4.0 and v0.4.1 failed every blob upload: --uploadTimeout was added
+          # with a CustomParser but no DefaultValueFactory, so omitting it yielded
+          # 0 and every request was cancelled the instant it started
+          # (microsoft/msstore-cli#162). That is fixed by #163, first released in
+          # v0.4.2 -- the version this pin now names -- so the upload works
+          # without passing --uploadTimeout by hand.
+          #
+          # #161 (success logs to stderr) is still open, so that workaround in
+          # the submit step stays. #150 (JSON word-wrapped to the console width)
+          # was also fixed in v0.4.2, via #158; the rejoin below is now redundant
+          # but harmless, and is left in place to keep this change to the pin.
+          version: v0.4.2
 
       - name: Submit MSIX bundle to the Microsoft Store
         if: env.HAVE_STORE == 'true'
