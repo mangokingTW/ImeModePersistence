@@ -26,7 +26,7 @@ jobs:
           cmake --build build-x64 --config Release
 
       - name: Install UI-test dependencies
-        run: pip install pytest==8.3.4 "wintegrate[video]==0.1.4"
+        run: pip install pytest==8.3.4 "wintegrate[video]==0.5.8"
 
 
       - name: Run UI and E2E tests

@@ -4,10 +4,10 @@ Uses independent thread test windows (matching real multi-app scenarios) so that
 Windows provides isolated per-thread IME contexts, allowing ImeModePersistence
 to actively demonstrate cross-window Chinese/Alphanumeric persistence.
 
-Outputs:
-  - ime-recording.webp: Native 60 FPS video recording.
-  - ime-recording.gif: Smooth 30 FPS GIF animation.
-  - ime-frame-*.png: Key step static screenshots.
+Output:
+  - ime-recording.mp4: 60 FPS recording, with the keyboard HUD, the pointer and
+    click markers drawn in. docs/demo.webp and packaging/store/store-preview.mp4
+    are derived from this file; it is the only thing the script writes.
 
 Usage:
     python tests/ui/capture_ime_recording.py [exe] [out-dir]
@@ -23,7 +23,7 @@ import time
 import winreg
 import subprocess
 from ctypes import wintypes
-from wintegrate import ContinuousRecorder
+from wintegrate import ContinuousRecorder, send_physical_keys
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -271,17 +271,29 @@ class NotepadWindow:
         # background console/terminal windows before every focus change, not
         # only once before the recording begins.
         minimize_background_windows()
-        user32.keybd_event(0, 0, 0, 0)
-        # set_foreground verifies the window actually reached the foreground
-        # rather than assuming SetForegroundWindow succeeded; the click that
-        # follows puts the caret in the text area so the IME has somewhere to
-        # compose into.
-        self.win.set_foreground()
+        # No keybd_event(0, 0, 0, 0) here. That trick makes the calling thread
+        # eligible to set the foreground window, and wintegrate's set_foreground
+        # already does the AttachThreadInput dance it stands in for -- and then
+        # verifies the window actually got there, rather than assuming
+        # SetForegroundWindow succeeded.
+        if not self.win.set_foreground():
+            print("[FOCUS] window did not reach the foreground", flush=True)
+
         time.sleep(0.2)
-        try:
-            self.text_input().click()
-        except Exception:
-            pass
+
+        # Focus without a click. The caret has to be in the text area for the IME
+        # to have somewhere to compose, but a click is a real click: the recorder
+        # draws a marker for it, and one per focus change buried the demo in
+        # rings over an empty editor. This is a keyboard demo -- the only mouse
+        # interaction worth showing is none.
+        text = self.text_input()
+        if not text.set_focus(click=False):
+            # The click stays as a fallback rather than a habit: UIA SetFocus is
+            # ignored by some controls, and losing the caret loses composition,
+            # which is the thing being demonstrated.
+            print("[FOCUS] UIA SetFocus did not take; falling back to a click", flush=True)
+            text.set_focus(click=True)
+
         time.sleep(0.3)
 
     def text_input(self):
@@ -365,7 +377,13 @@ class NotepadWindow:
         # XAML control on TSF, so IMM32 reports no context). The content
         # assertion is the evidence here -- 測試 means composed, hk4g4 means
         # raw letters.
-        self.text_input().send_physical_keys(key_sequence, delay_per_key=0.1)
+        # The module-level function, not the element method: the element one
+        # calls set_focus(verify=False), which clicks unconditionally -- the
+        # click is its way of guaranteeing focus, and it does not check whether
+        # UIA already had it. set_foreground above already focused the text area
+        # without a click, so typing through the element would add one marker per
+        # typed phrase for nothing.
+        send_physical_keys(key_sequence, delay_per_key=0.1)
         time.sleep(0.3)
         self._enter()
         time.sleep(0.4)
@@ -379,7 +397,13 @@ class NotepadWindow:
         """
         self.set_foreground()
         time.sleep(0.3)
-        self.text_input().send_physical_keys(text, delay_per_key=interval)
+        # The module-level function, not the element method: the element one
+        # calls set_focus(verify=False), which clicks unconditionally -- the
+        # click is its way of guaranteeing focus, and it does not check whether
+        # UIA already had it. set_foreground above already focused the text area
+        # without a click, so typing through the element would add one marker per
+        # typed phrase for nothing.
+        send_physical_keys(text, delay_per_key=interval)
         time.sleep(0.3)
 
     def set_chinese(self):
@@ -556,7 +580,18 @@ def main() -> int:
     norm_b = ""
 
     mp4_path = os.path.join(OUT, "ime-recording.mp4")
-    recorder = ContinuousRecorder(mp4_path, fps=60)
+    # The overlays are stated rather than left to wintegrate's defaults, because
+    # this recording is the product demo: the keyboard HUD is what makes the
+    # bopomofo keystrokes visible, so a future default change must not silently
+    # take it away. All three are composited after the screen grab, so nothing on
+    # the desktop can cover them and no cursor has to exist in the capture.
+    recorder = ContinuousRecorder(
+        mp4_path,
+        fps=60,
+        draw_cursor=True,
+        click_markers=True,
+        key_hud=True,
+    )
     print("Starting continuous real-time desktop recording (60 FPS)...")
     recorder.start()
 

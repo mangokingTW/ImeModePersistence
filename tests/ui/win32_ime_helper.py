@@ -333,8 +333,18 @@ class ImeTestWindow:
 
         self.closed_event.set()
 
-    def set_foreground(self):
-        """Brings the window to the foreground and focuses its edit control."""
+    def set_foreground(self) -> bool:
+        """Brings the window to the foreground and focuses its edit control.
+
+        Returns whether it actually got there. It used to return nothing and
+        sleep, which meant a failed activation was indistinguishable from a slow
+        one -- and on CI that reads as a flaky test rather than as a focus
+        problem.
+
+        Unlike the capture script, this window is hand-rolled Win32 with no
+        wintegrate machinery underneath, so the keybd_event(0, 0, 0, 0) eligibility
+        trick stays: here the AttachThreadInput dance below is all there is.
+        """
         user32.keybd_event(0, 0, 0, 0)  # Standard Windows foreground lock bypass
         cur_thread = kernel32.GetCurrentThreadId()
         fg_wnd = user32.GetForegroundWindow()
@@ -354,7 +364,16 @@ class ImeTestWindow:
             user32.AttachThreadInput(fg_thread, target_thread, False)
             user32.AttachThreadInput(cur_thread, target_thread, False)
 
-        time.sleep(0.2)
+        # Poll rather than sleep a fixed 0.2s: activation is asynchronous, so the
+        # old sleep was both too long when it worked and too short when it did
+        # not. is_foreground() was already here and nothing called it.
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            if self.is_foreground():
+                return True
+            time.sleep(0.02)
+        print(f"[FOCUS] hwnd={self.hwnd} did not reach the foreground", flush=True)
+        return False
 
     def is_foreground(self) -> bool:
         fg = user32.GetForegroundWindow()
