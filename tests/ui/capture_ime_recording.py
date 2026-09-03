@@ -23,7 +23,7 @@ import time
 import winreg
 import subprocess
 from ctypes import wintypes
-from wintegrate import ContinuousRecorder
+from wintegrate import ContinuousRecorder, send_physical_keys
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -377,7 +377,13 @@ class NotepadWindow:
         # XAML control on TSF, so IMM32 reports no context). The content
         # assertion is the evidence here -- 測試 means composed, hk4g4 means
         # raw letters.
-        self.text_input().send_physical_keys(key_sequence, delay_per_key=0.1)
+        # The module-level function, not the element method: the element one
+        # calls set_focus(verify=False), which clicks unconditionally -- the
+        # click is its way of guaranteeing focus, and it does not check whether
+        # UIA already had it. set_foreground above already focused the text area
+        # without a click, so typing through the element would add one marker per
+        # typed phrase for nothing.
+        send_physical_keys(key_sequence, delay_per_key=0.1)
         time.sleep(0.3)
         self._enter()
         time.sleep(0.4)
@@ -391,7 +397,13 @@ class NotepadWindow:
         """
         self.set_foreground()
         time.sleep(0.3)
-        self.text_input().send_physical_keys(text, delay_per_key=interval)
+        # The module-level function, not the element method: the element one
+        # calls set_focus(verify=False), which clicks unconditionally -- the
+        # click is its way of guaranteeing focus, and it does not check whether
+        # UIA already had it. set_foreground above already focused the text area
+        # without a click, so typing through the element would add one marker per
+        # typed phrase for nothing.
+        send_physical_keys(text, delay_per_key=interval)
         time.sleep(0.3)
 
     def set_chinese(self):
