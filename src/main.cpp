@@ -1226,7 +1226,6 @@ void show_status() {
 
 void show_about() {
     const text::Strings& t = text::s();
-    constexpr wchar_t kAppName[] = L"ImeModePersistence";
     constexpr wchar_t kDeveloper[] = L"Mango Yen";
     constexpr wchar_t kWebUrl[] = L"https://mangokingtw.github.io/ImeModePersistence/";
     constexpr wchar_t kDocUrl[] = L"https://github.com/mangokingTW/ImeModePersistence/wiki";
@@ -1238,7 +1237,7 @@ void show_about() {
         body,
         ARRAYSIZE(body),
         t.aboutFormat,
-        kAppName,
+        t.appName,
         L"" APP_VERSION_STRING,
         kDeveloper,
         kWebUrl, kWebUrl,
@@ -1246,13 +1245,16 @@ void show_about() {
         kIssuesUrl, kIssuesUrl,
         kRepoUrl, kRepoUrl);
 
+    wchar_t mainInstruction[256]{};
+    StringCchPrintfW(mainInstruction, ARRAYSIZE(mainInstruction), L"%s " APP_VERSION_STRING, t.appName);
+
     TASKDIALOGCONFIG config{};
     config.cbSize = sizeof(config);
     config.hwndParent = g_app.hwnd;
     config.dwCommonButtons = TDCBF_OK_BUTTON;
     config.dwFlags = TDF_ENABLE_HYPERLINKS | TDF_CAN_BE_MINIMIZED;
     config.pszWindowTitle = t.aboutTitle;
-    config.pszMainInstruction = L"ImeModePersistence " APP_VERSION_STRING;
+    config.pszMainInstruction = mainInstruction;
     config.pszContent = body;
     config.hInstance = GetModuleHandleW(nullptr);
 
@@ -1276,7 +1278,7 @@ void show_about() {
             plain,
             ARRAYSIZE(plain),
             L"%s %s\nDeveloper: %s\n\nWebsite: %s\nWiki: %s\nFeedback: %s\nGitHub: %s",
-            kAppName, L"" APP_VERSION_STRING, kDeveloper, kWebUrl, kDocUrl, kIssuesUrl, kRepoUrl);
+            t.appName, L"" APP_VERSION_STRING, kDeveloper, kWebUrl, kDocUrl, kIssuesUrl, kRepoUrl);
         MessageBoxW(g_app.hwnd, plain, t.aboutTitle, MB_OK | MB_ICONINFORMATION);
     }
 }
