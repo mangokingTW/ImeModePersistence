@@ -26,11 +26,18 @@ jobs:
           cmake --build build-x64 --config Release
 
       - name: Install UI-test dependencies
-        run: pip install pytest==8.3.4 "wintegrate[video]==0.6.5"
-
+        run: pip install pytest==8.3.4 pytest-html "wintegrate[all]==0.6.5"
 
       - name: Run UI and E2E tests
-        run: pytest tests/ui/ -v --tb=short
+        run: pytest tests/ui/ -v --tb=short --html=ui-test-report.html --self-contained-html
+
+      - name: Upload UI test report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ui-test-report
+          path: ui-test-report.html
+          if-no-files-found: ignore
 
       - name: Upload failure diagnostics
         if: failure()
