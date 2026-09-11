@@ -127,7 +127,7 @@ runs:
       shell: pwsh
       run: |
         python --version
-        pip install pytest==8.3.4 "wintegrate[video]==0.6.5"
+        pip install pytest==8.3.4 pytest-html "wintegrate[all]==0.6.5"
 
     - name: Dismiss the Shell_OOBEProxy onboarding screen(s) (safety net)
       shell: pwsh
@@ -194,7 +194,15 @@ runs:
       shell: pwsh
       env:
         IME_PERSISTENCE_EXE: build-arm64/Release/ImeModePersistence.exe
-      run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short
+      run: python -m pytest tests/ui/test_ime_persistence_e2e.py -v --tb=short --html=ime-e2e-report-arm64.html --self-contained-html
+
+    - name: Upload E2E test report
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+      with:
+        name: ime-e2e-report-arm64
+        path: ime-e2e-report-arm64.html
+        if-no-files-found: ignore
 
     - name: Upload recording artifact
       if: always()
