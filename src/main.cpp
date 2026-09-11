@@ -48,6 +48,7 @@ constexpr UINT ID_TRAY_LANG_ZHCN = 1011;
 constexpr UINT ID_TRAY_LANG_JA = 1012;
 constexpr UINT ID_TRAY_LANG_KO = 1013;
 constexpr UINT ID_TRAY_HELPER = 1014;
+constexpr UINT ID_TRAY_ABOUT = 1015;
 constexpr wchar_t kClassName[] = L"ImeModePersistenceHiddenWindow";
 
 // Set only for the --show-menu screenshot capture, so the tray menu renders its
@@ -223,13 +224,20 @@ LRESULT CALLBACK task_dialog_subclass(HWND hwnd, UINT message, WPARAM wParam,
 
 // Themes the task dialog dark once it exists, when the user is in dark mode.
 HRESULT CALLBACK task_dialog_callback(HWND hwnd, UINT notification, WPARAM,
-                                      LPARAM, LONG_PTR) {
+                                      LPARAM lParam, LONG_PTR) {
     if (notification == TDN_DIALOG_CONSTRUCTED && theme::dark_mode()) {
         theme::apply_titlebar(hwnd);
         theme::allow_dark_window(hwnd);
         theme::apply_dark_controls(hwnd);
         SetWindowSubclass(hwnd, task_dialog_subclass, 0, 0);
         InvalidateRect(hwnd, nullptr, TRUE);
+    }
+    if (notification == TDN_HYPERLINK_CLICKED) {
+        auto* url = reinterpret_cast<LPCWSTR>(lParam);
+        if (url && *url) {
+            ShellExecuteW(nullptr, L"open", url, nullptr, nullptr, SW_SHOWNORMAL);
+        }
+        return S_OK;
     }
     return S_OK;
 }
@@ -1216,6 +1224,63 @@ void show_status() {
     show_message(t.statusTitle, body, false);
 }
 
+void show_about() {
+    const text::Strings& t = text::s();
+    constexpr wchar_t kAppName[] = L"ImeModePersistence";
+    constexpr wchar_t kDeveloper[] = L"Mango Yen";
+    constexpr wchar_t kWebUrl[] = L"https://mangokingtw.github.io/ImeModePersistence/";
+    constexpr wchar_t kDocUrl[] = L"https://github.com/mangokingTW/ImeModePersistence/wiki";
+    constexpr wchar_t kIssuesUrl[] = L"https://github.com/mangokingTW/ImeModePersistence/issues";
+    constexpr wchar_t kRepoUrl[] = L"https://github.com/mangokingTW/ImeModePersistence";
+
+    wchar_t body[2048]{};
+    StringCchPrintfW(
+        body,
+        ARRAYSIZE(body),
+        t.aboutFormat,
+        kAppName,
+        L"" APP_VERSION_STRING,
+        kDeveloper,
+        kWebUrl, kWebUrl,
+        kDocUrl, kDocUrl,
+        kIssuesUrl, kIssuesUrl,
+        kRepoUrl, kRepoUrl);
+
+    TASKDIALOGCONFIG config{};
+    config.cbSize = sizeof(config);
+    config.hwndParent = g_app.hwnd;
+    config.dwCommonButtons = TDCBF_OK_BUTTON;
+    config.dwFlags = TDF_ENABLE_HYPERLINKS | TDF_CAN_BE_MINIMIZED;
+    config.pszWindowTitle = t.aboutTitle;
+    config.pszMainInstruction = L"ImeModePersistence " APP_VERSION_STRING;
+    config.pszContent = body;
+    config.hInstance = GetModuleHandleW(nullptr);
+
+    HICON appIcon = reinterpret_cast<HICON>(
+        LoadImageW(config.hInstance, MAKEINTRESOURCEW(IDI_APPICON),
+                   IMAGE_ICON, 32, 32, LR_SHARED));
+    if (appIcon) {
+        config.dwFlags |= TDF_USE_HICON_MAIN;
+        config.hMainIcon = appIcon;
+    } else {
+        config.pszMainIcon = TD_INFORMATION_ICON;
+    }
+
+    config.pfCallback = task_dialog_callback;
+
+    int pressed = 0;
+    const HRESULT result = TaskDialogIndirect(&config, &pressed, nullptr, nullptr);
+    if (FAILED(result)) {
+        wchar_t plain[1024]{};
+        StringCchPrintfW(
+            plain,
+            ARRAYSIZE(plain),
+            L"%s %s\nDeveloper: %s\n\nWebsite: %s\nWiki: %s\nFeedback: %s\nGitHub: %s",
+            kAppName, L"" APP_VERSION_STRING, kDeveloper, kWebUrl, kDocUrl, kIssuesUrl, kRepoUrl);
+        MessageBoxW(g_app.hwnd, plain, t.aboutTitle, MB_OK | MB_ICONINFORMATION);
+    }
+}
+
 LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_TIMER:
@@ -1315,6 +1380,7 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                     AppendMenuW(menu, MF_POPUP, reinterpret_cast<UINT_PTR>(langMenu),
                                 text::s().menuLanguage);
                 }
+                AppendMenuW(menu, MF_STRING, ID_TRAY_ABOUT, text::s().menuAbout);
                 AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
                 AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, text::s().menuExit);
                 POINT pt{};
@@ -1329,6 +1395,10 @@ LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     case WM_COMMAND:
         if (LOWORD(wParam) == ID_TRAY_EXIT) {
             DestroyWindow(hwnd);
+            return 0;
+        }
+        if (LOWORD(wParam) == ID_TRAY_ABOUT) {
+            show_about();
             return 0;
         }
         if (LOWORD(wParam) == ID_TRAY_AUTOSTART) {
@@ -1612,6 +1682,9 @@ int WINAPI wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE, _In_ PWSTR, _In
     if (wcsstr(cmdline, L"--show-status")) {
         // The same path the tray icon's double-click takes.
         PostMessageW(g_app.hwnd, WMAPP_TRAY, 0, WM_LBUTTONDBLCLK);
+    }
+    if (wcsstr(cmdline, L"--show-about")) {
+        PostMessageW(g_app.hwnd, WM_COMMAND, ID_TRAY_ABOUT, 0);
     }
     if (wcsstr(cmdline, L"--show-menu")) {
         // The same path the tray icon's right-click takes: it builds and tracks

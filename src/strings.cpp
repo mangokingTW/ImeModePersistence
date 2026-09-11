@@ -16,8 +16,18 @@ const Strings kEnglish{
     .menuHelperActive = L"WinUI / Admin support (active)",
     .menuRules = L"App language bindings...",
     .menuLog = L"Open diagnostic log",
+    .menuAbout = L"About...",
     .menuExit = L"Exit",
     .menuVersion = L"Version",
+
+    .aboutTitle = L"About IME Mode Persistence",
+    .aboutFormat = L"Application: %s\n"
+                   L"Version: %s\n"
+                   L"Developer: %s\n\n"
+                   L"Website:\n<a href=\"%s\">%s</a>\n\n"
+                   L"Documentation:\n<a href=\"%s\">%s</a>\n\n"
+                   L"Feedback & Issues:\n<a href=\"%s\">%s</a>\n\n"
+                   L"Source Code:\n<a href=\"%s\">%s</a>",
 
     .statusTitle = L"IME Mode Persistence",
     .statusFormat = L"Desired mode: %s\n"
@@ -114,8 +124,18 @@ const Strings kTraditionalChinese{
     .menuHelperActive = L"現代視窗／管理員支援（運作中）",
     .menuRules = L"程式綁定輸入語言...",
     .menuLog = L"開啟診斷記錄",
+    .menuAbout = L"關於...",
     .menuExit = L"結束",
     .menuVersion = L"版本",
+
+    .aboutTitle = L"關於 輸入法模式延續",
+    .aboutFormat = L"應用程式：%s\n"
+                   L"版本：%s\n"
+                   L"開發者：%s\n\n"
+                   L"首頁：\n<a href=\"%s\">%s</a>\n\n"
+                   L"使用說明：\n<a href=\"%s\">%s</a>\n\n"
+                   L"意見回報：\n<a href=\"%s\">%s</a>\n\n"
+                   L"原始碼：\n<a href=\"%s\">%s</a>",
 
     .statusTitle = L"輸入法模式延續",
     .statusFormat = L"目標模式：%s\n"
@@ -209,8 +229,18 @@ const Strings kSimplifiedChinese{
     .menuHelperActive = L"现代窗口／管理员支持（运行中）",
     .menuRules = L"程序绑定输入语言...",
     .menuLog = L"打开诊断日志",
+    .menuAbout = L"关于...",
     .menuExit = L"退出",
     .menuVersion = L"版本",
+
+    .aboutTitle = L"关于 输入法模式延续",
+    .aboutFormat = L"应用程序：%s\n"
+                   L"版本：%s\n"
+                   L"开发者：%s\n\n"
+                   L"首页：\n<a href=\"%s\">%s</a>\n\n"
+                   L"使用说明：\n<a href=\"%s\">%s</a>\n\n"
+                   L"意见反馈：\n<a href=\"%s\">%s</a>\n\n"
+                   L"源代码：\n<a href=\"%s\">%s</a>",
 
     .statusTitle = L"输入法模式延续",
     .statusFormat = L"目标模式：%s\n"
@@ -304,8 +334,18 @@ const Strings kJapanese{
     .menuHelperActive = L"WinUI／管理者サポート（動作中）",
     .menuRules = L"アプリの入力言語バインド...",
     .menuLog = L"診断ログを開く",
+    .menuAbout = L"バージョン情報...",
     .menuExit = L"終了",
     .menuVersion = L"バージョン",
+
+    .aboutTitle = L"IME モード維持について",
+    .aboutFormat = L"アプリ名：%s\n"
+                   L"バージョン：%s\n"
+                   L"開発者：%s\n\n"
+                   L"ウェブサイト：\n<a href=\"%s\">%s</a>\n\n"
+                   L"使い方（Wiki）：\n<a href=\"%s\">%s</a>\n\n"
+                   L"フィードバック・問題報告：\n<a href=\"%s\">%s</a>\n\n"
+                   L"ソースコード：\n<a href=\"%s\">%s</a>",
 
     .statusTitle = L"IME モード維持",
     .statusFormat = L"目標モード：%s\n"
@@ -399,8 +439,18 @@ const Strings kKorean{
     .menuHelperActive = L"WinUI／관리자 지원（작동 중）",
     .menuRules = L"앱 입력 언어 바인딩...",
     .menuLog = L"진단 로그 열기",
+    .menuAbout = L"정보...",
     .menuExit = L"종료",
     .menuVersion = L"버전",
+
+    .aboutTitle = L"IME 모드 유지 정보",
+    .aboutFormat = L"애플리케이션: %s\n"
+                   L"버전: %s\n"
+                   L"개발자: %s\n\n"
+                   L"웹사이트:\n<a href=\"%s\">%s</a>\n\n"
+                   L"사용 설명서:\n<a href=\"%s\">%s</a>\n\n"
+                   L"피드백 및 버그 보고:\n<a href=\"%s\">%s</a>\n\n"
+                   L"소스 코드:\n<a href=\"%s\">%s</a>",
 
     .statusTitle = L"IME 모드 유지",
     .statusFormat = L"목표 모드: %s\n"

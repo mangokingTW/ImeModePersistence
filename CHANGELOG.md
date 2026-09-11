@@ -7,6 +7,18 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.6.0
+
+About dialog in system tray & wintegrate upgrade:
+
+- About dialog: Added an "About..." menu item in the system tray right-click menu, displaying application name, version, developer (Mango Yen), and clickable links to the official website, documentation (Wiki), feedback (Issues), and source code (GitHub).
+- UI automation & testing: Upgraded `wintegrate` to 0.6.5 across CI workflows.
+
+繁體中文:系統匣新增「關於」對話框與 wintegrate 升級：
+
+- 關於對話框：於系統匣右鍵選單新增「關於...」選項，顯示應用程式名稱、版本、開發者（Mango Yen），以及官網首頁、使用說明（Wiki）、意見回報（Issues）與原始碼（GitHub）之可點擊連結。
+- UI 自動化測試：於 CI 工作流程中將 `wintegrate` 升級至 0.6.5。
+
 ## v1.5.8
 
 Store availability for the native ARM64 build:
