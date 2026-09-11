@@ -28,6 +28,7 @@ struct Strings {
     const wchar_t* menuVersion;       // "Version" / "版本"; the number is appended
 
     const wchar_t* aboutTitle;
+    const wchar_t* appName;
     const wchar_t* aboutFormat;
 
     const wchar_t* statusTitle;

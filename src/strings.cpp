@@ -21,6 +21,7 @@ const Strings kEnglish{
     .menuVersion = L"Version",
 
     .aboutTitle = L"About IME Mode Persistence",
+    .appName = L"IME Mode Persistence",
     .aboutFormat = L"Application: %s\n"
                    L"Version: %s\n"
                    L"Developer: %s\n\n"
@@ -112,7 +113,7 @@ const Strings kEnglish{
 };
 
 const Strings kTraditionalChinese{
-    .trayTip = L"輸入法模式延續",
+    .trayTip = L"輸入法工具箱",
     .tooltipFormat = L"當前程式：%s\n綁定語言：%s\n實際語言：%s\n%s%s",
     .tooltipUnelevated = L"\n一般權限 － 看不到提權的程式",
 
@@ -128,7 +129,8 @@ const Strings kTraditionalChinese{
     .menuExit = L"結束",
     .menuVersion = L"版本",
 
-    .aboutTitle = L"關於 輸入法模式延續",
+    .aboutTitle = L"關於 輸入法工具箱",
+    .appName = L"輸入法工具箱",
     .aboutFormat = L"應用程式：%s\n"
                    L"版本：%s\n"
                    L"開發者：%s\n\n"
@@ -137,7 +139,7 @@ const Strings kTraditionalChinese{
                    L"意見回報：\n<a href=\"%s\">%s</a>\n\n"
                    L"原始碼：\n<a href=\"%s\">%s</a>",
 
-    .statusTitle = L"輸入法模式延續",
+    .statusTitle = L"輸入法工具箱",
     .statusFormat = L"目標模式：%s\n"
                     L"前景視窗模式：%s\n"
                     L"可讀取輸入法：%s\n"
@@ -164,17 +166,17 @@ const Strings kTraditionalChinese{
     .switchFailed = L"%s － 該程式未理會",
     .switchNotAttempted = L"不需切換",
 
-    .errorTitle = L"輸入法模式延續",
+    .errorTitle = L"輸入法工具箱",
     .errorAutostart = L"無法更新開機啟動的登錄項目。",
     .errorHook = L"SetWinEventHook 失敗。",
-    .notifyElevateTitle = L"輸入法模式延續",
+    .notifyElevateTitle = L"輸入法工具箱",
     .notifyElevateText = L"需要以管理員身分才能切換這個程式的輸入法。"
                          L"請用托盤選單的「以管理員身分重新啟動」。",
-    .notifyDesktopTitle = L"輸入法模式延續",
+    .notifyDesktopTitle = L"輸入法工具箱",
     .notifyDesktopText = L"這個目標需要以系統管理員執行的桌面版;市集版無法提權。"
                          L"下載:github.com/mangokingTW/ImeModePersistence",
 
-    .rulesCaption = L"輸入法模式延續 － 程式綁定輸入語言",
+    .rulesCaption = L"輸入法工具箱 － 程式綁定輸入語言",
     .rulesHeader = L"已綁定輸入語言的程式：",
     .groupAddUpdate = L"新增或更新綁定",
     .labelExecutable = L"程式或類別：",
@@ -217,7 +219,7 @@ const Strings kTraditionalChinese{
 
 // Machine-translated, pending native-speaker review.
 const Strings kSimplifiedChinese{
-    .trayTip = L"输入法模式延续",
+    .trayTip = L"输入法工具箱",
     .tooltipFormat = L"当前程序：%s\n绑定语言：%s\n实际语言：%s\n%s%s",
     .tooltipUnelevated = L"\n普通权限 － 看不到提权的程序",
 
@@ -233,7 +235,8 @@ const Strings kSimplifiedChinese{
     .menuExit = L"退出",
     .menuVersion = L"版本",
 
-    .aboutTitle = L"关于 输入法模式延续",
+    .aboutTitle = L"关于 输入法工具箱",
+    .appName = L"输入法工具箱",
     .aboutFormat = L"应用程序：%s\n"
                    L"版本：%s\n"
                    L"开发者：%s\n\n"
@@ -242,7 +245,7 @@ const Strings kSimplifiedChinese{
                    L"意见反馈：\n<a href=\"%s\">%s</a>\n\n"
                    L"源代码：\n<a href=\"%s\">%s</a>",
 
-    .statusTitle = L"输入法模式延续",
+    .statusTitle = L"输入法工具箱",
     .statusFormat = L"目标模式：%s\n"
                     L"前景窗口模式：%s\n"
                     L"可读取输入法：%s\n"
@@ -269,17 +272,17 @@ const Strings kSimplifiedChinese{
     .switchFailed = L"%s － 该程序未理会",
     .switchNotAttempted = L"无需切换",
 
-    .errorTitle = L"输入法模式延续",
+    .errorTitle = L"输入法工具箱",
     .errorAutostart = L"无法更新开机启动的注册表项。",
     .errorHook = L"SetWinEventHook 失败。",
-    .notifyElevateTitle = L"输入法模式延续",
+    .notifyElevateTitle = L"输入法工具箱",
     .notifyElevateText = L"需要以管理员身份才能切换这个程序的输入法。"
                          L"请使用托盘菜单的“以管理员身份重新启动”。",
-    .notifyDesktopTitle = L"输入法模式延续",
+    .notifyDesktopTitle = L"输入法工具箱",
     .notifyDesktopText = L"这个目标需要以管理员身份运行的桌面版；应用商店版无法提权。"
                          L"下载：github.com/mangokingTW/ImeModePersistence",
 
-    .rulesCaption = L"输入法模式延续 － 程序绑定输入语言",
+    .rulesCaption = L"输入法工具箱 － 程序绑定输入语言",
     .rulesHeader = L"已绑定输入语言的程序：",
     .groupAddUpdate = L"新增或更新绑定",
     .labelExecutable = L"程序或类别：",
@@ -339,6 +342,7 @@ const Strings kJapanese{
     .menuVersion = L"バージョン",
 
     .aboutTitle = L"IME モード維持について",
+    .appName = L"IME Mode Persistence",
     .aboutFormat = L"アプリ名：%s\n"
                    L"バージョン：%s\n"
                    L"開発者：%s\n\n"
@@ -444,6 +448,7 @@ const Strings kKorean{
     .menuVersion = L"버전",
 
     .aboutTitle = L"IME 모드 유지 정보",
+    .appName = L"IME Mode Persistence",
     .aboutFormat = L"애플리케이션: %s\n"
                    L"버전: %s\n"
                    L"개발자: %s\n\n"
