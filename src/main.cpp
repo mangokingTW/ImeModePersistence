@@ -1278,7 +1278,7 @@ void show_about() {
             plain,
             ARRAYSIZE(plain),
             L"%s %s\nDeveloper: %s\n\nWebsite: %s\nWiki: %s\nFeedback: %s\nGitHub: %s",
-            kAppName, L"" APP_VERSION_STRING, kDeveloper, kWebUrl, kDocUrl, kIssuesUrl, kRepoUrl);
+            t.appName, L"" APP_VERSION_STRING, kDeveloper, kWebUrl, kDocUrl, kIssuesUrl, kRepoUrl);
         MessageBoxW(g_app.hwnd, plain, t.aboutTitle, MB_OK | MB_ICONINFORMATION);
     }
 }
