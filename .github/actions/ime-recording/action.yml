@@ -40,7 +40,7 @@ runs:
 
     - name: Install dependencies
       shell: pwsh
-      run: pip install pytest==8.3.4 pytest-html "wintegrate[all]==0.6.5"
+      run: pip install pytest==8.3.4 "wintegrate[all]==0.6.5"
 
     - name: Capture continuous IME persistence recording
       shell: pwsh
