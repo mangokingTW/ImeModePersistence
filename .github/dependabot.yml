@@ -14,6 +14,9 @@ updates:
       codeql-action:
         patterns:
           - "github/codeql-action/*"
+      actions:
+        patterns:
+          - "actions/*"
   # The fuzzing base image is pinned by digest in .clusterfuzzlite/Dockerfile.
   # This keeps that digest current: Dependabot bumps it when OSS-Fuzz publishes a
   # new base-builder, so the pin stays reproducible without going stale.
@@ -23,3 +26,12 @@ updates:
       interval: weekly
     commit-message:
       prefix: ci
+  # The documentation generator under tools/wiki-pages uses markdown-it.
+  # Keep its dependencies patched so security vulnerabilities are flagged and updated.
+  - package-ecosystem: npm
+    directory: /tools/wiki-pages
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+
