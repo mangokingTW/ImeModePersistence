@@ -6,7 +6,7 @@
 # .github/dependabot.yml) watches the :latest tag and opens a PR to bump the
 # digest when OSS-Fuzz publishes a new base image, so pinning does not mean going
 # stale.
-FROM gcr.io/oss-fuzz-base/base-builder:latest@sha256:b867812795e2dd4516002f889a9c9f5ac4c549589b9f6b38f3b7a4c6627efaa9
+FROM gcr.io/oss-fuzz-base/base-builder:latest@sha256:1f9cf74bc3d7029b528494542f9d9851b256dceed38d3f420989434dc5ae0760
 COPY . $SRC/imemodepersistence
 WORKDIR $SRC/imemodepersistence
 COPY .clusterfuzzlite/build.sh $SRC/
