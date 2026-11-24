@@ -2,6 +2,8 @@
 
 #include <windows.h>
 
+#include <string_view>
+
 // Low-level access to the conversion mode of *another thread's* IME.
 //
 // Why not ITfThreadMgr / GUID_COMPARTMENT_KEYBOARD_INPUTMODE_CONVERSION:
@@ -43,6 +45,28 @@ bool has_ime(HWND hwnd);
 // top-level path, which is byte-for-byte the previous behaviour. Set once at
 // startup from the process's own elevation state.
 void set_focus_child_targeting(bool enabled);
+
+// Resolves the actual keyboard-focused child window belonging to topHwnd,
+// querying the foreground input thread first so cross-thread children (such as
+// Windows 11 File Explorer tabs and XAML Islands) are reached. Falls back to
+// topHwnd's own thread. Returns nullptr when unavailable.
+HWND focus_child(HWND topHwnd);
+
+// Returns the thread ID owning focus_child(topHwnd), falling back to
+// topHwnd's own thread ID.
+DWORD input_thread(HWND topHwnd);
+
+// True when an unelevated process may safely target the focused child window's
+// IME context directly (e.g. classic Win32 Edit controls inside File Explorer or
+// standard file/path picker dialogs).
+bool allow_unelevated_focus_child(std::wstring_view topClass,
+                                  std::wstring_view focusClass);
+
+// True when focus inside File Explorer or a file/path picker dialog sits on a
+// non-editable shell surface (file list, tree view, toolbar, dialog background)
+// whose closed/Alphanumeric state must not overwrite the carried user intent.
+bool is_non_text_shell_control(std::wstring_view topClass,
+                               std::wstring_view focusClass);
 
 Conversion read(HWND hwnd);
 

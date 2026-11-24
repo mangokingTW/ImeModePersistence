@@ -598,23 +598,25 @@ void schedule_restore_attempt(HWND hwnd) {
     SetTimer(g_app.hwnd, TIMER_RESTORE, delay, nullptr);
 }
 
-HWND current_focus_window(HWND hwnd, DWORD thread) {
+HWND current_focus_window(HWND hwnd) {
     if (!hwnd || !IsWindow(hwnd)) {
         return nullptr;
     }
-    GUITHREADINFO gti{};
-    gti.cbSize = sizeof(gti);
-    if (thread && GetGUIThreadInfo(thread, &gti) && gti.hwndFocus && IsWindow(gti.hwndFocus)) {
-        return gti.hwndFocus;
-    }
-    return hwnd;
+    HWND focus = ime::interop::focus_child(hwnd);
+    return focus ? focus : hwnd;
+}
+
+bool non_text_shell_focus(HWND topHwnd, HWND focusHwnd) {
+    return ime::interop::is_non_text_shell_control(
+        rules::window_class_of(topHwnd),
+        focusHwnd ? rules::window_class_of(focusHwnd) : std::wstring{});
 }
 
 void accept_restored_state(HWND hwnd, const ime::State& state) {
     record_snapshot(hwnd, state);
-    g_app.observedThread = GetWindowThreadProcessId(hwnd, nullptr);
+    g_app.observedThread = ime::interop::input_thread(hwnd);
     g_app.observedLayout = GetKeyboardLayout(g_app.observedThread);
-    g_app.observedFocusWindow = current_focus_window(hwnd, g_app.observedThread);
+    g_app.observedFocusWindow = current_focus_window(hwnd);
     g_persist.accept_restored(state.mode, GetTickCount64());
     cancel_restore();
 }
@@ -639,7 +641,7 @@ void note_context_switch(HWND hwnd) {
         return;
     }
 
-    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
+    const DWORD thread = ime::interop::input_thread(hwnd);
     if (!thread) {
         return;
     }
@@ -679,9 +681,10 @@ void note_context_switch(HWND hwnd) {
                              : (!windowClass.empty() &&
                                  windowClass == g_app.observedWindowClass));
 
+    const HWND focusNow = current_focus_window(hwnd);
     g_app.observedThread = thread;
     g_app.observedLayout = GetKeyboardLayout(thread);
-    g_app.observedFocusWindow = current_focus_window(hwnd, thread);
+    g_app.observedFocusWindow = focusNow;
     g_persist.begin_context(GetTickCount64());
 
     g_app.observedExecutable = executable;
@@ -759,6 +762,14 @@ void note_context_switch(HWND hwnd) {
             g_app.restoreAttempt = 0;
         }
         schedule_restore_attempt(hwnd);
+        return;
+    }
+
+    // Inside File Explorer or a file picker dialog, a non-text surface (file
+    // list, tree view, toolbar) must not seed or trigger a restore -- its
+    // closed/Alphanumeric state would clobber the mode we carry for text fields.
+    if (non_text_shell_focus(hwnd, focusNow)) {
+        cancel_restore();
         return;
     }
 
@@ -1001,7 +1012,7 @@ void observe_tick() {
         return;
     }
 
-    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
+    const DWORD thread = ime::interop::input_thread(hwnd);
     if (!thread) {
         return;
     }
@@ -1054,7 +1065,7 @@ void observe_tick() {
         return;
     }
 
-    const HWND focusNow = current_focus_window(hwnd, thread);
+    const HWND focusNow = current_focus_window(hwnd);
     if (focusNow && focusNow != g_app.observedFocusWindow) {
         g_app.observedFocusWindow = focusNow;
         note_context_switch(hwnd);
@@ -1100,6 +1111,10 @@ void observe_tick() {
     record_snapshot(hwnd, state);
     update_tooltip(hwnd);
 
+    if (non_text_shell_focus(hwnd, focusNow)) {
+        return;
+    }
+
     // The persistence engine owns the seed / debounced-adopt / became-readable
     // decisions; it updates the observed mode and tells us whether to restore.
     const persist::Outcome outcome = g_persist.observe(
@@ -1137,9 +1152,8 @@ void CALLBACK win_event_proc(
         note_context_switch(hwnd);
     } else if (event == EVENT_OBJECT_FOCUS && idObject == OBJID_CLIENT && hwnd) {
         HWND fg = GetForegroundWindow();
-        if (fg && (hwnd == fg || IsChild(fg, hwnd))) {
-            const DWORD thread = GetWindowThreadProcessId(fg, nullptr);
-            const HWND focusNow = current_focus_window(fg, thread);
+        if (fg && (hwnd == fg || GetAncestor(hwnd, GA_ROOT) == fg)) {
+            const HWND focusNow = current_focus_window(fg);
             if (focusNow && focusNow != g_app.observedFocusWindow) {
                 note_context_switch(fg);
             }

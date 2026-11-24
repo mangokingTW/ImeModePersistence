@@ -1,5 +1,6 @@
 #include "check.h"
 
+#include "ime_interop.h"
 #include "ime_state.h"
 #include "persist.h"
 
@@ -183,6 +184,50 @@ void a_post_switch_clobber_is_re_forced() {
     CHECK(e.desired() == Mode::Native);
 }
 
+// 8. Unelevated focus-child targeting reaches classic Win32 Edit controls inside
+//    File Explorer and file/path picker dialogs, while leaving WinUI/XAML Island
+//    controls (and unrelated applications like Notepad) on the existing path.
+void unelevated_focus_child_classification() {
+    using ime::interop::allow_unelevated_focus_child;
+
+    CHECK(allow_unelevated_focus_child(L"cabinetwclass", L"edit"));
+    CHECK(allow_unelevated_focus_child(L"explorewclass", L"edit"));
+    CHECK(allow_unelevated_focus_child(L"#32770", L"edit"));
+    CHECK(allow_unelevated_focus_child(L"#32770", L"richedit20w"));
+    CHECK(allow_unelevated_focus_child(L"#32770", L"richedit50w"));
+
+    CHECK(!allow_unelevated_focus_child(L"cabinetwclass", L"directuihwnd"));
+    CHECK(!allow_unelevated_focus_child(
+        L"cabinetwclass", L"microsoft.ui.content.desktopchildsitebridge"));
+    CHECK(!allow_unelevated_focus_child(L"notepad", L"richeditd2dpt"));
+    CHECK(!allow_unelevated_focus_child(L"notepad", L"edit"));
+}
+
+// 9. Non-text surfaces inside File Explorer and file/path picker dialogs are
+//    recognised so browsing folders does not overwrite the carried mode, while
+//    editable controls (classic Edit and WinUI islands) remain observable.
+void non_text_shell_control_classification() {
+    using ime::interop::is_non_text_shell_control;
+
+    CHECK(is_non_text_shell_control(L"cabinetwclass", L"directuihwnd"));
+    CHECK(is_non_text_shell_control(L"cabinetwclass", L"systreeview32"));
+    CHECK(is_non_text_shell_control(L"cabinetwclass", L"syslistview32"));
+    CHECK(is_non_text_shell_control(L"cabinetwclass", L"toolbarwindow32"));
+    CHECK(is_non_text_shell_control(L"cabinetwclass", L"cabinetwclass"));
+    CHECK(is_non_text_shell_control(L"cabinetwclass", L""));
+
+    CHECK(is_non_text_shell_control(L"#32770", L"directuihwnd"));
+    CHECK(is_non_text_shell_control(L"#32770", L"button"));
+    CHECK(is_non_text_shell_control(L"#32770", L"systreeview32"));
+    CHECK(is_non_text_shell_control(L"#32770", L"#32770"));
+
+    CHECK(!is_non_text_shell_control(L"cabinetwclass", L"edit"));
+    CHECK(!is_non_text_shell_control(
+        L"cabinetwclass", L"microsoft.ui.content.desktopchildsitebridge"));
+    CHECK(!is_non_text_shell_control(L"#32770", L"edit"));
+    CHECK(!is_non_text_shell_control(L"notepad", L"directuihwnd"));
+}
+
 } // namespace
 
 void run_persist_tests() {
@@ -193,4 +238,6 @@ void run_persist_tests() {
     becoming_readable_re_forces_the_carried_mode();
     the_post_restore_ripple_is_suppressed();
     a_post_switch_clobber_is_re_forced();
+    unelevated_focus_child_classification();
+    non_text_shell_control_classification();
 }

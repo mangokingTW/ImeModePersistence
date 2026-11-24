@@ -1,6 +1,7 @@
 #include "helper.h"
 #include "autostart.h"
 #include "diagnostic.h"
+#include "ime_interop.h"
 
 #include <imm.h>
 #include <sddl.h>
@@ -41,12 +42,9 @@ Targets targets_for(HWND hwnd) {
     if (!hwnd || !IsWindow(hwnd)) {
         return t;
     }
-    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
-    GUITHREADINFO gti{};
-    gti.cbSize = sizeof(gti);
-    if (thread && GetGUIThreadInfo(thread, &gti) && gti.hwndFocus &&
-        gti.hwndFocus != hwnd && IsWindow(gti.hwndFocus)) {
-        t.wnd[t.count++] = gti.hwndFocus;
+    HWND focus = ime::interop::focus_child(hwnd);
+    if (focus && focus != hwnd) {
+        t.wnd[t.count++] = focus;
     }
     t.wnd[t.count++] = hwnd;
     return t;
@@ -261,13 +259,10 @@ int run_server(DWORD parentPid) {
                     }
                 } else if (req.type == CommandType::SwitchLayout) {
                     if (req.targetTopHwnd && req.layoutHkl && IsWindow(req.targetTopHwnd)) {
-                        const DWORD thread = GetWindowThreadProcessId(req.targetTopHwnd, nullptr);
+                        HWND focus = ime::interop::focus_child(req.targetTopHwnd);
+                        const DWORD thread = ime::interop::input_thread(req.targetTopHwnd);
                         if (thread) {
-                            GUITHREADINFO info{};
-                            info.cbSize = sizeof(info);
-                            HWND target = (GetGUIThreadInfo(thread, &info) && info.hwndFocus && IsWindow(info.hwndFocus))
-                                              ? info.hwndFocus
-                                              : req.targetTopHwnd;
+                            HWND target = focus ? focus : req.targetTopHwnd;
                             if (PostMessageW(target, WM_INPUTLANGCHANGEREQUEST, 0, reinterpret_cast<LPARAM>(req.layoutHkl))) {
                                 resp.success = TRUE;
                                 resp.targetHwnd = target;

@@ -1,5 +1,6 @@
 #include "ime_interop.h"
 #include "helper.h"
+#include "rules.h"
 
 #include <imm.h>
 
@@ -53,11 +54,18 @@ HWND default_ime_window(HWND hwnd) {
     return (imeWnd && IsWindow(imeWnd)) ? imeWnd : nullptr;
 }
 
+bool is_explorer_or_dialog(std::wstring_view topClass) {
+    return topClass == L"cabinetwclass" ||
+           topClass == L"explorewclass" ||
+           topClass == L"#32770";
+}
+
 // The windows to try, best first. With focus-child targeting on (elevated only),
 // the actually-focused child window comes first: for a TSF/WinUI app its IME
 // context is the real one, distinct from the top-level window's, and the only one
-// a write actually reaches. The top-level window is always the fallback, and is
-// the sole target when targeting is off -- identical to the historical behaviour.
+// a write actually reaches. Even when unelevated, classic Win32 Edit controls in
+// File Explorer and standard file/path picker dialogs are reachable directly. The
+// top-level window is always the fallback, keeping the historical behaviour.
 struct Targets {
     HWND wnd[2];
     int count;
@@ -65,13 +73,14 @@ struct Targets {
 
 Targets targets_for(HWND hwnd) {
     Targets t{};
-    if (g_focusChild) {
-        const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
-        GUITHREADINFO gti{};
-        gti.cbSize = sizeof(gti);
-        if (thread && GetGUIThreadInfo(thread, &gti) && gti.hwndFocus &&
-            gti.hwndFocus != hwnd && IsWindow(gti.hwndFocus)) {
-            t.wnd[t.count++] = gti.hwndFocus;
+    HWND focus = focus_child(hwnd);
+    if (focus && focus != hwnd) {
+        const bool allow =
+            g_focusChild ||
+            allow_unelevated_focus_child(rules::window_class_of(hwnd),
+                                         rules::window_class_of(focus));
+        if (allow) {
+            t.wnd[t.count++] = focus;
         }
     }
     t.wnd[t.count++] = hwnd;
@@ -82,6 +91,84 @@ Targets targets_for(HWND hwnd) {
 
 void set_focus_child_targeting(bool enabled) {
     g_focusChild = enabled;
+}
+
+HWND focus_child(HWND topHwnd) {
+    if (!topHwnd || !IsWindow(topHwnd)) {
+        return nullptr;
+    }
+
+    GUITHREADINFO gti{};
+    gti.cbSize = sizeof(gti);
+    if (GetGUIThreadInfo(0, &gti) && gti.hwndFocus && IsWindow(gti.hwndFocus)) {
+        if (gti.hwndFocus == topHwnd || GetAncestor(gti.hwndFocus, GA_ROOT) == topHwnd) {
+            return gti.hwndFocus;
+        }
+    }
+
+    const DWORD thread = GetWindowThreadProcessId(topHwnd, nullptr);
+    gti = {};
+    gti.cbSize = sizeof(gti);
+    if (thread && GetGUIThreadInfo(thread, &gti) && gti.hwndFocus &&
+        IsWindow(gti.hwndFocus)) {
+        return gti.hwndFocus;
+    }
+
+    return nullptr;
+}
+
+DWORD input_thread(HWND topHwnd) {
+    if (!topHwnd || !IsWindow(topHwnd)) {
+        return 0;
+    }
+    if (HWND focus = focus_child(topHwnd)) {
+        const DWORD focusThread = GetWindowThreadProcessId(focus, nullptr);
+        if (focusThread) {
+            return focusThread;
+        }
+    }
+    return GetWindowThreadProcessId(topHwnd, nullptr);
+}
+
+bool allow_unelevated_focus_child(std::wstring_view topClass,
+                                  std::wstring_view focusClass) {
+    if (!is_explorer_or_dialog(topClass)) {
+        return false;
+    }
+    return focusClass == L"edit" ||
+           focusClass == L"richedit20w" ||
+           focusClass == L"richedit50w";
+}
+
+bool is_non_text_shell_control(std::wstring_view topClass,
+                               std::wstring_view focusClass) {
+    if (!is_explorer_or_dialog(topClass)) {
+        return false;
+    }
+    if (focusClass.empty()) {
+        return true;
+    }
+    static constexpr std::wstring_view kNonTextClasses[] = {
+        L"directuihwnd",
+        L"syslistview32",
+        L"systreeview32",
+        L"toolbarwindow32",
+        L"button",
+        L"static",
+        L"sysheader32",
+        L"scrollbar",
+        L"shelldll_defview",
+        L"shelltabwindowclass",
+        L"cabinetwclass",
+        L"explorewclass",
+        L"#32770",
+    };
+    for (const std::wstring_view cls : kNonTextClasses) {
+        if (focusClass == cls) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool has_ime(HWND hwnd) {
