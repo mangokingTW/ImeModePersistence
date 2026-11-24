@@ -7,16 +7,24 @@ Validates:
 3. Ghost window / transient popup non-interference.
 """
 
+import subprocess
+import sys
 import time
 import pytest
+from wintegrate import Window, WindowCensus
+from wintegrate.interop import send_keys
 from win32_ime_helper import (
     ImeTestWindow,
     IME_CMODE_NATIVE,
     IME_CMODE_ALPHANUMERIC,
     IME_CMODE_FULLSHAPE,
+    get_foreground_focus_hwnd,
     get_ime_state,
+    get_root_window,
+    get_window_class,
     set_ime_state,
     has_chinese_ime,
+    user32,
 )
 
 # ---------------------------------------------------------------------------
@@ -281,3 +289,260 @@ def test_persistence_with_real_chinese_ime(app_runner, registry_sandbox):
             win_a.destroy()
         if win_b:
             win_b.destroy()
+
+
+_CT_EDIT = 50004
+_WM_CLOSE = 0x0010
+
+_FILE_PICKER_SCRIPT = r"""
+import ctypes
+import sys
+from ctypes import wintypes
+
+ctypes.windll.ole32.CoInitializeEx(None, 2)  # COINIT_APARTMENTTHREADED
+
+class OPENFILENAMEW(ctypes.Structure):
+    _fields_ = [
+        ("lStructSize", wintypes.DWORD),
+        ("hwndOwner", wintypes.HWND),
+        ("hInstance", wintypes.HINSTANCE),
+        ("lpstrFilter", wintypes.LPCWSTR),
+        ("lpstrCustomFilter", wintypes.LPWSTR),
+        ("nMaxCustFilter", wintypes.DWORD),
+        ("nFilterIndex", wintypes.DWORD),
+        ("lpstrFile", wintypes.LPWSTR),
+        ("nMaxFile", wintypes.DWORD),
+        ("lpstrFileTitle", wintypes.LPWSTR),
+        ("nMaxFileTitle", wintypes.DWORD),
+        ("lpstrInitialDir", wintypes.LPCWSTR),
+        ("lpstrTitle", wintypes.LPCWSTR),
+        ("Flags", wintypes.DWORD),
+        ("nFileOffset", wintypes.WORD),
+        ("nFileExtension", wintypes.WORD),
+        ("lpstrDefExt", wintypes.LPCWSTR),
+        ("lCustData", wintypes.LPARAM),
+        ("lpfnHook", ctypes.c_void_p),
+        ("lpTemplateName", wintypes.LPCWSTR),
+        ("pvReserved", ctypes.c_void_p),
+        ("dwReserved", wintypes.DWORD),
+        ("FlagsEx", wintypes.DWORD),
+    ]
+
+buf = ctypes.create_unicode_buffer(260)
+ofn = OPENFILENAMEW()
+ofn.lStructSize = ctypes.sizeof(OPENFILENAMEW)
+ofn.lpstrFile = ctypes.cast(buf, wintypes.LPWSTR)
+ofn.nMaxFile = 260
+ofn.lpstrInitialDir = sys.argv[1]
+ofn.lpstrTitle = "IME Picker E2E"
+ofn.Flags = 0x00080000 | 0x00000008  # OFN_EXPLORER | OFN_NOCHANGEDIR
+ctypes.windll.comdlg32.GetOpenFileNameW(ctypes.byref(ofn))
+"""
+
+
+def _settled(read, matches, timeout=3.0, poll_interval=0.05):
+    """Polls read() until matches(value) or timeout expires, returning last read."""
+    deadline = time.monotonic() + timeout
+    val = read()
+    while not matches(val) and time.monotonic() < deadline:
+        time.sleep(poll_interval)
+        val = read()
+    return val
+
+
+def _read_root_focus_ime(root_hwnd: int):
+    """Returns (focus_hwnd, lower_class, is_open, mode) if focus is inside root_hwnd."""
+    focus_hwnd = get_foreground_focus_hwnd()
+    if not focus_hwnd:
+        return (0, "", False, 0)
+    if focus_hwnd != root_hwnd and get_root_window(focus_hwnd) != root_hwnd:
+        return (0, "", False, 0)
+    cls = get_window_class(focus_hwnd).lower()
+    is_open, mode = get_ime_state(focus_hwnd)
+    return (focus_hwnd, cls, is_open, mode)
+
+
+def _is_edit_with_mode(res, want_native: bool) -> bool:
+    focus_hwnd, cls, _is_open, mode = res
+    if not focus_hwnd or cls not in ("edit", "richedit20w", "richedit50w"):
+        return False
+    is_native = (mode & IME_CMODE_NATIVE) != 0
+    return is_native == want_native
+
+
+def _launch_file_picker_subprocess(initial_dir: str) -> subprocess.Popen:
+    return subprocess.Popen([sys.executable, "-c", _FILE_PICKER_SCRIPT, initial_dir])
+
+
+def _find_picker_filename_edit(dlg: Window):
+    root = dlg.re_resolve_element()
+    edit = root.find_descendant(
+        automation_id="1148", control_type_id=_CT_EDIT, timeout=3.0, required=False
+    )
+    if edit is not None:
+        return edit
+    combo = root.find_descendant(automation_id="1148", timeout=2.0, required=False)
+    if combo is not None:
+        edit = combo.find_descendant(
+            control_type_id=_CT_EDIT, timeout=2.0, required=False
+        )
+        if edit is not None:
+            return edit
+    return root.find_descendant(control_type_id=_CT_EDIT, timeout=5.0)
+
+
+@_NO_CHINESE_IME
+def test_file_picker_dialog_ime_persistence_wintegrate(
+    app_runner, registry_sandbox, tmp_path
+):
+    """Verifies IME mode carry-over (both Native and Alphanumeric) into a real
+    out-of-process Win32 File Open dialog (#32770) filename Edit box without elevation.
+    """
+    registry_sandbox.set_persist_mode(True)
+    app_runner()
+    time.sleep(0.5)
+
+    win_a = None
+    picker_proc = None
+    dlg = None
+    try:
+        win_a = ImeTestWindow("File Picker Source Window")
+        win_a.set_foreground()
+        time.sleep(0.3)
+        win_a.set_ime_state(is_open=True, conversion_mode=IME_CMODE_NATIVE)
+        time.sleep(1.2)
+
+        before = WindowCensus.capture()
+        picker_proc = _launch_file_picker_subprocess(str(tmp_path))
+        dlg = Window.wait_for_new(before, timeout=15.0, window_classes=("#32770",))
+        assert dlg.set_foreground(), "File Picker dialog failed to reach foreground"
+
+        edit = _find_picker_filename_edit(dlg)
+        assert edit is not None, "Could not locate filename Edit control in #32770 dialog"
+        edit.set_focus(click=True)
+
+        native_res = _settled(
+            lambda: _read_root_focus_ime(dlg.hwnd),
+            lambda res: _is_edit_with_mode(res, want_native=True),
+            timeout=4.0,
+        )
+        assert _is_edit_with_mode(native_res, want_native=True), (
+            f"Expected Native mode in #32770 Edit, got focus_hwnd={native_res[0]}, "
+            f"class={native_res[1]!r}, is_open={native_res[2]}, mode={hex(native_res[3])}"
+        )
+
+        # Now adopt Alphanumeric in win_a and verify the dialog Edit restores Alphanumeric
+        # even if the OS default IMETC mode is Native.
+        win_a.set_foreground()
+        time.sleep(0.3)
+        win_a.set_ime_state(is_open=False, conversion_mode=IME_CMODE_ALPHANUMERIC)
+        time.sleep(1.2)
+
+        assert dlg.set_foreground(), "File Picker dialog failed to return to foreground"
+        edit = _find_picker_filename_edit(dlg)
+        edit.set_focus(click=True)
+
+        alpha_res = _settled(
+            lambda: _read_root_focus_ime(dlg.hwnd),
+            lambda res: _is_edit_with_mode(res, want_native=False),
+            timeout=4.0,
+        )
+        assert _is_edit_with_mode(alpha_res, want_native=False), (
+            f"Expected Alphanumeric mode in #32770 Edit, got focus_hwnd={alpha_res[0]}, "
+            f"class={alpha_res[1]!r}, is_open={alpha_res[2]}, mode={hex(alpha_res[3])}"
+        )
+    finally:
+        if dlg is not None and dlg.hwnd:
+            user32.PostMessageW(dlg.hwnd, _WM_CLOSE, 0, 0)
+        if picker_proc is not None:
+            try:
+                picker_proc.wait(timeout=3.0)
+            except subprocess.TimeoutExpired:
+                picker_proc.terminate()
+                picker_proc.wait(timeout=2.0)
+        if win_a:
+            win_a.destroy()
+
+
+@_NO_CHINESE_IME
+def test_file_explorer_rename_ime_persistence_wintegrate(
+    app_runner, registry_sandbox, tmp_path
+):
+    """Verifies File Explorer persistence via wintegrate:
+    1. Idling in DirectUIHWND file list does NOT overwrite carried mode.
+    2. Pressing F2 opens the inline Edit control and restores both Native and Alphanumeric.
+    """
+    sample_file = tmp_path / "ime_test_file.txt"
+    sample_file.write_text("test", encoding="utf-8")
+
+    registry_sandbox.set_persist_mode(True)
+    app_runner()
+    time.sleep(0.5)
+
+    win_a = None
+    explorer_win = None
+    try:
+        win_a = ImeTestWindow("Explorer Source Window")
+        win_a.set_foreground()
+        time.sleep(0.3)
+        win_a.set_ime_state(is_open=True, conversion_mode=IME_CMODE_NATIVE)
+        time.sleep(1.2)
+
+        before = WindowCensus.capture()
+        subprocess.Popen(["explorer.exe", str(tmp_path)])
+        explorer_win = Window.wait_for_new(
+            before, timeout=15.0, window_classes=("CabinetWClass",)
+        )
+        assert explorer_win.set_foreground(), "File Explorer failed to reach foreground"
+
+        root = explorer_win.re_resolve_element()
+        item = root.find_descendant(name_contains="ime_test_file", timeout=10.0)
+        assert item is not None, "Could not locate sample file item in File Explorer"
+        item.set_focus(click=True)
+
+        # Idle in the file list longer than kPromotionDwellMs + kAdoptDebounceMs (750ms)
+        # to verify DirectUIHWND does not clobber the carried Native mode.
+        time.sleep(1.0)
+        send_keys("{F2}")
+
+        native_res = _settled(
+            lambda: _read_root_focus_ime(explorer_win.hwnd),
+            lambda res: _is_edit_with_mode(res, want_native=True),
+            timeout=4.0,
+        )
+        assert _is_edit_with_mode(native_res, want_native=True), (
+            f"Expected Native mode in Explorer F2 rename Edit, got focus_hwnd={native_res[0]}, "
+            f"class={native_res[1]!r}, is_open={native_res[2]}, mode={hex(native_res[3])}"
+        )
+        send_keys("{ESC}")
+        time.sleep(0.2)
+
+        # Switch back to win_a, adopt Alphanumeric, then verify F2 rename restores Alphanumeric.
+        win_a.set_foreground()
+        time.sleep(0.3)
+        win_a.set_ime_state(is_open=False, conversion_mode=IME_CMODE_ALPHANUMERIC)
+        time.sleep(1.2)
+
+        assert explorer_win.set_foreground(), "File Explorer failed to return to foreground"
+        root = explorer_win.re_resolve_element()
+        item = root.find_descendant(name_contains="ime_test_file", timeout=10.0)
+        item.set_focus(click=True)
+        time.sleep(0.2)
+        send_keys("{F2}")
+
+        alpha_res = _settled(
+            lambda: _read_root_focus_ime(explorer_win.hwnd),
+            lambda res: _is_edit_with_mode(res, want_native=False),
+            timeout=4.0,
+        )
+        assert _is_edit_with_mode(alpha_res, want_native=False), (
+            f"Expected Alphanumeric mode in Explorer F2 rename Edit, got focus_hwnd={alpha_res[0]}, "
+            f"class={alpha_res[1]!r}, is_open={alpha_res[2]}, mode={hex(alpha_res[3])}"
+        )
+        send_keys("{ESC}")
+        time.sleep(0.2)
+    finally:
+        if explorer_win is not None and explorer_win.hwnd:
+            user32.PostMessageW(explorer_win.hwnd, _WM_CLOSE, 0, 0)
+        if win_a:
+            win_a.destroy()
