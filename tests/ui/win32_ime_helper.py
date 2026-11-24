@@ -36,6 +36,7 @@ WS_CHILD = 0x40000000
 WS_BORDER = 0x00800000
 ES_AUTOHSCROLL = 0x0080
 ES_MULTILINE = 0x0004
+GA_ROOT = 2
 
 user32 = ctypes.windll.user32
 imm32 = ctypes.windll.imm32
@@ -84,6 +85,19 @@ class WNDCLASSEXW(ctypes.Structure):
         ("lpszMenuName", wintypes.LPCWSTR),
         ("lpszClassName", wintypes.LPCWSTR),
         ("hIconSm", wintypes.HICON),
+    ]
+
+class GUITHREADINFO(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD),
+        ("flags", wintypes.DWORD),
+        ("hwndActive", wintypes.HWND),
+        ("hwndFocus", wintypes.HWND),
+        ("hwndCapture", wintypes.HWND),
+        ("hwndMenuOwner", wintypes.HWND),
+        ("hwndMoveSize", wintypes.HWND),
+        ("hwndCaret", wintypes.HWND),
+        ("rcCaret", wintypes.RECT),
     ]
 
 kernel32.GetModuleHandleW.argtypes = [wintypes.LPCWSTR]
@@ -175,6 +189,15 @@ user32.GetKeyboardLayout.restype = wintypes.HANDLE
 user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
 user32.GetWindowThreadProcessId.restype = wintypes.DWORD
 
+user32.GetGUIThreadInfo.argtypes = [wintypes.DWORD, ctypes.POINTER(GUITHREADINFO)]
+user32.GetGUIThreadInfo.restype = wintypes.BOOL
+
+user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+user32.GetClassNameW.restype = ctypes.c_int
+
+user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+user32.GetAncestor.restype = wintypes.HWND
+
 imm32.ImmGetDefaultIMEWnd.argtypes = [wintypes.HWND]
 imm32.ImmGetDefaultIMEWnd.restype = wintypes.HWND
 
@@ -208,6 +231,29 @@ def get_window_thread_id(hwnd: int) -> int:
     """Returns the thread ID of the given window."""
     pid = wintypes.DWORD()
     return user32.GetWindowThreadProcessId(wintypes.HWND(hwnd), ctypes.byref(pid))
+
+def get_foreground_focus_hwnd() -> int:
+    """Returns the HWND currently holding keyboard focus across the foreground thread."""
+    gti = GUITHREADINFO()
+    gti.cbSize = ctypes.sizeof(GUITHREADINFO)
+    if user32.GetGUIThreadInfo(0, ctypes.byref(gti)) and gti.hwndFocus:
+        return int(gti.hwndFocus)
+    return 0
+
+def get_window_class(hwnd: int) -> str:
+    """Returns the Win32 class name of hwnd, or empty string if unavailable."""
+    if not hwnd:
+        return ""
+    buf = ctypes.create_unicode_buffer(256)
+    length = user32.GetClassNameW(wintypes.HWND(hwnd), buf, 256)
+    return buf.value[:length] if length > 0 else ""
+
+def get_root_window(hwnd: int) -> int:
+    """Returns the top-level root ancestor HWND (GA_ROOT) of hwnd."""
+    if not hwnd:
+        return 0
+    root = user32.GetAncestor(wintypes.HWND(hwnd), GA_ROOT)
+    return int(root or 0)
 
 def get_keyboard_layout(hwnd: int) -> int:
     """Returns the HKL (as integer) of the given window's thread."""

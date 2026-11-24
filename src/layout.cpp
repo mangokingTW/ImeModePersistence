@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "helper.h"
+#include "ime_interop.h"
 #include "tsf.h"
 
 namespace layout {
@@ -89,7 +90,7 @@ std::wstring describe(LANGID language) {
 }
 
 HKL current(HWND hwnd) {
-    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
+    const DWORD thread = ime::interop::input_thread(hwnd);
     return thread ? GetKeyboardLayout(thread) : nullptr;
 }
 
@@ -115,17 +116,6 @@ BOOL CALLBACK post_to_window(HWND window, LPARAM parameter) {
         state->posted = true;
     }
     return TRUE;
-}
-
-// The window holding keyboard focus, which is what actually owns the input
-// language. The top-level window often forwards nothing.
-HWND focus_window(DWORD thread) {
-    GUITHREADINFO info{};
-    info.cbSize = sizeof(info);
-    if (!GetGUIThreadInfo(thread, &info)) {
-        return nullptr;
-    }
-    return info.hwndFocus;
 }
 
 } // namespace
@@ -159,7 +149,7 @@ bool request(HWND hwnd, HKL hkl, Method method) {
         return false;
     }
 
-    const DWORD thread = GetWindowThreadProcessId(hwnd, nullptr);
+    const DWORD thread = ime::interop::input_thread(hwnd);
     if (!thread) {
         return false;
     }
@@ -169,7 +159,7 @@ bool request(HWND hwnd, HKL hkl, Method method) {
         if (helper::try_switch_layout(hwnd, hkl)) {
             return true;
         }
-        HWND focus = focus_window(thread);
+        HWND focus = ime::interop::focus_child(hwnd);
         return post_request(focus ? focus : hwnd, hkl);
     }
 
