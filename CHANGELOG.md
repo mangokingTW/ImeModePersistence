@@ -7,6 +7,20 @@ release note reads as a finished, formatted note rather than a raw changelog.
 Keep each section to what changed; the boilerplate is added automatically. If a
 tag has no section here, the workflow falls back to auto-generated notes.
 
+## v1.6.1
+
+File Explorer & file picker dialog IME mode persistence:
+
+- Cross-thread focus tracking: Resolves keyboard focus across the foreground input thread (`GetGUIThreadInfo(0)`), allowing multi-threaded Windows 11 File Explorer tabs and XAML Island inputs to be tracked accurately.
+- File Explorer & File Open/Save dialogs (`#32770`): Classic Win32 text fields (F2 inline rename, filename and path inputs) now preserve IME conversion mode even when running unelevated (including the Microsoft Store build, without requiring the Sidecar Helper).
+- File-list protection: Browsing non-text shell surfaces (`DirectUIHWND`, tree views, toolbars) no longer overwrites the carried IME mode before you start typing.
+
+繁體中文:檔案總管與路徑選擇視窗輸入法模式維持支援：
+
+- 跨執行緒焦點追蹤：改由系統前景輸入執行緒解析焦點子視窗，正確追蹤 Windows 11 檔案總管多執行緒分頁與 XAML Island 輸入框。
+- 檔案總管與檔案／路徑選擇視窗（`#32770`）：F2 重新命名、開啟／另存新檔的檔名與路徑輸入框現已支援輸入法模式維持，且一般權限（包含微軟商店版，免開 Sidecar Helper）即可使用。
+- 檔案清單防覆寫保護：在檔案總管或檔案選擇對話框瀏覽資料夾清單、樹狀目錄或工具列時，不會將其英文／關閉狀態誤存而覆蓋原本維持中的輸入法模式。
+
 ## v1.6.0
 
 About dialog in system tray & wintegrate upgrade:
